@@ -4,8 +4,9 @@ description: >
   A published security advisory that still applies to this host is a flaw the
   site has not corrected. This measures the age of the OLDEST such advisory
   against flaw_remediation_max_days, the window the site allows itself to patch
-  in. A host inside its own window passes; one carrying an advisory older than
-  the window does not.
+  in. That window is a policy choice, so Kensa ships no value for it: the host
+  supplies the age, the operator supplies the deadline. Until the deadline is
+  declared the rule is skipped and says which variable to set.
 rationale: >
   Whether updates are pending is a different question from whether they were
   applied in time, and only the second is what the control asks. A host patched
@@ -17,6 +18,11 @@ rationale: >
   the OLDEST pending advisory rather than the count is deliberate: the count says
   how much work is queued, while the age says how long a known way in has been
   left open, and that is the number a deadline is written against.
+
+  Kensa measures the age and nothing else. What counts as too long depends on the
+  system: thirty days is ordinary for a workstation fleet and far too slow for an
+  internet-facing service. That judgment belongs to whoever knows the environment,
+  which is why the number is declared rather than assumed.
 severity: high
 transactional: false
 category: system

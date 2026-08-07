@@ -19,7 +19,7 @@ any pair).
 ### Added
 - **A rule that measures how long a known security flaw has gone uncorrected.**
   `flaw-remediation-window` takes the oldest pending security advisory and
-  compares its age against `flaw_remediation_max_days`, which ships at 30.
+  compares its age against `flaw_remediation_max_days`, which the operator declares.
 
   Whether updates are pending is a different question from whether they were
   applied in time, and only the second is what the control asks. A host patched
@@ -34,6 +34,12 @@ any pair).
   Failing to read the advisory metadata is a failure, not a pass. A host whose
   repositories are unreachable cannot be assessed, and reporting OK there is how
   an unreachable mirror comes to look like a patched machine.
+
+  **Kensa ships no deadline.** The host supplies the age; the operator supplies
+  the window. Thirty days is ordinary for a workstation fleet and far too slow
+  for an internet-facing service, so the number depends on the environment rather
+  than on the measurement. Until it is declared the rule is skipped and names the
+  variable to set.
 
 ### Fixed
 - **`security-updates-installed` reported compliant on a host with 384 pending
