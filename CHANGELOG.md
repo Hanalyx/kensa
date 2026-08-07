@@ -16,6 +16,22 @@ any pair).
 
 ## Unreleased
 
+### Changed
+- **`suid-sgid-files-reviewed` now compares the full inventory against a declared
+  baseline**, which is what its own output had been asking for. It printed
+  "review full inventory against baseline" and left that to a human; it now does
+  it, against `suid_sgid_baseline`.
+
+  The world-writable check it already had is unchanged and still runs first.
+  Those are two different assertions: one is wrong on any host and needs no site
+  input, the other cannot be answered without one.
+
+  A package list would be the obvious way to answer "nonessential programs" and
+  it was measured and rejected: 682 packages on one fleet host, 626 on another,
+  and the set changes on every patch, so a declared list is stale within a cycle
+  and produces failures nobody reads. The SUID inventory is about twenty entries
+  and barely moves, which is what makes a baseline worth keeping accurate.
+
 ### Added
 - **A rule that compares enabled services against the set a site declared.**
   `authorized-enabled-services` reports every enabled systemd service that is not
