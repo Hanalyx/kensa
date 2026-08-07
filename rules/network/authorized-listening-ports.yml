@@ -1,0 +1,51 @@
+id: authorized-listening-ports
+title: Ensure only authorized network ports are listening
+description: >
+  A host must listen only on the ports the site declared essential. The essential
+  set is a statement about what this system is for, so it cannot be derived from
+  the host: an operator declares it in the authorized_listening_ports variable.
+  Until it is declared the check reports that it cannot assess the host and names
+  what to set.
+rationale: >
+  Every listening port is a way in. Rules that remove one known service at a time
+  reduce the count but never establish that what remains is what the site
+  intended, because they can only name what somebody already thought to forbid. A
+  port nobody authorized is the one an assessor looks for, and it is usually
+  something nobody remembered installing. Comparing what is listening against
+  what was declared is the only form of this check that can answer the question
+  as written.
+severity: medium
+transactional: false
+category: network
+tags: [network, ports, least-functionality, attack-surface]
+
+references:
+  nist_800_53: ["CM-7", "CM-7(1)", "SC-7"]
+  nist_800_171: ["3.4.7[i]"]
+
+platforms:
+  - family: rhel
+    min_version: 8
+  - family: ubuntu
+    min_version: 22
+
+implementations:
+  - default: true
+    check:
+      method: set_compare
+      # Listening TCP and UDP sockets, port number only. -H drops the header, and
+      # the address is stripped so that 0.0.0.0:22, [::]:22 and 127.0.0.1:22
+      # collapse to one member: a site authorizes a SERVICE port, not each
+      # address family it happens to bind.
+      observed_command: "ss -H -lntu 2>/dev/null | awk '{print $5}' | sed 's/.*://' | sort -un"
+      authorized: "{{ authorized_listening_ports }}"
+    remediation:
+      mechanism: manual
+      note: >
+        For each port reported as not authorized, find the service holding it
+        (ss -lntup, or lsof -i) and decide which side is wrong. If the service is
+        not needed, disable and mask it. If it is needed, add the port to
+        authorized_listening_ports so the declared set matches what this system
+        is actually for. Kensa does not close ports automatically here: the same
+        finding can mean an unwanted service or an out-of-date list, and only the
+        operator knows which.

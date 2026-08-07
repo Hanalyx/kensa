@@ -16,6 +16,21 @@ any pair).
 
 ## Unreleased
 
+### Added
+- **A rule that compares listening ports against the set a site declared.**
+  `authorized-listening-ports` reports every listening TCP and UDP port that is
+  not in `authorized_listening_ports`, and skips with a stated reason until that
+  set is declared.
+
+  This is the first rule to answer a "nonessential X, as defined" objective the
+  way the text is written. Rules that remove one known service at a time reduce
+  the count but can only name what somebody already thought to forbid; they never
+  establish that what remains is what the site intended. A port nobody authorized
+  is usually something nobody remembered installing.
+
+  Remediation is deliberately manual. The same finding can mean an unwanted
+  service or an out-of-date list, and only the operator knows which.
+
 ### Fixed
 - **Six remediation mechanisms could cut the SSH control channel without arming
   the dead man timer.** The timer is what lets a host reverse a change on its own
