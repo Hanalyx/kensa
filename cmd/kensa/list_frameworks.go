@@ -58,7 +58,7 @@ func runListFrameworks(ctx context.Context, args []string) error {
 		return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
 	}
 
-	rules, err := loadRulesFromDirOrFiles(rulesDir, nil, nil)
+	rules, _, err := loadRulesFromDirOrFiles(rulesDir, nil, nil)
 	if err != nil {
 		return err
 	}

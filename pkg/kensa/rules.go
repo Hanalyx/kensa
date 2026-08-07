@@ -46,6 +46,15 @@ import (
 // corpus. Callers who want draft tolerance should load files
 // individually and handle errors per file.
 //
+// Both halves of that principle are now honored, by different means. The CLI
+// used to satisfy only the first: it warned on stderr and then dropped the rule
+// with no trace in machine output, so anything counting coverage saw the
+// objective quietly leave the denominator. It now reports each such rule as a
+// skipped outcome carrying the reason, so it no longer drops silently either.
+// This function stays strict rather than following, because a caller that
+// receives rules has no other channel to learn that some are missing, and an
+// error it must handle is the honest way to say so.
+//
 // The returned rules are parsed and normalized but not semantically
 // validated; run kensa-validate (or internal validation at scan time)
 // for the full constraint set.
