@@ -3,6 +3,7 @@ package varsub
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // defaultsDoc is the on-disk shape of <config-dir>/defaults.yml.
@@ -73,8 +74,53 @@ func stringify(v any) (string, error) {
 	case map[string]any:
 		return "", fmt.Errorf("nested map values not allowed; variable values must be a string, number, or boolean")
 	case []any:
-		return "", fmt.Errorf("list values not allowed; variable values must be a string, number, or boolean")
+		return stringifyList(t)
 	default:
 		return "", fmt.Errorf("non-scalar value of type %T not allowed; use a string, number, or boolean", t)
 	}
+}
+
+// ListSeparator joins the elements of a list-valued variable.
+//
+// Substitution is TEXTUAL and happens before the YAML is decoded, so a list has
+// to render as something that is still valid YAML wherever the author wrote
+// `{{ name }}`, quoted or not. A flow sequence would only survive unquoted, and
+// a newline-joined value would break the line it lands on. A single-line
+// delimited scalar survives both, which is why a list is carried as text and
+// split again by the check that consumes it.
+const ListSeparator = ","
+
+// stringifyList renders a YAML list as a single-line delimited scalar.
+//
+// Elements are validated rather than escaped. A value containing the separator
+// or whitespace would split into members the operator never wrote, and a set
+// comparison would then be answered against a set nobody declared, which is the
+// false-result class this whole area exists to avoid. Rejecting is loud;
+// escaping would be silent and would have to be undone identically by every
+// consumer.
+func stringifyList(items []any) (string, error) {
+	if len(items) == 0 {
+		return "", fmt.Errorf("empty list not allowed; remove the entry, or declare the members this host is allowed to have")
+	}
+	out := make([]string, 0, len(items))
+	for i, it := range items {
+		switch it.(type) {
+		case nil:
+			return "", fmt.Errorf("element %d is empty; every member must be a value", i+1)
+		case []any, map[string]any:
+			return "", fmt.Errorf("element %d is not a scalar; a list variable holds a flat list of strings, numbers or booleans", i+1)
+		}
+		e := fmt.Sprint(it)
+		if e == "" {
+			return "", fmt.Errorf("element %d is an empty string; every member must be a value", i+1)
+		}
+		if strings.ContainsAny(e, ListSeparator) {
+			return "", fmt.Errorf("element %d (%q) contains %q, which separates members; a member cannot contain it", i+1, e, ListSeparator)
+		}
+		if strings.ContainsAny(e, " \t\n\r") {
+			return "", fmt.Errorf("element %d (%q) contains whitespace; a member cannot contain it", i+1, e)
+		}
+		out = append(out, e)
+	}
+	return strings.Join(out, ListSeparator), nil
 }

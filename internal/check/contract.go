@@ -69,6 +69,7 @@ var CheckContracts = map[string]CheckContract{
 	"selinux_state":         {Required: []string{"state"}},
 	"systemd_target":        {OneOf: [][]string{{"expected", "not_expected"}}},
 	"command":               {OneOf: [][]string{{"cmd", "run"}}, Optional: []string{"expected_output", "expected_stdout", "expected_exit"}},
+	"set_compare":           {Required: []string{"observed_command", "authorized"}},
 }
 
 // KnownCheckMethod reports whether method has a registered check contract.

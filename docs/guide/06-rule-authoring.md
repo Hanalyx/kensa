@@ -137,6 +137,9 @@ Each implementation has a `check` and a `remediation`:
   `/etc/login.defs` (`KEY value`); the default delimiter is `=`. Each method
   declares its own required and optional fields; the canonical rule schema
   holds the full method table.
+- **`set_compare`** answers "only authorized members are present". It takes
+  `observed_command`, run on the host, one member per line of output, and
+  `authorized`, normally a list variable. See below.
 - **`remediation.mechanism`** names the action that produces the desired state,
   plus that mechanism's fields. See the [Mechanisms reference](10-mechanisms.md)
   for the complete catalog, where each mechanism runs, and what reversal you get.
@@ -154,6 +157,78 @@ KEY=VALUE` (repeatable) or from a `defaults.yml` in `--config-dir`; `--var`
 wins over `defaults.yml`. A variable value is spliced literally into the rule
 YAML and may flow into shell commands run by handlers, so pass only trusted
 input.
+
+Resolution order, highest priority first: `--var`, then
+`hosts/<hostname>.yml`, then `groups/<group>.yml` (inventory mode only, since a
+single-host run belongs to no group), then `conf.d/*.yml` in alphabetical order,
+then `defaults.yml`, then the values built into the binary.
+
+### List variables
+
+A variable can hold a list as well as a single value:
+
+```yaml
+variables:
+  authorized_local_accounts:
+    - owadmin
+    - deploybot
+```
+
+On the command line, write the members separated by commas:
+`--var authorized_local_accounts=owadmin,deploybot`.
+
+Members cannot contain a comma or whitespace, and Kensa rejects the file rather
+than accepting one that does. A member holding a comma would split into two
+members nobody declared, and a check comparing against that set would answer a
+question the operator never asked.
+
+A list is most useful with the `set_compare` check below.
+
+### When a variable is not declared
+
+A rule whose variable no tier defines is **skipped**, and the run says which
+variable to declare. It is not treated as empty and it is not guessed. This
+matters most for a declared set: there is no honest built-in value for "the
+accounts this site authorized", so the rule waits for the operator to say.
+
+## Comparing a host against a declared set
+
+Some controls are not a threshold or a boolean. They ask whether only the
+members a site approved are present: local accounts, sudoers, open ports,
+allowed firewall services. Kensa cannot know the approved list, so the operator
+declares it and `set_compare` does the comparison:
+
+```yaml
+check:
+  method: set_compare
+  observed_command: "awk -F: '$3>=1000 && $3<65534 {print $1}' /etc/passwd"
+  authorized: "{{ authorized_local_accounts }}"
+```
+
+Only `observed_command` runs on the host. Both sets are split and compared
+inside Kensa, so a member is never re-interpreted by a shell.
+
+What the verdicts mean:
+
+| situation | verdict |
+|---|---|
+| every observed member is authorized | pass |
+| a member is present that is not authorized | fail, naming the member |
+| a member is authorized but absent | reported, does not fail |
+| nothing observed at all | pass |
+| `authorized` is empty | **error** |
+| the variable is not declared anywhere | rule skipped, with the name to declare |
+
+Two of those are deliberate and worth stating plainly.
+
+**An absent member does not fail.** An account that does not exist cannot grant
+access, so it is reported for an operator whose list has drifted, not treated as
+a finding.
+
+**An empty declared set is an error, not a pass.** Read one way it makes every
+member unauthorized, read the other it makes every member acceptable. Neither is
+true. What is true is that nobody has said what is allowed, and a compliance
+result must not be invented from that.
 
 ## `depends_on` and relationships
 

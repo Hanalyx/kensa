@@ -36,7 +36,9 @@ func registerVarFlag(fs *pflag.FlagSet, dst *[]string) {
 // per-host / per-group / conf.d overrides on top.
 func registerConfigDirFlag(fs *pflag.FlagSet, dst *string) {
 	fs.StringVar(dst, "config-dir", "",
-		"directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per-host / per-group / conf.d overrides land in Phase 3.6.")
+		"directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, "+
+			"groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. "+
+			"--var wins over all of them.")
 }
 
 // resolveVarOverrides parses raw -x KEY=VALUE entries. Used in
