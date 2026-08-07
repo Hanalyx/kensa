@@ -75,4 +75,24 @@ var controlChannelMechanisms = map[string]bool{
 	"manual":                false,
 	"grub_parameter_set":    false,
 	"grub_parameter_remove": false,
+
+	// Added 2026-08-07 after six mechanisms were found absent from this map
+	// entirely, across 124 corpus rules. A missing key reads as false, so each
+	// was silently unprotected. TestEveryCorpusMechanismIsClassified now fails
+	// when a mechanism the corpus uses is not listed here, because the failure
+	// was not a wrong judgement, it was this list quietly falling behind.
+	"crypto_policy_set":       true, // MEASURED: switching a host to FIPS regenerates
+	"crypto_policy_subpolicy": true, // sshd's PubkeyAcceptedAlgorithms WITHOUT ed25519,
+	// which locks out any operator using a modern default key. Found by remediating
+	// this on a container that then refused every login. Both are also
+	// non-capturable, so without a timer there is no way back at all.
+	"apt_absent": true, // same hazard as package_absent above, other package manager:
+	// removing openssh-server bricks the channel
+	"authselect_feature_enable": true, // rewrites the PAM stacks, same class as
+	// pam_module_configure above
+	"pam_module_arg": true, // edits PAM module arguments, same class
+
+	"apt_present":   false, // installing cannot remove the channel
+	"dconf_set":     false, // desktop settings, no bearing on SSH
+	"config_append": false, // generic, like config_set: only some paths matter
 }
