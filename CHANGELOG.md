@@ -17,6 +17,28 @@ any pair).
 ## Unreleased
 
 ### Added
+- **Variable values are checked against a declared type before a host is
+  contacted.** The type comes from the built-in defaults, so the file that
+  already holds the values is the only place a type is written down and there is
+  no second copy to drift.
+
+  The case this exists for is a umask. Written as `root_umask: 027`, YAML reads
+  the leading zero as octal and hands Kensa the number **23**. Nothing
+  downstream can tell that apart from someone who meant 23, so the wrong mode is
+  written and the rule that checks it agrees with itself. Kensa now refuses the
+  file and says to quote the value.
+
+  Files and the command line are checked differently, because they carry
+  different information. In a file the quoting is the author's and means
+  something, so the type is checked as written. On the command line every value
+  is text, so there Kensa checks that the text is what it claims to be, and
+  rejects `three`, `3.5` or `600s` where a whole number belongs while leaving
+  `--var pam_faillock_deny=5` working.
+
+  A variable Kensa ships no default for, such as one a site's own rule
+  introduces, is not type checked.
+
+### Added
 - **A rule variable can hold a list.** Declare one as a YAML list, or pass it as
   comma-separated members on the command line:
 

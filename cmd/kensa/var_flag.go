@@ -70,6 +70,20 @@ func resolveVarOverrides(raw []string) (varsub.Variables, error) {
 		// trimmed from VALUE because a template like
 		// `expected: "{{ banner }}"` may genuinely want
 		// trailing spaces.
+		//
+		// Type is checked here rather than after SSH setup, so a typo costs a
+		// message instead of a connection. An empty VALUE is exempt: it is the
+		// documented way to say "declare this as empty", and the check that
+		// reads it decides what empty means.
+		if value != "" {
+			types, terr := varsub.BuiltInTypes()
+			if terr != nil {
+				return nil, terr
+			}
+			if err := varsub.CheckCLIValue(key, value, types); err != nil {
+				return nil, fmt.Errorf("--var %s", err)
+			}
+		}
 		out[key] = value
 	}
 	return out, nil

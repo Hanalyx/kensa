@@ -163,6 +163,41 @@ Resolution order, highest priority first: `--var`, then
 single-host run belongs to no group), then `conf.d/*.yml` in alphabetical order,
 then `defaults.yml`, then the values built into the binary.
 
+### Variable types
+
+Every variable Kensa ships a default for has a type, taken from that default.
+There is no separate schema to keep in step: the type of `root_umask` is already
+visible as a quoted string, and writing it down twice would only give the two
+copies a chance to disagree. A variable Kensa has never heard of, such as one
+your own rule introduces, is not type checked.
+
+Values are checked when they are read, before any host is contacted.
+
+The case this exists for is a umask. Written unquoted:
+
+```yaml
+variables:
+  root_umask: 027      # wrong
+```
+
+YAML reads the leading zero as octal and hands Kensa the number **23**. Nothing
+downstream can tell that apart from someone who meant 23, so the wrong mode gets
+written and the rule that checks it agrees with itself. Kensa now refuses the
+file and says to quote the value:
+
+```yaml
+variables:
+  root_umask: '027'    # right
+```
+
+Files and the command line are checked differently, because they carry different
+information. In a file the quoting is yours and it means something, so the type
+is checked as written: a number where a string belongs is an error, and so is a
+string where a number belongs. On the command line every value is text, so
+`--var pam_faillock_deny=5` cannot be anything but a string; there Kensa checks
+that the text is what it claims to be, and rejects `three`, `3.5` or `600s` for a
+variable that holds a whole number.
+
 ### List variables
 
 A variable can hold a list as well as a single value:
