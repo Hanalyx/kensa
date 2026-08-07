@@ -83,6 +83,14 @@ variables:
   # of these and the set is stable between reads, so a baseline stays accurate.
   authorized_network_protocols: []
 
+  # Users this site authorizes to hold privileged access, for NIST SP 800-171
+  # 3.1.5 (NIST 800-53 AC-2, AC-6). Members are account names.
+  #
+  # Ships EMPTY like the other declared sets. root normally belongs here: it is
+  # the account privilege is defined against, and a site listing it is the site
+  # saying so rather than Kensa assuming it.
+  authorized_privileged_users: []
+
   # Antimalware, for NIST SP 800-171 3.14.2, 3.14.4 and 3.14.5 (NIST 800-53 SI-3).
   # Space-separated candidate systemd units. No CIS or DISA STIG benchmark in the
   # corpus names an antimalware product, and sites frequently run a vendor
