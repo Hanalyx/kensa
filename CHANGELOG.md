@@ -17,6 +17,23 @@ any pair).
 ## Unreleased
 
 ### Added
+- **A rule that checks which system accounts can obtain access.**
+  `authorized-service-accounts` reports every account below UID 1000 that holds a
+  real login shell and is not in `authorized_service_accounts`, and skips with a
+  stated reason until that set is declared.
+
+  It is scoped to login-capable accounts on purpose. A base install carries two
+  dozen system accounts, and a list nobody maintains stops being true within a
+  year; the ones that can actually log in are usually one or two, which is short
+  enough to stay accurate. A service identity with a login shell is an account
+  whatever it was created for, and it is the quietest way onto a machine: nobody
+  audits the shell field of an account named after a daemon.
+
+  Remediation is manual. Giving the account a non-login shell is the fix in
+  almost every case, but an account that legitimately runs a login shell is rare
+  and real, and taking it away can stop the service the host exists for.
+
+### Added
 - **A rule that compares listening ports against the set a site declared.**
   `authorized-listening-ports` reports every listening TCP and UDP port that is
   not in `authorized_listening_ports`, and skips with a stated reason until that
