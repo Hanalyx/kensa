@@ -16,6 +16,26 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **A rule skipped for an undeclared variable now appears in the results.**
+  `kensa check` warned on stderr and then dropped the rule, leaving no trace in
+  machine output. Anything counting coverage saw the objective quietly leave the
+  denominator, which is the failure this area exists to prevent. Such a rule is
+  now reported as `skipped`, carrying its severity and the name of the variable
+  to declare.
+
+  The rule's identity is recovered by reading its `id:` line rather than by
+  decoding the document. Once substitution has failed the file still holds
+  `{{ name }}`, and unquoted that is a YAML mapping rather than text, so the
+  document may not decode at all. The `id:` is a plain value on its own line and
+  is never templated.
+
+  `LoadRules` stays strict and keeps failing the whole load, deliberately. Both
+  halves of its stated contract are now honored, by different means: a caller
+  that receives rules has no other channel to learn some are missing, so an
+  error it must handle is the honest way to say so, while the command line now
+  reports the same fact as a visible result.
+
 ### Changed
 - **A check can now report that it cannot reach a verdict, and the scan records
   that as skipped.** Previously every path out of a check was pass, fail, or

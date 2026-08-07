@@ -36,7 +36,7 @@ type ruleLoadFilterSpec struct {
 // per-host empty-after-filter (when host vars filter rules
 // further) is a recoverable per-host condition.
 func (s ruleLoadFilterSpec) LoadAndFilter(vars varsub.Variables) ([]*api.Rule, error) {
-	rules, err := loadRulesFromDirOrFiles(s.rulesDir, s.rulePaths, vars)
+	rules, _, err := loadRulesFromDirOrFiles(s.rulesDir, s.rulePaths, vars)
 	if err != nil {
 		return nil, err
 	}

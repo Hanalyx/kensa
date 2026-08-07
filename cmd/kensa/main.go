@@ -41,6 +41,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -866,7 +867,7 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 	// C-037: --rule values + positional *.yml args combine into the
 	// strict-load file set. With --rules-dir set, the dir-walk and
 	// the strict file set load additively.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
+	rules, undeclaredSkips, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
 	if err != nil {
 		return err
 	}
@@ -1047,6 +1048,11 @@ func runCheck(ctx context.Context, dbPath string, args []string) error {
 		return err
 	}
 	result.HostID = host
+	// Rules dropped because a variable they use is undeclared are recorded as
+	// skipped, so the report says what was not assessed instead of leaving no
+	// trace of it. They are appended after the scan because they never reached
+	// it: they failed to load, so there was no rule object to run.
+	result.Outcomes = append(result.Outcomes, undeclaredSkips...)
 
 	// C-041: persist the scan as a session+transactions record
 	// when --store is set. Best-effort — a store failure logs
@@ -1441,7 +1447,11 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	}
 
 	// C-037: --rule + positional args combine into the strict-load file set.
-	rules, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
+	// The remediate path discards the skipped set: a rule that could not be
+	// loaded cannot be remediated either, and the stderr warning already names
+	// it. Reporting it as a skipped REMEDIATION would imply Kensa considered
+	// changing the host and chose not to, which is not what happened.
+	rules, _, err := loadRulesFromDirOrFiles(rulesDir, concatPaths(ruleFiles, fs.Args()), loadVars)
 	if err != nil {
 		return err
 	}
@@ -2409,7 +2419,7 @@ func loadRules(paths []string, vars varsub.Variables) ([]*api.Rule, error) {
 // regardless of what's on the test host's filesystem.
 var rulesStat = os.Stat
 
-func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) ([]*api.Rule, error) {
+func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) ([]*api.Rule, []api.RuleOutcome, error) {
 	// Resolve the effective rules directory before walking: explicit
 	// --rules-dir wins, positional paths alone skip the walk, otherwise
 	// fall back to the kensa-rules package's installed corpus at
@@ -2417,11 +2427,12 @@ func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) 
 	// error naming both fix paths. See specs/rule/default-path-resolution.
 	resolved, err := rulespath.Resolve(dir, paths, rulesStat)
 	if err != nil {
-		return nil, NewUsageError(err.Error())
+		return nil, nil, NewUsageError(err.Error())
 	}
 	dir = resolved
 
 	var rules []*api.Rule
+	var skipped []api.RuleOutcome
 	if dir != "" {
 		var found []string
 		if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -2433,28 +2444,29 @@ func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) 
 			}
 			return nil
 		}); err != nil {
-			return nil, fmt.Errorf("walk %s: %w", dir, err)
+			return nil, nil, fmt.Errorf("walk %s: %w", dir, err)
 		}
 		if len(found) == 0 && len(paths) == 0 {
-			return nil, fmt.Errorf("no *.yml files found in %s", dir)
+			return nil, nil, fmt.Errorf("no *.yml files found in %s", dir)
 		}
-		dirRules, err := loadRulesSkipInvalid(found, vars)
+		dirRules, dirSkipped, err := loadRulesSkipInvalid(found, vars)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		rules = append(rules, dirRules...)
+		skipped = append(skipped, dirSkipped...)
 	}
 	if len(paths) > 0 {
 		fileRules, err := loadRules(paths, vars)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		rules = append(rules, fileRules...)
 	}
-	if len(rules) == 0 {
-		return nil, NewUsageError("at least one rule YAML file or --rules-dir is required")
+	if len(rules) == 0 && len(skipped) == 0 {
+		return nil, nil, NewUsageError("at least one rule YAML file or --rules-dir is required")
 	}
-	return rules, nil
+	return rules, skipped, nil
 }
 
 // loadRulesSkipInvalid loads rules, printing a warning and skipping files
@@ -2465,14 +2477,22 @@ func loadRulesFromDirOrFiles(dir string, paths []string, vars varsub.Variables) 
 // not buried in 30 individual warnings. Other parse errors keep the
 // per-file warn-and-skip behavior (corpora often contain in-progress
 // drafts; one broken YAML shouldn't abort the whole scan).
-func loadRulesSkipInvalid(paths []string, vars varsub.Variables) ([]*api.Rule, error) {
+func loadRulesSkipInvalid(paths []string, vars varsub.Variables) ([]*api.Rule, []api.RuleOutcome, error) {
 	rules := make([]*api.Rule, 0, len(paths))
 	var undefined []string
+	var skipped []api.RuleOutcome
 	for _, p := range paths {
 		r, err := rule.ParseFileWithVars(p, vars)
 		if err != nil {
 			if errors.Is(err, varsub.ErrUndefined) {
 				undefined = append(undefined, fmt.Sprintf("%s: %v", p, err))
+				// A warning on stderr is not a result. Machine output used to
+				// contain no trace of these rules at all, so anything counting
+				// coverage saw the objective quietly leave the denominator,
+				// which is the failure this whole area exists to avoid. Carry
+				// them out as skipped outcomes so the report shows what was not
+				// assessed and why.
+				skipped = append(skipped, undeclaredOutcome(p, err))
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "warn: skip %s: %v\n", p, err)
@@ -2495,7 +2515,42 @@ func loadRulesSkipInvalid(paths []string, vars varsub.Variables) ([]*api.Rule, e
 			fmt.Fprintf(os.Stderr, "  ... and %d more\n", len(undefined)-limit)
 		}
 	}
-	return rules, nil
+	return rules, skipped, nil
+}
+
+// ruleIDLine finds a rule's `id:` without decoding the document.
+//
+// The document cannot be decoded at this point: substitution failed, so the
+// bytes still hold `{{ name }}`, and unquoted that is a YAML flow mapping
+// rather than a string. The id is a plain scalar on its own line at the top
+// level and is never templated, so reading the line is both sufficient and
+// safe.
+var ruleIDLine = regexp.MustCompile(`(?m)^id:[ \t]*["']?([A-Za-z0-9_.-]+)["']?[ \t]*$`)
+
+var ruleSeverityLine = regexp.MustCompile(`(?m)^severity:[ \t]*["']?([a-z]+)["']?[ \t]*$`)
+
+// undeclaredOutcome builds the skipped record for a rule that could not be
+// loaded because a variable it uses is not declared anywhere.
+func undeclaredOutcome(path string, cause error) api.RuleOutcome {
+	id := strings.TrimSuffix(filepath.Base(path), ".yml")
+	raw, readErr := os.ReadFile(path)
+	if readErr == nil {
+		if m := ruleIDLine.FindSubmatch(raw); m != nil {
+			id = string(m[1])
+		}
+	}
+	sev := ""
+	if readErr == nil {
+		if m := ruleSeverityLine.FindSubmatch(raw); m != nil {
+			sev = string(m[1])
+		}
+	}
+	return api.RuleOutcome{
+		RuleID:   id,
+		Status:   api.ComplianceSkipped,
+		Severity: sev,
+		Detail:   cause.Error(),
+	}
 }
 
 // inventoryHost is a single entry from a parsed inventory file.

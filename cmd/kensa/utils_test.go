@@ -187,7 +187,7 @@ func TestPrintUsage_Variants(t *testing.T) {
 // ─── loadRulesFromDirOrFiles ──────────────────────────────────────────────
 
 func TestLoadRulesFromDirOrFiles_NoArgsIsUsageError(t *testing.T) {
-	_, err := loadRulesFromDirOrFiles("", nil, nil)
+	_, _, err := loadRulesFromDirOrFiles("", nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(\"\", nil): want error, got nil")
 	}
@@ -197,7 +197,7 @@ func TestLoadRulesFromDirOrFiles_NoArgsIsUsageError(t *testing.T) {
 }
 
 func TestLoadRulesFromDirOrFiles_NonexistentDir(t *testing.T) {
-	_, err := loadRulesFromDirOrFiles("/nonexistent-dir-xyz", nil, nil)
+	_, _, err := loadRulesFromDirOrFiles("/nonexistent-dir-xyz", nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(nonexistent): want error, got nil")
 	}
@@ -209,7 +209,7 @@ func TestLoadRulesFromDirOrFiles_NonexistentDir(t *testing.T) {
 
 func TestLoadRulesFromDirOrFiles_EmptyDir(t *testing.T) {
 	dir := t.TempDir() // empty
-	_, err := loadRulesFromDirOrFiles(dir, nil, nil)
+	_, _, err := loadRulesFromDirOrFiles(dir, nil, nil)
 	if err == nil {
 		t.Fatalf("loadRulesFromDirOrFiles(empty dir): want error, got nil")
 	}
@@ -366,7 +366,7 @@ implementations:
 	rErr, wErr, _ := os.Pipe()
 	os.Stderr = wErr
 
-	rules, err := loadRulesSkipInvalid([]string{invalidPath, validPath}, nil)
+	rules, _, err := loadRulesSkipInvalid([]string{invalidPath, validPath}, nil)
 
 	wErr.Close()
 	os.Stderr = oldStderr
@@ -465,5 +465,62 @@ func makeOSCALTestEnvelope() *api.EvidenceEnvelope {
 		StartedAt:     time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
 		FinishedAt:    time.Date(2026, 5, 8, 12, 0, 5, 0, time.UTC),
 		SigningKeyID:  "test-key-1",
+	}
+}
+
+// A rule dropped because a variable it uses is undeclared must leave a trace in
+// the result, not vanish. Before this, machine output contained nothing at all
+// for such a rule, so a consumer counting coverage saw the objective quietly
+// leave the denominator, which is the failure this area exists to avoid.
+func TestUndeclaredVariableProducesASkippedOutcome(t *testing.T) {
+	dir := t.TempDir()
+	body := `id: probe-undeclared
+title: Probe
+description: >
+  Probe.
+rationale: >
+  Probe.
+severity: high
+category: access-control
+tags: [probe]
+platforms:
+  - family: rhel
+    min_version: 8
+implementations:
+  - default: true
+    check:
+      method: command
+      run: "echo {{ a_variable_no_tier_declares }}"
+      expected_exit: 0
+`
+	if err := os.WriteFile(filepath.Join(dir, "probe.yml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rules, skipped, err := loadRulesFromDirOrFiles(dir, nil, nil)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(rules) != 0 {
+		t.Errorf("the rule cannot be loaded, so it must not appear as a runnable rule; got %d", len(rules))
+	}
+	if len(skipped) != 1 {
+		t.Fatalf("want one skipped outcome, got %d", len(skipped))
+	}
+	got := skipped[0]
+	if got.RuleID != "probe-undeclared" {
+		t.Errorf("RuleID = %q; the id must be recovered from the raw file, since the "+
+			"document cannot be decoded once substitution has failed", got.RuleID)
+	}
+	if got.Status != api.ComplianceSkipped {
+		t.Errorf("Status = %q, want %q", got.Status, api.ComplianceSkipped)
+	}
+	if got.Severity != "high" {
+		t.Errorf("Severity = %q, want high, so the row sorts and filters like any other", got.Severity)
+	}
+	if !strings.Contains(got.Detail, "a_variable_no_tier_declares") {
+		t.Errorf("Detail must name the variable to declare, got %q", got.Detail)
+	}
+	if got.Err != nil {
+		t.Error("Err must be nil: nothing went wrong, the operator has simply not declared a value")
 	}
 }

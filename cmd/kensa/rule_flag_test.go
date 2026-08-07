@@ -48,7 +48,7 @@ func TestLoadRulesFromDirOrFiles_FilesOnly(t *testing.T) {
 	a := writeMinimalRule(t, dir, "a.yml", "rule-a")
 	b := writeMinimalRule(t, dir, "b.yml", "rule-b")
 
-	rules, err := loadRulesFromDirOrFiles("", []string{a, b}, nil)
+	rules, _, err := loadRulesFromDirOrFiles("", []string{a, b}, nil)
 	if err != nil {
 		t.Fatalf("files-only: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestLoadRulesFromDirOrFiles_DirOnly(t *testing.T) {
 	writeMinimalRule(t, dir, "a.yml", "rule-a")
 	writeMinimalRule(t, dir, "b.yml", "rule-b")
 
-	rules, err := loadRulesFromDirOrFiles(dir, nil, nil)
+	rules, _, err := loadRulesFromDirOrFiles(dir, nil, nil)
 	if err != nil {
 		t.Fatalf("dir-only: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestLoadRulesFromDirOrFiles_DirAndFiles_Additive(t *testing.T) {
 	writeMinimalRule(t, corpus, "b.yml", "rule-b")
 	extra := writeMinimalRule(t, dirRoot, "extra.yml", "rule-extra")
 
-	rules, err := loadRulesFromDirOrFiles(corpus, []string{extra}, nil)
+	rules, _, err := loadRulesFromDirOrFiles(corpus, []string{extra}, nil)
 	if err != nil {
 		t.Fatalf("additive: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestLoadRulesFromDirOrFiles_BothEmpty(t *testing.T) {
 	rulesStat = func(string) (os.FileInfo, error) { return nil, fs.ErrNotExist }
 	defer func() { rulesStat = saved }()
 
-	_, err := loadRulesFromDirOrFiles("", nil, nil)
+	_, _, err := loadRulesFromDirOrFiles("", nil, nil)
 	if err == nil {
 		t.Fatal("expected usage error when both empty and default path absent")
 	}
@@ -149,7 +149,7 @@ func TestLoadRulesFromDirOrFiles_StrictOnExplicitFile(t *testing.T) {
 	if err := os.WriteFile(bad, []byte("not: valid: yaml: stuff:"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := loadRulesFromDirOrFiles("", []string{bad}, nil)
+	_, _, err := loadRulesFromDirOrFiles("", []string{bad}, nil)
 	if err == nil {
 		t.Fatal("explicit broken file should fail to load (strict)")
 	}
@@ -164,7 +164,7 @@ func TestLoadRulesFromDirOrFiles_DirSkipsInvalid(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "broken.yml"), []byte("not: valid: yaml: stuff:"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	rules, err := loadRulesFromDirOrFiles(dir, nil, nil)
+	rules, _, err := loadRulesFromDirOrFiles(dir, nil, nil)
 	if err != nil {
 		t.Fatalf("dir walk should skip the broken file, not error; got %v", err)
 	}
@@ -184,7 +184,7 @@ func TestLoadRulesFromDirOrFiles_DirSkipsInvalid(t *testing.T) {
 // @ac AC-07
 func TestLoadRulesFromDirOrFiles_NonExistentExplicitFile(t *testing.T) {
 	t.Run("cli-rule-flag/AC-07", func(t *testing.T) {})
-	_, err := loadRulesFromDirOrFiles("", []string{"/no/such/file.yml"}, nil)
+	_, _, err := loadRulesFromDirOrFiles("", []string{"/no/such/file.yml"}, nil)
 	if err == nil {
 		t.Fatal("non-existent file should error under strict loader")
 	}
@@ -207,7 +207,7 @@ func TestLoadRulesFromDirOrFiles_DuplicatePaths_BothLoaded(t *testing.T) {
 	}
 	dup := writeMinimalRule(t, corpus, "rule.yml", "dup-id")
 
-	rules, err := loadRulesFromDirOrFiles(corpus, []string{dup}, nil)
+	rules, _, err := loadRulesFromDirOrFiles(corpus, []string{dup}, nil)
 	if err != nil {
 		t.Fatalf("dup paths: %v", err)
 	}
