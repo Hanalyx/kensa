@@ -89,7 +89,8 @@ func runRecover(ctx context.Context, dbPath string, args []string) error {
 	// the on-host agent — mirror the remediate spawn. KENSA_NO_AGENT=1 opts out.
 	engineOpts := []engine.Option{engine.WithStore(s)}
 	if os.Getenv("KENSA_NO_AGENT") != "1" {
-		bootstrap, err := ssh.Factory{}.Connect(ctx, hostCfg)
+		// Private ControlMaster; see the remediate path for why the tag matters.
+		bootstrap, err := ssh.Factory{SocketTag: "agent"}.Connect(ctx, hostCfg)
 		if err != nil {
 			return fmt.Errorf("recover: connect for agent bootstrap: %w", err)
 		}

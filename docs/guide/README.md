@@ -26,6 +26,7 @@ makes, and what to do when something goes wrong.
 | 08 | [Troubleshooting](08-troubleshooting.md) | Common errors, debug flags, support bundles |
 | 09 | [Reference](09-reference.md) | Every flag, exit code, env var, schema |
 | 10 | [Mechanisms](10-mechanisms.md) | Every remediation mechanism and the reversal you get |
+| 11 | [Transport modes](11-transport-modes.md) | Agent vs direct SSH, what each can do, connection settings, privileges |
 
 ## Status
 

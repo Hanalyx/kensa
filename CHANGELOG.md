@@ -16,6 +16,36 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+- **Agent mode ignored `--port` and `--key`, and could reach a different host
+  than the one named.** The agent session built its own SSH invocation carrying
+  neither, so `-H 127.0.0.1 -P 2231` connected to 127.0.0.1 port 22. That
+  attempt failed only because authentication happened to fail there; with a
+  working key it would have applied the remediation to the wrong machine and
+  recorded it against the right one.
+
+  The session now multiplexes over the connection that already bootstrapped the
+  agent, so it inherits the port, identity file, host key policy and
+  authentication method instead of re-deriving them. Settings cannot drift,
+  because there is no second set to keep in step. It also gains SSH password
+  authentication, which the agent path could never do.
+
+  If that connection is unavailable, Kensa now **refuses** and names the
+  workaround rather than falling back to a bare connection that ignores your
+  settings.
+
+- **Two connections to one host shared a control socket.** The socket name is
+  built from user, host, port and process, which two connections to the same
+  host share, so closing one tore down the other. It was harmless while both
+  were short-lived, and it stopped being harmless once a long-lived agent
+  session rode one of them. The connection the agent uses is now private to it.
+
+### Added
+- **A transport modes chapter in the guide**, covering agent mode against direct
+  SSH: how the connection is made, what each mode can and cannot do, where
+  connection settings come from, how privileges and capability probes interact
+  with `--sudo`, and which command uses which mode.
+
 ### Added
 - **Identity findings now match how the host actually resolves users.** Two
   checks run only where identity comes from a directory: the PAM auth stack

@@ -86,6 +86,19 @@ type Config struct {
 	// SocketDir is the directory where the ControlMaster socket
 	// lives. Empty means $TMPDIR (typically /tmp).
 	SocketDir string
+
+	// SocketTag distinguishes this transport's ControlMaster socket from
+	// another transport's to the SAME host in the same process. Empty means
+	// the shared, untagged socket.
+	//
+	// Without it, two transports to one host collide: the socket name is
+	// user@host:port plus the pid, all of which they share, so the second
+	// Close tears down the first one's master. That is fine when both are
+	// short-lived command runners, and it is not fine when something is
+	// multiplexing a long-lived session over the master, which is exactly what
+	// the agent dispatcher does. Tag the connection the agent rides on so only
+	// its owner can end it.
+	SocketTag string
 }
 
 // Transport is the active SSH session backed by a ControlMaster
@@ -99,6 +112,29 @@ type Transport struct {
 	closed bool
 
 	ccSensitive bool
+}
+
+// ControlSocket returns the path to this transport's live ControlMaster
+// socket, or "" once the transport is closed.
+//
+// It exists so the agent dispatcher can multiplex its own ssh session over
+// THIS connection rather than opening a second one of its own. That is a
+// correctness fix, not an optimization. A separately built connection has to
+// re-derive the port, the key, the host-key policy and the auth method, and
+// when it forgot to, `-P 2231` silently became port 22 of the same address,
+// which is a different machine. Multiplexing cannot drift from the connection
+// it reuses, and it inherits password authentication, which the dispatcher
+// could never do on its own.
+//
+// The value is the INSTANCE path, which embeds the pid, so callers must ask the
+// live transport rather than recomputing it.
+func (t *Transport) ControlSocket() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return ""
+	}
+	return t.socketPath
 }
 
 // Connect establishes the ControlMaster connection to cfg.Host. Returns
@@ -258,6 +294,9 @@ func computeSocketPath(cfg Config) string {
 		user = os.Getenv("USER")
 	}
 	name := fmt.Sprintf("kensa-%s@%s:%d-%d", user, cfg.Host, cfg.Port, os.Getpid())
+	if cfg.SocketTag != "" {
+		name += "-" + cfg.SocketTag
+	}
 	return filepath.Join(cfg.SocketDir, name)
 }
 

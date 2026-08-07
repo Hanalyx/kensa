@@ -265,7 +265,7 @@ func TestOpenAgent_HandshakeFailure(t *testing.T) {
 // agent-mode (remediate/rollback) consistent with check.
 func TestDefaultSSHCommand_SuppressesBanner(t *testing.T) {
 	for _, sudo := range []bool{false, true} {
-		cmd := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", sudo, "")
+		cmd := defaultSSHCommand(context.Background(), "/run/kensa-test.sock", "owadmin", "host-x", "/var/cache/kensa/agent-abc", sudo, "")
 		joined := strings.Join(cmd.Args, " ")
 		if !strings.Contains(joined, "-o LogLevel=ERROR") {
 			t.Errorf("sudo=%v: expected `-o LogLevel=ERROR` in ssh args to suppress the login banner; got %q", sudo, joined)
@@ -290,14 +290,14 @@ func TestDefaultSSHCommand_SudoPasswordWrap(t *testing.T) {
 	t.Run("cli-sudo-password-flag/AC-03", func(t *testing.T) {})
 
 	// No password → `sudo -n`.
-	noPw := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, "")
+	noPw := defaultSSHCommand(context.Background(), "/run/kensa-test.sock", "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, "")
 	if got := strings.Join(noPw.Args, " "); !strings.Contains(got, "sudo -n") || strings.Contains(got, "-S") {
 		t.Errorf("no-password sudo spawn should use `sudo -n`; got %q", got)
 	}
 
 	// With password → `sudo -S -p ''`, and the password must not be in argv.
 	const pw = "s3cr3t-agent-pw"
-	withPw := defaultSSHCommand(context.Background(), "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, pw)
+	withPw := defaultSSHCommand(context.Background(), "/run/kensa-test.sock", "owadmin", "host-x", "/var/cache/kensa/agent-abc", true, pw)
 	joined := strings.Join(withPw.Args, " ")
 	if !strings.Contains(joined, "sudo -S -p ''") {
 		t.Errorf("password sudo spawn should use `sudo -S -p ''` (literal '' so the empty prompt survives the remote shell); got %q", joined)
@@ -317,3 +317,70 @@ func indexOf(ss []string, want string) int {
 	}
 	return -1
 }
+
+// The agent session must multiplex over the transport's ControlMaster, because
+// building its own connection is what dropped every operator-supplied setting.
+// A run aimed at -H 127.0.0.1 -P 2231 went to 127.0.0.1 port 22, a different
+// machine; it failed only because auth failed there, and with a working key it
+// would have remediated the wrong host.
+func TestDefaultSSHCommandMultiplexesOverControlMaster(t *testing.T) {
+	const sock = "/run/user/1000/kensa-owadmin@h:2231-42"
+	for _, tc := range []struct {
+		name     string
+		sudo     bool
+		password string
+	}{
+		{"no sudo", false, ""},
+		{"sudo -n", true, ""},
+		{"sudo -S with password", true, "hunter2"},
+	} {
+		cmd := defaultSSHCommand(context.Background(), sock, "owadmin", "h", "/var/cache/kensa/agent-abc", tc.sudo, tc.password)
+		joined := strings.Join(cmd.Args, " ")
+		if !strings.Contains(joined, "ControlPath="+sock) {
+			t.Errorf("%s: no ControlPath in %q", tc.name, joined)
+		}
+		// Every setting the operator gave lives on the master, so the ssh side
+		// must NOT restate any of them. Scope this to the args BEFORE the
+		// target: everything after it is the REMOTE command, where `-p` is
+		// sudo's prompt flag and has nothing to do with a port.
+		sshArgs := cmd.Args
+		for i, a := range cmd.Args {
+			if a == "owadmin@h" {
+				sshArgs = cmd.Args[:i]
+				break
+			}
+		}
+		for _, forbidden := range []string{"-p", "-i", "StrictHostKeyChecking"} {
+			for _, a := range sshArgs {
+				if a == forbidden || strings.HasPrefix(a, forbidden+"=") {
+					t.Errorf("%s: ssh side rebuilds connection setting %q: %s", tc.name, forbidden, joined)
+				}
+			}
+		}
+		if !strings.Contains(joined, "LogLevel=ERROR") {
+			t.Errorf("%s: lost banner suppression: %s", tc.name, joined)
+		}
+	}
+}
+
+// A transport that cannot supply a socket must be refused, never silently
+// downgraded to a bare `ssh <target>`. That fallback is the defect.
+func TestControlSocketOfRejectsNonSSHAndClosed(t *testing.T) {
+	if _, ok := controlSocketOf(&fakeTransport{}); ok {
+		t.Error("a transport with no ControlSocket method must be refused")
+	}
+	if _, ok := controlSocketOf(emptySocketTransport{}); ok {
+		t.Error("an empty socket (closed transport) must be refused")
+	}
+	if got, ok := controlSocketOf(liveSocketTransport{}); !ok || got != "/run/live.sock" {
+		t.Errorf("a live socket must be accepted, got %q ok=%v", got, ok)
+	}
+}
+
+type emptySocketTransport struct{ api.Transport }
+
+func (emptySocketTransport) ControlSocket() string { return "" }
+
+type liveSocketTransport struct{ api.Transport }
+
+func (liveSocketTransport) ControlSocket() string { return "/run/live.sock" }
