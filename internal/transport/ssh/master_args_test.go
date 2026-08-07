@@ -86,3 +86,30 @@ func TestSudoPasswordRequired(t *testing.T) {
 		}
 	}
 }
+
+// Two transports to the SAME host in one process must not share a
+// ControlMaster socket when one of them is tagged.
+//
+// The untagged path collides by construction: the socket name is
+// user@host:port plus the pid, and two transports to one host share every one
+// of those. That was harmless while both were short-lived command runners. It
+// stopped being harmless when the agent dispatcher began multiplexing a
+// long-lived session over the master, because the other transport's Close then
+// tore down the connection the agent was riding on and its ssh exited 255.
+func TestSocketTagSeparatesTransportsToTheSameHost(t *testing.T) {
+	base := Config{Host: "h", User: "owadmin", Port: 2231, SocketDir: "/tmp"}
+	tagged := base
+	tagged.SocketTag = "agent"
+
+	shared := computeSocketPath(base)
+	private := computeSocketPath(tagged)
+
+	if shared == private {
+		t.Fatalf("tagged transport must not share the untagged socket; both are %q", shared)
+	}
+	if !strings.HasSuffix(private, "-agent") {
+		t.Errorf("tagged path should carry the tag, got %q", private)
+	}
+	t.Logf("untagged %s", shared)
+	t.Logf("tagged   %s", private)
+}

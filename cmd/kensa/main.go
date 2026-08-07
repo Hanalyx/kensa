@@ -1557,7 +1557,12 @@ func runRemediate(ctx context.Context, dbPath string, args []string) error {
 	if useAgent {
 		// Build the bootstrap SSH transport — same hostCfg
 		// as the remediate path would use.
-		bootstrapTransport, err := ssh.Factory{}.Connect(ctx, hostCfg)
+		// SocketTag gives this connection a private ControlMaster. The agent
+		// session multiplexes over it, and the per-operation transport built
+		// later targets the same user, host, port and pid, so without a tag both
+		// would compute the same socket path and that one's Close would kill the
+		// master out from under the running agent.
+		bootstrapTransport, err := ssh.Factory{SocketTag: "agent"}.Connect(ctx, hostCfg)
 		if err != nil {
 			return fmt.Errorf("agent mode: connect to host for bootstrap: %w", err)
 		}

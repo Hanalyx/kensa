@@ -105,19 +105,42 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 	if opts.LocalBinary == "" {
 		opts.LocalBinary = os.Args[0]
 	}
+	cachePath, err := bootstrap.EnsureAgent(ctx, transport, opts.LocalBinary)
+	if err != nil {
+		return nil, nil, fmt.Errorf("dispatcher: ensure agent on target: %w", err)
+	}
+
+	// Resolved AFTER the bootstrap, deliberately. Bootstrap is the step with
+	// host-specific reasons to fail (unreachable, no space, permission), and its
+	// error is the one an operator can act on, so it must surface first.
 	if opts.SSHCommandFunc == nil {
+		// The agent session multiplexes over the ControlMaster of the transport
+		// that just bootstrapped the binary, so it inherits that connection's
+		// port, identity file, host-key policy and auth method instead of
+		// re-deriving them. See defaultSSHCommand for what re-deriving them cost.
+		//
+		// REFUSING is deliberate when the socket is unavailable. The obvious
+		// fallback, a plain `ssh <target>`, is exactly the behavior being fixed:
+		// it silently ignores every connection setting and can reach a different
+		// machine than the one named. An error that says so is the safe outcome.
+		// Only the ssh transport reaches this path in production; both callers
+		// build one with ssh.Factory. Tests inject SSHCommandFunc and never get
+		// here.
+		sock, ok := controlSocketOf(transport)
+		if !ok {
+			return nil, nil, fmt.Errorf(
+				"dispatcher: agent mode needs the ssh transport's control socket to "+
+					"reuse its connection settings (port, key, host-key policy, auth), "+
+					"and this transport (%T) does not expose one. Re-run with "+
+					"KENSA_NO_AGENT=1 to use the direct-SSH path", transport)
+		}
 		// Capture Sudo + SudoPassword in the closure so the
 		// SSHCommandFunc signature stays stable for test injectors.
 		sudo := opts.Sudo
 		sudoPassword := opts.SudoPassword // pragma: allowlist secret  (variable, not a secret literal)
 		opts.SSHCommandFunc = func(ctx context.Context, user, host, remotePath string) *exec.Cmd {
-			return defaultSSHCommand(ctx, user, host, remotePath, sudo, sudoPassword)
+			return defaultSSHCommand(ctx, sock, user, host, remotePath, sudo, sudoPassword)
 		}
-	}
-
-	cachePath, err := bootstrap.EnsureAgent(ctx, transport, opts.LocalBinary)
-	if err != nil {
-		return nil, nil, fmt.Errorf("dispatcher: ensure agent on target: %w", err)
 	}
 
 	cmd := opts.SSHCommandFunc(ctx, opts.User, host, cachePath)
@@ -191,6 +214,23 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 	return c, cleanup, nil
 }
 
+// controlSocketOf reports the live ControlMaster socket of an ssh transport.
+//
+// A narrow interface rather than a concrete type assertion, so the dispatcher
+// does not import the ssh package and no import cycle is possible.
+type controlSocketProvider interface{ ControlSocket() string }
+
+func controlSocketOf(t api.Transport) (string, bool) {
+	p, ok := t.(controlSocketProvider)
+	if !ok {
+		return "", false
+	}
+	sock := p.ControlSocket()
+	// A closed transport returns "", and an empty ControlPath would make ssh
+	// dial a fresh connection with default settings, which is the bug.
+	return sock, sock != ""
+}
+
 // defaultSSHCommand builds the production ssh-subprocess
 // invocation. The user argument can be empty (ssh uses the
 // current user). When sudo is true the remote command is
@@ -200,10 +240,25 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 // to exec the binary directly, but sudo elevates before
 // path resolution by the remote shell.
 //
+// controlSocket is the live ControlMaster socket of the transport that already
+// bootstrapped the agent binary onto this host, and the session MULTIPLEXES
+// over it rather than dialing its own connection.
+//
+// That is a correctness requirement, not a speed one. This function used to
+// build `ssh <target>` with no port, no identity file and no host-key policy,
+// so every connection setting the operator passed was silently dropped. Given
+// `-H 127.0.0.1 -P 2231` it connected to 127.0.0.1 port 22, which was a
+// different machine; it failed there only because authentication happened to
+// fail, and with a working key it would have applied the remediation to the
+// wrong host and recorded it against the right one. Reusing the master cannot
+// drift, because there is no second set of settings to keep in step, and it
+// also inherits password authentication, which this path could never perform on
+// its own.
+//
 // `-n` (non-interactive) is the sudoers-NOPASSWD friendly
 // form: matches the kensa-rpm sudoers fragment template
 // and fails fast if a password would be required.
-func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo bool, sudoPassword string) *exec.Cmd {
+func defaultSSHCommand(ctx context.Context, controlSocket, user, host, remotePath string, sudo bool, sudoPassword string) *exec.Cmd {
 	target := host
 	if user != "" {
 		target = user + "@" + host
@@ -217,7 +272,7 @@ func defaultSSHCommand(ctx context.Context, user, host, remotePath string, sudo 
 	// (remediate/rollback) consistent. ERROR (not QUIET/-q) is chosen
 	// deliberately: it silences the info-level banner while preserving
 	// genuine ssh error diagnostics.
-	base := []string{"-o", "LogLevel=ERROR", target}
+	base := []string{"-o", "LogLevel=ERROR", "-o", "ControlPath=" + controlSocket, target}
 	if sudo {
 		if sudoPassword != "" {
 			// `sudo -S -p ''` reads the password from the FIRST line
