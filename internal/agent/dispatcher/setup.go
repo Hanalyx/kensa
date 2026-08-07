@@ -120,7 +120,7 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 		// re-deriving them. See defaultSSHCommand for what re-deriving them cost.
 		//
 		// REFUSING is deliberate when the socket is unavailable. The obvious
-		// fallback, a plain `ssh <target>`, is exactly the behaviour being fixed:
+		// fallback, a plain `ssh <target>`, is exactly the behavior being fixed:
 		// it silently ignores every connection setting and can reach a different
 		// machine than the one named. An error that says so is the safe outcome.
 		// Only the ssh transport reaches this path in production; both callers
