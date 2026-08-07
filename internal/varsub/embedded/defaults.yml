@@ -66,6 +66,15 @@ variables:
   # they are invisible until the intended set is written down once.
   authorized_services: []
 
+  # SUID and SGID binaries this site has reviewed and accepts, for NIST SP
+  # 800-171 3.4.7 (NIST 800-53 AC-6, CM-6). Members are absolute paths.
+  #
+  # Ships EMPTY like the other declared sets. A host carries roughly twenty of
+  # these and the set barely moves, which is what makes a baseline worth keeping
+  # accurate; the package list this objective might suggest instead runs to six
+  # hundred entries and changes on every patch.
+  suid_sgid_baseline: []
+
   # Antimalware, for NIST SP 800-171 3.14.2, 3.14.4 and 3.14.5 (NIST 800-53 SI-3).
   # Space-separated candidate systemd units. No CIS or DISA STIG benchmark in the
   # corpus names an antimalware product, and sites frequently run a vendor

@@ -1,15 +1,26 @@
 id: suid-sgid-files-reviewed
 title: Ensure SUID and SGID files are reviewed
 description: >
-  SUID/SGID files must be limited to a reviewed, legitimate set. No SUID or
-  SGID file may be world-writable or located in a user-writable directory
-  (/tmp, /var/tmp, /home, /dev/shm), which would be an unambiguous
-  privilege-escalation risk.
+  SUID and SGID files must be limited to a reviewed, legitimate set. Two things
+  are checked. No such file may be world-writable or sit in a user-writable
+  directory (/tmp, /var/tmp, /home, /dev/shm), which is an unambiguous
+  privilege-escalation risk on any host. And the full inventory must match the
+  baseline the site declared in suid_sgid_baseline, because which of these
+  binaries a system needs is a statement about that system.
 rationale: >
-  SUID/SGID binaries run with elevated privileges. A world-writable one, or
-  one an unprivileged user can place in a writable directory, is a direct
-  local privilege-escalation vector. The full SUID/SGID inventory should be
-  reviewed against a known-good baseline.
+  A SUID or SGID binary runs with privileges its caller does not have, so the
+  set of them is the local privilege-escalation surface. The world-writable case
+  is wrong everywhere and needs no site input. The rest cannot be judged without
+  one: a host legitimately carries fifteen to twenty of these, and which ones is
+  a property of what the host does. Comparing the inventory against a declared
+  baseline is what turns "review these periodically" into something that fails
+  when a new one appears.
+
+  A package list would be the obvious alternative and is a bad one. A base
+  install carries over six hundred packages and the set changes on every patch,
+  so a declared list is stale within a cycle and produces failures nobody reads.
+  The SUID inventory is around twenty entries and barely moves, which is what
+  makes a baseline worth keeping accurate.
 severity: medium
 transactional: false
 category: filesystem
@@ -21,6 +32,7 @@ references:
     rhel8:  { section: "7.1.13", level: "L1", type: "Manual" }
     rhel10: { section: "7.1.13", level: "L1", type: "Manual" }
   nist_800_53: ["AC-6", "CM-6"]
+  nist_800_171: ["3.4.7[c]"]
 
 platforms:
   - family: rhel
@@ -28,22 +40,35 @@ platforms:
 
 implementations:
   - default: true
+    # Two assertions, so two checks. They fail for different reasons and an
+    # operator fixes them differently: the first is wrong on any host, the
+    # second is only answerable against what this site declared.
     check:
-      method: command
-      run: |
-        # Unambiguous findings: SUID/SGID files that are world-writable or
-        # sit in a user-writable directory. Full inventory review is manual.
-        risky=$(find / -xdev -type f \( -perm -4000 -o -perm -2000 \) \
-                  \( -perm -0002 -o -path '/tmp/*' -o -path '/var/tmp/*' \
-                     -o -path '/home/*' -o -path '/dev/shm/*' \) 2>/dev/null | head -5)
-        if [ -n "$risky" ]; then
-          echo "FAIL: SUID/SGID files world-writable or in user-writable paths:"; echo "$risky"; exit 1
-        fi
-        echo "OK: no world-writable or user-path SUID/SGID files (review full inventory against baseline)"
-      expected_exit: 0
+      checks:
+        - method: command
+          run: |
+            # Unambiguous findings: SUID/SGID files that are world-writable or
+            # sit in a user-writable directory. True everywhere, no site input.
+            risky=$(find / -xdev -type f \( -perm -4000 -o -perm -2000 \) \
+                      \( -perm -0002 -o -path '/tmp/*' -o -path '/var/tmp/*' \
+                         -o -path '/home/*' -o -path '/dev/shm/*' \) 2>/dev/null | head -5)
+            if [ -n "$risky" ]; then
+              echo "FAIL: SUID/SGID files world-writable or in user-writable paths:"; echo "$risky"; exit 1
+            fi
+            echo "OK: no world-writable or user-path SUID/SGID files"
+          expected_exit: 0
+        # The inventory comparison the previous version of this rule described in
+        # its own output and then left to a human.
+        - method: set_compare
+          observed_command: "find /usr/bin /usr/sbin /bin /sbin -xdev -type f \\( -perm -4000 -o -perm -2000 \\) 2>/dev/null | sort"
+          authorized: "{{ suid_sgid_baseline }}"
     remediation:
       mechanism: manual
       note: >
-        Enumerate all SUID/SGID files with `find / -xdev -type f \( -perm
-        -4000 -o -perm -2000 \)`, compare against the approved baseline, and
-        remove the SUID/SGID bit from any file that does not require it.
+        For a world-writable or user-path finding, remove the SUID/SGID bit or
+        move the file; that case is wrong regardless of the baseline. For a file
+        reported as not in the baseline, decide which side is wrong: drop the bit
+        with chmod u-s (or g-s) if the binary does not need it, or add the path to
+        suid_sgid_baseline if it does. Kensa does not clear the bit
+        automatically, because removing it from something like sudo or su locks
+        the host's own administrators out.
