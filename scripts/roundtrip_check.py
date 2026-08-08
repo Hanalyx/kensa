@@ -30,7 +30,11 @@ import json
 import sys
 from pathlib import Path
 
-GOOD = "ok"
+# Terminal states that mean the engine behaved correctly. staged_pending_reboot
+# belongs here: a persist-only directive (-e 2) is written and deliberately not
+# loaded, so it cannot converge in one session by design. Treating it as good
+# is what lets the ratchet catch a rule sliding OUT of it into a real failure.
+GOOD = {"ok", "staged_pending_reboot"}
 
 
 def load(p: Path) -> dict:
@@ -77,12 +81,12 @@ def main() -> int:
     regressions = [
         (r, base_rules[r], current.get(r, "absent"))
         for r in sorted(base_rules)
-        if base_rules[r] == GOOD and current.get(r) != GOOD
+        if base_rules[r] in GOOD and current.get(r) not in GOOD
     ]
     improvements = [
         (r, base_rules.get(r, "new"), current[r])
         for r in sorted(current)
-        if current[r] == GOOD and base_rules.get(r) != GOOD
+        if current[r] in GOOD and base_rules.get(r) not in GOOD
     ]
     shrank = run["exercised"] < base.get("exercised", 0)
 

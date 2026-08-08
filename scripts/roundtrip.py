@@ -30,6 +30,8 @@ changes brings its own test along.
 Outcomes per rule:
 
     ok                   fail -> pass -> fail, /etc restored
+    staged_pending_reboot  applied but deliberately not loaded; cannot converge
+                         until reboot, and rolled back cleanly
     check_not_flipped    remediation reported success, the check never passed
     remediate_failed     the engine could not apply it
     rollback_not_flipped the check still passes after rollback
@@ -146,15 +148,27 @@ def scan(host: Host, rule: Path) -> tuple[str, str]:
             os.unlink(out)
 
 
-def remediate(host: Host, rule: Path) -> tuple[bool, str]:
-    rc, out, err = sh([str(KENSA), *DB, "remediate", "-H", host.addr, "-u", host.user,
-                       "-k", host.key, "--sudo", str(rule)], timeout=300)
+def remediate(host: Host, rule: Path) -> tuple[str, str]:
+    """Return (outcome, output) where outcome is fixed, staged, or failed.
+
+    STAGED is not a failure. A rule whose remediation is persist-only writes
+    its change and reports the transaction PENDING reboot, because loading it
+    now would be irreversible (`-e 2` makes the audit config immutable). Such a
+    rule cannot converge in one session by design, so treating a staged result
+    as a failed one would report a correct engine as broken.
+    """
+    _, out, err = sh([str(KENSA), *DB, "remediate", "-H", host.addr, "-u", host.user,
+                      "-k", host.key, "--sudo", str(rule)], timeout=300)
     text = out + err
-    return ("FIXED" in text), text
+    if "FIXED" in text:
+        return "fixed", text
+    if "STAGED" in text:
+        return "staged", text
+    return "failed", text
 
 
 def last_txn(host: Host, rule_id: str) -> str | None:
-    """Most recent committed transaction for this rule.
+    """Most recent rollback-able transaction for this rule.
 
     `kensa history` reads a LOCAL ledger and takes no connection flags, so this
     is a client-side lookup rather than a call to the host.
@@ -168,8 +182,13 @@ def last_txn(host: Host, rule_id: str) -> str | None:
     # recency. Pick the newest committed entry for this rule by its own
     # timestamp; otherwise a rule round-tripped twice can roll back the
     # earlier run and leave the later one applied.
+    # `staged` counts as well as `committed`: a staged transaction wrote its
+    # persist layer and is rollback-able, it just has not been loaded. Matching
+    # only committed would leave a staged change on the host with nothing to
+    # undo it.
     mine = [t for t in txns
-            if t.get("RuleID") == rule_id and t.get("Status") == "committed"]
+            if t.get("RuleID") == rule_id
+            and t.get("Status") in ("committed", "staged")]
     if not mine:
         return None
     return max(mine, key=lambda t: t.get("StartedAt") or "").get("ID")
@@ -214,12 +233,25 @@ def roundtrip(host: Host, rule: Path, before: dict) -> tuple[dict, dict]:
         r["outcome"] = "not_failing" if s0 in ("pass", "skipped") else "error"
         return r, before
 
-    ok, text = remediate(host, rule)
+    applied, text = remediate(host, rule)
     lap("remediate")
-    if not ok:
+    if applied == "failed":
         r["outcome"] = "remediate_failed"
         r["detail"] = text.strip().splitlines()[-1][:200] if text.strip() else ""
         return r, host.manifest()
+    if applied == "staged":
+        # The change is written but deliberately not loaded, so the check
+        # cannot pass until the host reboots. Verify what IS verifiable: that
+        # rolling it back returns /etc to where it started.
+        r["outcome"] = "staged_pending_reboot"
+        txn = last_txn(host, rid)
+        if txn:
+            rollback(host, txn)
+        after = host.manifest()
+        if before and after and before != after:
+            r["outcome"] = "residue"
+            r["detail"] = "staged change did not roll back cleanly"
+        return r, after
 
     s1, err1 = scan(host, rule)
     lap("scan_after_remediate")
@@ -353,7 +385,8 @@ def main() -> int:
         "attempted": len(results),
         "exercised": counts.get("ok", 0) + sum(
             counts.get(k, 0) for k in
-            ("check_not_flipped", "rollback_not_flipped", "residue", "remediate_failed")),
+            ("staged_pending_reboot", "check_not_flipped", "rollback_not_flipped",
+             "residue", "remediate_failed")),
         "counts": counts,
         "seconds": round(time.time() - started, 1),
         "results": results,
