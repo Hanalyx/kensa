@@ -38,7 +38,8 @@ implementations:
 - default: true
   check:
     method: audit_rule_exists
-    rule: -k system-locale
+    rule: |
+      -a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale
   remediation:
     mechanism: audit_rule_set
     rule: -a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale

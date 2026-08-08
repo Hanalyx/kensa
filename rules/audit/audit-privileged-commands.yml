@@ -29,7 +29,8 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-k execpriv"
+      rule: |
+        -a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"

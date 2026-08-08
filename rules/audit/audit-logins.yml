@@ -36,7 +36,9 @@ implementations:
 - default: true
   check:
     method: audit_rule_exists
-    rule: -k logins
+    rule: |
+      -w /var/log/lastlog -p wa -k logins
+      -w /var/run/faillock -p wa -k logins
   remediation:
     steps:
     - mechanism: audit_rule_set

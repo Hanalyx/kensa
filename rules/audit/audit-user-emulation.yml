@@ -24,7 +24,8 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-k user_emulation"
+      rule: |
+        -a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"
