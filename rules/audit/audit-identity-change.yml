@@ -50,3 +50,6 @@ implementations:
         - mechanism: audit_rule_set
           rule: "-w /etc/shadow -p wa -k identity"
           persist_file: "/etc/audit/rules.d/50-identity.rules"
+        - mechanism: audit_rule_set
+          rule: "-w /etc/security/opasswd -p wa -k identity"
+          persist_file: "/etc/audit/rules.d/50-identity.rules"
