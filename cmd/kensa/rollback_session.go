@@ -249,10 +249,18 @@ type rollbackStartTxnEntry struct {
 // hostCfg.Hostname, rejects with a usage error. Rolling back
 // host-A's session against host-B is almost never what the
 // operator meant.
-func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, hostCfg api.HostConfig, format string, quiet bool) error {
+// validateRollbackStart rejects a session that must not be rolled back and
+// returns the committed transactions to undo.
+//
+// It runs BEFORE any host connection is opened, and deliberately opens its own
+// short-lived store handle to do so. A usage error (wrong subcommand, missing
+// or mismatched hostname) must never reach out to a host: connecting first
+// would make an invalid request cost an SSH round trip, and would touch a host
+// the operator is not entitled to target with this session.
+func validateRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, hostCfg api.HostConfig) ([]store.TxnRef, error) {
 	svc, err := kensa.Default(ctx, dbPath)
 	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+		return nil, fmt.Errorf("open store: %w", err)
 	}
 	defer func() { _ = svc.Close() }()
 
@@ -261,7 +269,7 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	// on the same WAL database — the service now exposes them directly.
 	sess, err := svc.GetSession(ctx, sessID)
 	if err != nil {
-		return cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
+		return nil, cleanSessionLookupError(sessID, err, "try 'kensa rollback --list' or 'kensa list sessions'")
 	}
 	// Defense-in-depth: peer review caught that
 	// `kensa check --store` sessions write committed for
@@ -271,7 +279,7 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	// these out of --list, but a direct `--start <check-id>`
 	// would still reach this path. Reject explicitly.
 	if sess.Subcommand != "remediate" {
-		return NewUsageError(fmt.Sprintf(
+		return nil, NewUsageError(fmt.Sprintf(
 			"session %s was created by 'kensa %s', not 'remediate' — only remediate sessions have pre-state to roll back",
 			sessID, sess.Subcommand))
 	}
@@ -282,22 +290,39 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 	// names — exactly the wrong-state-on-wrong-host risk
 	// C-03 names as a usage error. R1 peer review.
 	if sess.Hostname == "" {
-		return NewUsageError(fmt.Sprintf(
+		return nil, NewUsageError(fmt.Sprintf(
 			"session %s has no recorded hostname (legacy backfill?); cannot safely target it for rollback",
 			sessID))
 	}
 	if sess.Hostname != hostCfg.Hostname {
-		return NewUsageError(fmt.Sprintf(
+		return nil, NewUsageError(fmt.Sprintf(
 			"hostname mismatch: session was on %q but --host is %q (rolling back across hosts is rejected)",
 			sess.Hostname, hostCfg.Hostname))
 	}
 
-	txnRefs, err := svc.CommittedTxnIDs(ctx, sessID)
+	return svc.CommittedTxnIDs(ctx, sessID)
+}
+
+// rollbackTxns undoes each committed transaction of a session, accumulating
+// per-transaction outcomes into result.
+//
+// It opens the agent itself, and only its caller decides whether there is any
+// work worth connecting for. Without the agent the transport fails the
+// handlers' type assertions and they take their shell fallbacks, so the
+// rollback stops being the inverse of the apply. See openAgentOptions.
+func rollbackTxns(ctx context.Context, dbPath string, hostCfg api.HostConfig, txnRefs []store.TxnRef, result *rollbackStartResult) error {
+	engineOpts, agentCleanup, err := openAgentOptions(ctx, hostCfg)
 	if err != nil {
 		return err
 	}
+	defer agentCleanup()
 
-	result := rollbackStartResult{SessionID: sessID.String()}
+	svc, err := kensa.DefaultWithEngineOptions(ctx, dbPath, engineOpts...)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer func() { _ = svc.Close() }()
+
 	for _, ref := range txnRefs {
 		result.Attempted++
 		res, err := svc.Rollback(ctx, hostCfg, ref.TxnID)
@@ -316,6 +341,24 @@ func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, host
 			fmt.Fprintf(os.Stderr, "kensa rollback --start: %s: %s\n", ref.RuleID, entry.Warning)
 		}
 		result.PerTxn = append(result.PerTxn, entry)
+	}
+	return nil
+}
+
+func runRollbackStart(ctx context.Context, dbPath string, sessID uuid.UUID, hostCfg api.HostConfig, format string, quiet bool) error {
+	txnRefs, err := validateRollbackStart(ctx, dbPath, sessID, hostCfg)
+	if err != nil {
+		return err
+	}
+
+	result := rollbackStartResult{SessionID: sessID.String()}
+	// A session with nothing committed has no host work to do. Reach out only
+	// when there is something to undo, so an empty session neither pays for an
+	// SSH round trip nor fails when the host is simply unreachable.
+	if len(txnRefs) > 0 {
+		if err := rollbackTxns(ctx, dbPath, hostCfg, txnRefs, &result); err != nil {
+			return err
+		}
 	}
 
 	out := bodyOut(quiet)
