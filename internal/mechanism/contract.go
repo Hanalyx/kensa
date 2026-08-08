@@ -37,7 +37,7 @@ type Contract struct {
 var Contracts = map[string]Contract{
 	"apt_absent":                {Required: []string{"name"}},
 	"apt_present":               {Required: []string{"name"}},
-	"audit_rule_set":            {Required: []string{"rule"}, Optional: []string{"persist_file"}},
+	"audit_rule_set":            {Required: []string{"rule"}, Optional: []string{"persist_file", "persist_only"}},
 	"authselect_feature_enable": {Required: []string{"feature"}},
 	"command_exec":              {Required: []string{"run"}, Optional: []string{"unless"}},
 	"config_append":             {Required: []string{"path", "line"}},
