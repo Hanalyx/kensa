@@ -165,8 +165,10 @@ func TestRunRollback_ListExcludesCheckSessions(t *testing.T) {
 // before invoking svc.Rollback.
 // @spec cli-rollback-session-aware
 // @ac AC-03
+// @ac AC-16
 func TestRunRollback_StartRejectsCheckSession(t *testing.T) {
 	t.Run("cli-rollback-session-aware/AC-03", func(t *testing.T) {})
+	t.Run("cli-rollback-session-aware/AC-16", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "check-start.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -198,8 +200,10 @@ func TestRunRollback_StartRejectsCheckSession(t *testing.T) {
 // with no recorded hostname can't safely target a host.
 // @spec cli-rollback-session-aware
 // @ac AC-04
+// @ac AC-16
 func TestRunRollback_StartRejectsEmptyHostname(t *testing.T) {
 	t.Run("cli-rollback-session-aware/AC-04", func(t *testing.T) {})
+	t.Run("cli-rollback-session-aware/AC-16", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "empty-host.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {
@@ -397,8 +401,10 @@ func TestRunRollback_InfoBadUUID(t *testing.T) {
 // TestRunRollback_StartHostnameGuard locks AC-07.
 // @spec cli-rollback-session-aware
 // @ac AC-13
+// @ac AC-16
 func TestRunRollback_StartHostnameGuard(t *testing.T) {
 	t.Run("cli-rollback-session-aware/AC-13", func(t *testing.T) {})
+	t.Run("cli-rollback-session-aware/AC-16", func(t *testing.T) {})
 	path, sessID, _ := makeRollbackStore(t) // session is on host-a
 	// Missing --host:
 	exit := runCLI([]string{"--db", path, "rollback", "--start", sessID.String()})
@@ -515,7 +521,13 @@ func TestWriteRollbackStartText_SurfacesWarning(t *testing.T) {
 	}
 }
 
+// A session with zero committed transactions has no host work, so it must
+// return its result without connecting. Before this was enforced the test
+// hung on an SSH timeout to a host that was never needed.
+// @spec cli-rollback-session-aware
+// @ac AC-17
 func TestRunRollback_StartJSONShape(t *testing.T) {
+	t.Run("cli-rollback-session-aware/AC-17", func(t *testing.T) {})
 	path := filepath.Join(t.TempDir(), "start-json.db")
 	s, err := store.OpenSQLite(context.Background(), path)
 	if err != nil {

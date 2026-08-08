@@ -315,7 +315,11 @@ func TestApply_FallsBackWhenNoCapability(t *testing.T) {
 // Loading it at runtime would be worse than useless: it blocks every later
 // audit change on the host and no rollback can undo it, because restoring the
 // drop-in does not clear the kernel flag.
+//
+// @spec handler-audit-rule-set
+// @ac AC-06
 func TestPersistOnly_StagesAndNeverLoads(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-06", func(t *testing.T) {})
 	f := auditnl.NewFakeAudit()
 	h := auditruleset.New()
 	ctx := context.Background()

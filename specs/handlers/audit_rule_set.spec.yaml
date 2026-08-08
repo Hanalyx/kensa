@@ -21,6 +21,7 @@ spec:
                 - augenrules --load
                 - capture of prior file state
                 - rollback restoring prior file and reloading
+                - persist_only mode, writing the drop-in without loading it
             excludes:
                 - auditctl direct (runtime-only) rules
     constraints:
@@ -59,6 +60,28 @@ spec:
               the declaration.
           type: security
           enforcement: error
+        - id: C-06
+          description: |
+              A rule MAY declare persist_only. The handler then writes the
+              drop-in and MUST NOT load it into the running kernel, returning
+              Staged so the transaction terminates StatusStaged (PENDING
+              reboot).
+
+              This exists for audit CONTROL directives rather than rules. `-e 2`
+              makes the audit configuration immutable: once loaded the kernel
+              refuses every later audit change on that host, and restoring the
+              drop-in does not clear the flag, so no rollback can undo it.
+              Loading it would leave a rollback that reports success while being
+              unable to restore anything, which breaks the capture-and-rollback
+              contract the engine depends on.
+
+              Capture for a persist_only directive MUST NOT attempt to build a
+              wire rule from its text: a control directive is not a rule, the
+              build fails, and capture would refuse an otherwise valid
+              remediation. There is nothing to unload, so the unload set is
+              empty and rollback removes only the file.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the rule file and runs augenrules --load.
@@ -86,6 +109,13 @@ spec:
               file is written through the kernelio funnel while the rule loads
               over netlink), so the gate sees observed ⊆ captured.
           references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              With persist_only set, Capture succeeds on a control directive
+              that is not a parseable rule, Apply writes the drop-in, returns
+              Staged, and loads nothing into the kernel.
+          references_constraints: [C-06]
           priority: critical
     depends_on:
         - spec_id: handler-interface
