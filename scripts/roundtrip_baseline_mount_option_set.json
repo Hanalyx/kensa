@@ -1,0 +1,24 @@
+{
+  "exercised": 16,
+  "rules": {
+    "mount-boot-efi-nosuid": "not_failing",
+    "mount-boot-nodev": "ok",
+    "mount-boot-nosuid": "ok",
+    "mount-dev-shm-nodev": "not_failing",
+    "mount-dev-shm-noexec": "remediate_failed",
+    "mount-dev-shm-nosuid": "not_failing",
+    "mount-home-nodev": "ok",
+    "mount-home-noexec": "ok",
+    "mount-home-nosuid": "ok",
+    "mount-tmp-nodev": "ok",
+    "mount-tmp-noexec": "ok",
+    "mount-tmp-nosuid": "ok",
+    "mount-var-log-audit-options": "ok",
+    "mount-var-log-options": "ok",
+    "mount-var-nosuid": "ok",
+    "mount-var-options": "ok",
+    "mount-var-tmp-nodev": "ok",
+    "mount-var-tmp-noexec": "ok",
+    "mount-var-tmp-nosuid": "ok"
+  }
+}

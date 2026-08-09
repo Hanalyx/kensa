@@ -164,7 +164,11 @@ parity-containers-quick: ## same, one rule subtree, for a fast loop
 RT_HOST ?=
 RT_MECH ?= audit_rule_set
 RT_OUT ?= bin/roundtrip.json
-RT_BASELINE := scripts/roundtrip_baseline.json
+# One baseline per mechanism. A single shared file cannot work: the gate fails
+# on shrinking coverage, so a run of one mechanism would look like a regression
+# against a baseline holding another mechanism's rules. audit_rule_set keeps the
+# original filename so existing runs and CI wiring are unaffected.
+RT_BASELINE = $(if $(filter audit_rule_set,$(RT_MECH)),scripts/roundtrip_baseline.json,scripts/roundtrip_baseline_$(RT_MECH).json)
 
 roundtrip: build ## round-trip every rule of one mechanism on a host (RT_HOST=ip [RT_MECH=...])
 	@test -n "$(RT_HOST)" || { echo "set RT_HOST=<ip of a disposable host>"; exit 2; }

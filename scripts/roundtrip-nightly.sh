@@ -19,6 +19,12 @@
 #   RT_BASE_ID   first disposable VMID; shards use N+i  (required)
 #   RT_SHARDS    how many clones to run at once         (default 4)
 #   RT_MECH      remediation mechanism to cover         (default audit_rule_set)
+#
+# RT_TEMPLATE has to suit the mechanism. mount_option_set needs a template with
+# SEPARATE FILESYSTEMS for /tmp, /var, /var/log, /var/log/audit, /var/tmp and
+# /home, or thirteen of its rules come back `not_failing` because there is no
+# mount to set an option on. The STIG-partitioned templates on node pve02
+# (VMIDs 130 to 146) are built for this; the cloud templates are not.
 #   RT_OUTDIR    where shard reports are written        (default bin/roundtrip)
 #
 #   RT_NODE=root@10.0.0.1 RT_TEMPLATE=113 RT_BASE_ID=900 RT_SHARDS=6 \
@@ -36,7 +42,13 @@ RT_SHARDS="${RT_SHARDS:-4}"
 RT_MECH="${RT_MECH:-audit_rule_set}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RT_OUTDIR="${RT_OUTDIR:-$REPO/bin/roundtrip}"
-BASELINE="$REPO/scripts/roundtrip_baseline.json"
+# One baseline per mechanism; see the Makefile for why a shared file cannot
+# work. audit_rule_set keeps the original filename.
+if [ "$RT_MECH" = "audit_rule_set" ]; then
+  BASELINE="$REPO/scripts/roundtrip_baseline.json"
+else
+  BASELINE="$REPO/scripts/roundtrip_baseline_$RT_MECH.json"
+fi
 
 node() { ssh -o BatchMode=yes -o ConnectTimeout=15 "$RT_NODE" "$@"; }
 
