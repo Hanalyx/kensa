@@ -31,13 +31,46 @@ spec:
           enforcement: error
         - id: C-02
           description: |
-              Capture MUST record the full fstab line for the mount
-              point. Returns ErrCaptureIncomplete when no fstab entry
-              exists.
+              Capture MUST record a prior state complete enough to restore
+              from, and MUST return ErrCaptureIncomplete when it cannot.
+
+              A mount point WITH an fstab entry: record the full line.
+
+              A mount point with NO fstab entry is still describable when the
+              filesystem is mounted, and MUST be captured rather than refused.
+              systemd mounts /dev/shm this way on every current Enterprise
+              Linux and Ubuntu, so refusing made a standard hardening control
+              permanently unremediable. Record that the entry was absent, plus
+              the live source, filesystem type and mount options: the options
+              are what tells Rollback which options it introduced and which
+              were already there.
+
+              A mount point that is neither in fstab nor mounted cannot be
+              described at all, and there ErrCaptureIncomplete still applies.
           type: security
           enforcement: error
         - id: C-03
-          description: Rollback MUST restore the prior fstab line and remount.
+          description: |
+              Rollback MUST restore the prior fstab line and remount.
+
+              When the captured prior state was "no fstab entry", Rollback MUST
+              NOT simply delete the line:
+
+              1. It MUST remove only the options this transaction applied, and
+                 remove the LINE only when nothing else remains on it. Sibling
+                 rules share one entry — /dev/shm, /tmp, /home and /var/tmp each
+                 have three — so whichever rule created the line would otherwise
+                 destroy the others' work when rolled back.
+
+              2. It MUST negate the applied option explicitly on the live mount.
+                 `mount -o remount <dir>` rereads options from fstab only for a
+                 mount point that APPEARS in fstab; once the line is removed
+                 there is nothing to reread and the option stays applied, so a
+                 rollback that only rewrites fstab reports success while leaving
+                 the host changed.
+
+              3. It MUST NOT negate an option the mount already carried at
+                 capture, which this transaction did not introduce.
           type: security
           enforcement: error
         - id: C-04
@@ -70,6 +103,36 @@ spec:
               missing option (or unreadable mount table) reports a
               verified-partial restore with a remedy.
           references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Apply on a mount point with no fstab entry creates one, built
+              from the source and filesystem type the kernel reports rather
+              than from a guess. A mount point that is not mounted either is a
+              failed step, not a created entry.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-06
+          description: |
+              Capture on a mount point with no fstab entry records an absent
+              prior state — capturable, with the live source, filesystem type
+              and options — when the filesystem is mounted, and returns
+              ErrCaptureIncomplete when it is not.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-07
+          description: |
+              Rollback of an absent prior state removes the created entry and
+              negates the applied option on the live mount, and leaves an
+              option the mount already carried untouched.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-08
+          description: |
+              Rollback of an absent prior state keeps the fstab entry, minus
+              its own options, when a sibling transaction has since added
+              options to the same line.
+          references_constraints: [C-03]
           priority: critical
     depends_on:
         - spec_id: handler-interface

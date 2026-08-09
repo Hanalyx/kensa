@@ -42,7 +42,8 @@ func TestApply_Kernel(t *testing.T) {
 	}
 }
 
-// Apply on a mount point with no fstab entry is a failed step, not an error.
+// Apply on a mount point with no fstab entry AND no live mount is a failed
+// step, not an error: nothing can be created from nothing.
 //
 // @spec kernelio-mount
 // @ac AC-02
@@ -57,8 +58,64 @@ func TestApply_Kernel_NoEntry(t *testing.T) {
 	if res.Success {
 		t.Error("want Success:false when no fstab entry matches")
 	}
-	if len(f.Runs) != 0 {
-		t.Errorf("must not remount when fstab edit found no entry; Runs=%v", f.Runs)
+	// Probing the live mount is expected — that is how a missing entry gets
+	// created when the filesystem IS mounted. The invariant is narrower: do not
+	// remount a mount point that was never edited.
+	for _, r := range f.Runs {
+		if strings.Contains(r, "remount") {
+			t.Errorf("must not remount when nothing was edited; Runs=%v", f.Runs)
+		}
+	}
+	if !strings.Contains(f.Files["/etc/fstab"], fstabBefore) {
+		t.Errorf("fstab must be untouched; got:\n%s", f.Files["/etc/fstab"])
+	}
+}
+
+// A mount point with no fstab entry but a live mount is the /dev/shm case
+// (KN-KN-026): systemd mounts it, fstab does not mention it, and persisting an
+// option means creating the entry from what the kernel reports.
+//
+// @spec handler-mount-option-set
+// @ac AC-05
+func TestApply_Kernel_NoEntry_CreatesFromLiveMount(t *testing.T) {
+	t.Run("handler-mount-option-set/AC-05", func(t *testing.T) {})
+	f := newFstabFake(fstabBefore)
+	f.RunResults = map[string]*api.CommandResult{
+		"findmnt --kernel -n -o SOURCE,FSTYPE,OPTIONS '/dev/shm'": {
+			Stdout: "tmpfs tmpfs rw,nosuid,nodev,seclabel,inode64\n",
+		},
+	}
+	res, err := mountoptionset.New().Apply(context.Background(), f,
+		api.Params{"mount_point": "/dev/shm", "options": []interface{}{"noexec"}}, nil)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("want success, got: %s", res.Detail)
+	}
+	line, found := kernelio.FstabFindLine(f.Files["/etc/fstab"], "/dev/shm")
+	if !found {
+		t.Fatalf("no entry was created:\n%s", f.Files["/etc/fstab"])
+	}
+	// The source and fstype come from the host, never from a guess.
+	if !strings.HasPrefix(line, "tmpfs /dev/shm tmpfs ") {
+		t.Errorf("source or fstype guessed rather than read from findmnt: %s", line)
+	}
+	if !strings.Contains(line, "noexec") {
+		t.Errorf("the requested option is missing: %s", line)
+	}
+	// The regression this guards: a line of "defaults,noexec" REPLACES the
+	// options systemd set, so the next remount drops nosuid and nodev. Adding
+	// one security option must never remove two. Measured on the fleet before
+	// this was fixed: /dev/shm went from rw,nosuid,nodev to rw,noexec.
+	for _, carried := range []string{"nosuid", "nodev"} {
+		if !strings.Contains(line, carried) {
+			t.Errorf("live option %q was dropped from the synthesized line: %s", carried, line)
+		}
+	}
+	// seclabel is reported by the kernel but rejected by mount(8) as input.
+	if strings.Contains(line, "seclabel") {
+		t.Errorf("seclabel must not be written to fstab: %s", line)
 	}
 }
 

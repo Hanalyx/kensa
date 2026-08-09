@@ -98,3 +98,94 @@ func FstabReplaceLine(content, mountPoint, newLine string) (string, error) {
 	}
 	return strings.Join(lines, "\n"), nil
 }
+
+// FstabRemoveLine returns content with every matching mount-point line
+// removed. Used by Rollback to undo an entry this engine created: a mount
+// point that had no fstab line before is only restored by taking the line
+// away again, and FstabReplaceLine cannot express that.
+//
+// Returns ErrNoFstabEntry if no line matches, so a caller can tell "nothing to
+// remove" from "removed it".
+func FstabRemoveLine(content, mountPoint string) (string, error) {
+	lines := strings.Split(content, "\n")
+	out := make([]string, 0, len(lines))
+	found := false
+	for _, l := range lines {
+		if !isFstabComment(l) {
+			f := strings.Fields(l)
+			if len(f) >= 2 && f[1] == mountPoint {
+				found = true
+				continue
+			}
+		}
+		out = append(out, l)
+	}
+	if !found {
+		return "", ErrNoFstabEntry
+	}
+	return strings.Join(out, "\n"), nil
+}
+
+// FstabRemoveOptions returns content with each requested option removed from
+// the options field of every matching mount-point line. Options the line does
+// not carry are ignored, so this is idempotent.
+//
+// An options field emptied of everything becomes "defaults" rather than an
+// empty field, because an fstab line with a blank fourth field is malformed.
+//
+// Returns ErrNoFstabEntry if no line matches. A matching line with fewer than
+// four fields is malformed and left untouched, matching FstabAddOptions.
+func FstabRemoveOptions(content, mountPoint string, opts []string) (string, error) {
+	drop := make(map[string]bool, len(opts))
+	for _, o := range opts {
+		if o != "" {
+			drop[o] = true
+		}
+	}
+	lines := strings.Split(content, "\n")
+	found := false
+	for i, l := range lines {
+		if isFstabComment(l) {
+			continue
+		}
+		f := strings.Fields(l)
+		if len(f) < 2 || f[1] != mountPoint {
+			continue
+		}
+		found = true
+		if len(f) < 4 {
+			continue // malformed entry; cannot edit the options field
+		}
+		kept := make([]string, 0, len(f[3]))
+		for _, o := range strings.Split(f[3], ",") {
+			if !drop[o] {
+				kept = append(kept, o)
+			}
+		}
+		if len(kept) == 0 {
+			kept = []string{"defaults"}
+		}
+		f[3] = strings.Join(kept, ",")
+		lines[i] = strings.Join(f, " ")
+	}
+	if !found {
+		return "", ErrNoFstabEntry
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+// FstabOptions returns the options field of the matching mount-point line,
+// split on commas. found is false when no line matches or the line is
+// malformed. Rollback uses it to decide whether an entry still carries options
+// a sibling rule added, which is what makes removing the line safe or not.
+func FstabOptions(content, mountPoint string) (opts []string, found bool) {
+	line, ok := FstabFindLine(content, mountPoint)
+	if !ok {
+		return nil, false
+	}
+	f := strings.Fields(line)
+	if len(f) < 4 {
+		return nil, false
+	}
+	return strings.Split(f[3], ","), true
+}
