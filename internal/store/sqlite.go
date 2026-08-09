@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,46 @@ import (
 // FULL so pre-state persistence completes before the engine proceeds.
 type SQLite struct {
 	db *sql.DB
+	// path is the database location as the operator gave it, kept so a
+	// contention error can name the file it is contending for.
+	path string
+}
+
+// storePragmas are carried in the DSN rather than issued after opening.
+//
+// PRAGMAs are per-connection state. Issued through database/sql they bind only
+// to whichever pooled connection happened to run them, so a replacement
+// connection comes up with SQLite's defaults: foreign_keys OFF, so referential
+// integrity stops being enforced, and busy_timeout 0, so a contended write
+// fails instead of waiting. In the DSN the driver applies them in its own
+// connection constructor, which every connection goes through. It also sorts
+// busy_timeout first, so the remaining pragmas inherit the wait.
+//
+// journal_mode is here for completeness; WAL is recorded in the database file
+// and would survive reconnection on its own.
+var storePragmas = []string{
+	"busy_timeout(5000)",
+	"journal_mode(WAL)",
+	"synchronous(FULL)",
+	"foreign_keys(1)",
+}
+
+// dsn appends the store's pragmas to a database path.
+//
+// The driver accepts query parameters on a plain filename as well as on a
+// file: URI, and strips them from the path itself when there is no file:
+// prefix, so this is safe for `/var/lib/kensa/results.db` and `:memory:` alike.
+// A path that already carries parameters keeps them.
+func dsn(path string) string {
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	parts := make([]string, 0, len(storePragmas))
+	for _, p := range storePragmas {
+		parts = append(parts, "_pragma="+url.QueryEscape(p))
+	}
+	return path + sep + strings.Join(parts, "&")
 }
 
 // OpenSQLite opens or creates a SQLite database at path and runs any
@@ -44,7 +85,7 @@ func OpenSQLite(ctx context.Context, path string) (*SQLite, error) {
 			}
 		}
 	}
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)
 	}
@@ -52,20 +93,7 @@ func OpenSQLite(ctx context.Context, path string) (*SQLite, error) {
 	// limit to 1 to avoid SQLITE_BUSY on the embedded WAL.
 	db.SetMaxOpenConns(1)
 
-	pragmas := []string{
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA synchronous = FULL",
-		"PRAGMA foreign_keys = ON",
-		"PRAGMA busy_timeout = 5000",
-	}
-	for _, pragma := range pragmas {
-		if _, err := db.ExecContext(ctx, pragma); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("store: %s: %w", pragma, err)
-		}
-	}
-
-	s := &SQLite{db: db}
+	s := &SQLite{db: db, path: path}
 	if err := s.migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -75,6 +103,35 @@ func OpenSQLite(ctx context.Context, path string) (*SQLite, error) {
 
 // Close releases the underlying database handle.
 func (s *SQLite) Close() error { return s.db.Close() }
+
+// ErrLedgerBusy means the ledger was locked by another client for longer than
+// the busy timeout. It is a contention condition, not corruption: the write did
+// not happen, and retrying against an uncontended ledger will succeed.
+var ErrLedgerBusy = errors.New("store: ledger is busy")
+
+// busy annotates a lock-contention failure with the database it is contending
+// for and the flag that separates clients.
+//
+// Without this the caller reports whichever rule it happened to be working on,
+// so several clients sharing one ledger look like several broken rules. That
+// misdirection was the whole of the reported harm in KN-KN-022: seventeen rules
+// appeared to fail at once and the investigation went to the rule corpus.
+func (s *SQLite) busy(err error) error {
+	if err == nil {
+		return nil
+	}
+	// modernc/sqlite reports the condition in the message rather than as a
+	// typed error, so matching the text is the portable check.
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "database is locked") && !strings.Contains(msg, "sqlite_busy") {
+		return err
+	}
+	return fmt.Errorf(
+		"%w: %s is locked by another kensa client. Give each concurrent client its "+
+			"own ledger with the top-level --db flag, for example "+
+			"`kensa --db /tmp/run-1.db remediate ...`: %w",
+		ErrLedgerBusy, s.path, err)
+}
 
 // migrate applies pending migrations in order. Idempotent
 // (transaction-log spec AC-08).
@@ -117,7 +174,7 @@ func (s *SQLite) currentSchemaVersion(ctx context.Context) (int, error) {
 func (s *SQLite) PersistPreStates(ctx context.Context, txnID uuid.UUID, preStates []api.PreState) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return s.busy(err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -133,10 +190,10 @@ func (s *SQLite) PersistPreStates(ctx context.Context, txnID uuid.UUID, preState
 			txnID.String(), p.StepIndex, p.Mechanism, boolToInt(p.Capturable),
 			string(dataJSON), p.CapturedAt.UTC().Format(time.RFC3339Nano),
 		); err != nil {
-			return fmt.Errorf("store: insert pre-state %d: %w", p.StepIndex, err)
+			return s.busy(fmt.Errorf("store: insert pre-state %d: %w", p.StepIndex, err))
 		}
 	}
-	return tx.Commit()
+	return s.busy(tx.Commit())
 }
 
 // PersistResult writes the terminal transaction record plus its
@@ -165,7 +222,7 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return s.busy(err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -212,7 +269,7 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		envSig,
 		errText,
 	); err != nil {
-		return fmt.Errorf("store: insert transaction: %w", err)
+		return s.busy(fmt.Errorf("store: insert transaction: %w", err))
 	}
 
 	for _, step := range result.Steps {
@@ -239,7 +296,7 @@ func (s *SQLite) PersistResult(ctx context.Context, result *api.TransactionResul
 		}
 	}
 
-	return tx.Commit()
+	return s.busy(tx.Commit())
 }
 
 // PersistRollback records that txnID was deliberately rolled back at
@@ -255,7 +312,7 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return s.busy(err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -265,7 +322,7 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
         UPDATE transactions SET status = 'rolled_back', rolled_back_at = ?
         WHERE id = ?`, ts, txnID.String())
 	if err != nil {
-		return fmt.Errorf("store: mark transaction rolled back: %w", err)
+		return s.busy(fmt.Errorf("store: mark transaction rolled back: %w", err))
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("store: PersistRollback: no transaction with id %s", txnID)
@@ -314,7 +371,7 @@ func (s *SQLite) PersistRollback(ctx context.Context, txnID uuid.UUID, results [
 		}
 	}
 
-	return tx.Commit()
+	return s.busy(tx.Commit())
 }
 
 // LoadPreStates returns the pre-state bundle for txnID, ordered by
