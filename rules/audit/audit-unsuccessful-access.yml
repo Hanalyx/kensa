@@ -41,10 +41,12 @@ implementations:
 - default: true
   check:
     method: audit_rule_exists
-    rule: -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES
-      -k access
+    rule: |
+      -a always,exit -F arch=b32 -S open,openat,open_by_handle_at -F exit=-EACCES -k access
+      -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES -k access
   remediation:
     mechanism: audit_rule_set
-    rule: -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES
-      -k access
+    rule: |
+      -a always,exit -F arch=b32 -S open,openat,open_by_handle_at -F exit=-EACCES -k access
+      -a always,exit -F arch=b64 -S open,openat,open_by_handle_at -F exit=-EACCES -k access
     persist_file: /etc/audit/rules.d/50-access.rules

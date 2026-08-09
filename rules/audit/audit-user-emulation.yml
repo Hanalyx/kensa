@@ -25,8 +25,11 @@ implementations:
     check:
       method: audit_rule_exists
       rule: |
+        -a always,exit -F arch=b32 -C euid!=uid -F auid!=unset -S execve -k user_emulation
         -a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"
+      rule: |
+        -a always,exit -F arch=b32 -C euid!=uid -F auid!=unset -S execve -k user_emulation
+        -a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation
       persist_file: "/etc/audit/rules.d/50-user_emulation.rules"
