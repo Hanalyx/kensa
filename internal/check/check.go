@@ -883,9 +883,29 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		return false, "", err
 	}
 
-	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
+	res, err := transport.Run(ctx, "auditctl -l")
 	if err != nil {
 		return false, "", fmt.Errorf("check audit_rule_exists: transport error: %w", err)
+	}
+	// A non-zero exit means the loaded ruleset could not be READ, which is not
+	// the same as the rule being absent. Reporting "rule line not loaded" here
+	// would state something the check never measured.
+	//
+	// The case that forced this: on RHEL 10 `auditctl` moved out of the `audit`
+	// package into `audit-rules`, which a stock install does not pull in. The
+	// command is then missing, stdout is empty, and every audit rule on the
+	// host reported non-compliant for a reason that had nothing to do with its
+	// audit configuration. `rpm -q audit` still says the package is present,
+	// so the cause is not obvious from the host either.
+	if !res.OK() {
+		detail := strings.TrimSpace(res.Stderr)
+		if detail == "" {
+			detail = fmt.Sprintf("auditctl -l exited %d with no message", res.ExitCode)
+		}
+		return false, "", fmt.Errorf(
+			"%w: cannot read the loaded audit ruleset (%s); on RHEL 10 auditctl "+
+				"ships in the 'audit-rules' package, which a stock install omits",
+			ErrNotAssessable, detail)
 	}
 	loaded := strings.Split(res.Stdout, "\n")
 

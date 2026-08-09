@@ -15,9 +15,16 @@ import (
 // reach a verdict on this host, and that no verdict is the honest answer.
 //
 // The scan maps it to skipped rather than error. Error says something went
-// wrong; nothing has. What it reports is that the operator has not yet supplied
-// something only they can supply, which is a state a compliance run should show
-// plainly and not dress up as a result.
+// wrong; nothing has. What it reports is a state a compliance run should show
+// plainly rather than dress up as a result.
+//
+// Two reasons produce it, and both are "we did not measure this":
+//
+//   - The operator has not yet supplied something only they can supply, such as
+//     the declared set a set_compare needs.
+//   - The host cannot be read for the fact in question, such as an audit check
+//     on a host where auditctl is not installed. Answering "not present" there
+//     would report the absence of the TOOL as the absence of the CONFIGURATION.
 //
 // It exists because a check method had no way to say this. Result carries only
 // Passed, so every path out of a check was pass, fail, or something broke.
