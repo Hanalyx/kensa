@@ -21,7 +21,7 @@ import (
 
 // TestSQLite_ConcurrentHandlesInOneProcess covers the easy shape: several
 // *store.SQLite handles in one process. It passes today and is kept as a guard,
-// not as the regression test. A single handle serialises internally
+// not as the regression test. A single handle serializes internally
 // (SetMaxOpenConns(1)); several handles inside one process still share the
 // driver's in-process lock state, so they queue rather than fail.
 func TestSQLite_ConcurrentHandlesInOneProcess(t *testing.T) {
