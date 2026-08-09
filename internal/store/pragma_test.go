@@ -36,6 +36,8 @@ import (
 // journal_mode is not in that list: WAL is recorded in the database file and
 // survives reconnection on its own.
 func TestOpenSQLite_PragmasSurviveANewConnection(t *testing.T) {
+	t.Run("transaction-log/AC-10", func(t *testing.T) {})
+
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "results.db")
 
@@ -90,6 +92,8 @@ func TestOpenSQLite_PragmasSurviveANewConnection(t *testing.T) {
 // The reported harm was not the failure itself but that it read as a broken
 // rule, so seventeen of them sent the investigation to the rule corpus.
 func TestSQLite_BusyErrorNamesTheLedger(t *testing.T) {
+	t.Run("transaction-log/AC-11", func(t *testing.T) {})
+
 	s := &SQLite{path: "/tmp/results.db"}
 
 	t.Run("passes other errors through untouched", func(t *testing.T) {
