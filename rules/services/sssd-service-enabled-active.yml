@@ -34,6 +34,8 @@ references:
       cci: ["CCI-000765", "CCI-000766", "CCI-004046", "CCI-004047"]
   nist_800_53: ["IA-2(1)", "IA-2(2)"]
   nist_800_171: ["3.5.6[b]"]
+  cmmc_l2:
+    - "IA.L2-3.5.6"
 
 platforms:
   - family: ubuntu

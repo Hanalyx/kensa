@@ -1,0 +1,149 @@
+spec:
+    id: rule-cmmc-l2-derived-refs
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-cmmc-l2-derived-refs
+        description: |
+            CMMC Level 2 practice identifiers on rules, derived from the
+            reviewed NIST SP 800-171 Rev 2 references those rules already
+            carry.
+
+            `cmmc_l2` has been a registered framework in the catalog since
+            the framework labels landed, and no rule has ever declared it.
+            A buyer filtering scan output by CMMC practice sees nothing,
+            even though the mapping work that answers CMMC has been done:
+            CMMC Level 2 keys to 800-171 Rev 2, and 32 CFR 170 names each
+            practice as `<FAMILY>.L2-<requirement>`.
+
+            **This is a renaming, not a crosswalk, and that distinction is
+            the whole justification.** The 800-53 to 800-171 derivation is
+            many-to-many at every hop, which is why it produces candidates
+            that a human must review before anything reaches a customer.
+            The 800-171 to CMMC relationship is not like that: the
+            regulation defines Level 2 as the 110 Rev 2 requirements, one
+            for one. So a practice id can be computed from a reviewed
+            requirement citation without any new judgment, and computing
+            it introduces no new claim.
+
+            What it must never do is manufacture a claim. Two rules follow
+            from that, and both are enforced rather than documented:
+
+            1. Derivation reads ONLY the `nist_800_171` refs a rule
+               already carries, which are reviewed. It never reads the
+               Layer 1 candidate set, which is a review queue and not a
+               mapping.
+            2. Every `cmmc_l2` ref on a rule must equal what derivation
+               produces from that rule's own 800-171 refs. A hand-written
+               or stale practice id is a validation failure, not a
+               difference of opinion.
+
+            **Emitted, not synthesized.** The refs are written into the
+            rule YAML by a committed script rather than computed at load
+            time. A synthesized ref never appears in a reviewable diff,
+            and "only reviewed mappings reach a customer" is the
+            load-bearing rule of this whole feature. Emitting keeps the
+            claim visible in review and in git history.
+
+            **Granularity drops from objective to requirement.** Kensa
+            cites 800-171 at 800-171A assessment-objective granularity,
+            because that is the unit a C3PAO scores. CMMC practices exist
+            only at requirement granularity. So `3.1.7[a]` and `3.1.7[d]`
+            on one rule both produce `AC.L2-3.1.7`, once. Emitting a
+            practice per objective would multiply one claim into several.
+
+            Pinned to Revision 2, because 32 CFR 170.2 keys CMMC to
+            Revision 2. If the eCFR watch reports a move to Revision 3,
+            this derivation changes with it and not before.
+
+    objective:
+        summary: |
+            Give every rule that carries reviewed NIST SP 800-171 Rev 2
+            references the corresponding CMMC Level 2 practice identifiers,
+            derived mechanically and enforced by validation, so that CMMC
+            appears in scan output without any new mapping claim.
+        scope:
+            includes:
+                - A committed generator that emits cmmc_l2 refs into rule YAML
+                - The family prefix map, derived from 32 CFR 170 rather than asserted
+                - A validation invariant tying cmmc_l2 to nist_800_171 on every rule
+            excludes:
+                - CMMC Level 1 and Level 3
+                - Deriving from Layer 1 candidates, which are unreviewed
+                - Revision 3 practice identifiers
+                - Any change to the 800-171 refs themselves
+
+    constraints:
+        - id: C-01
+          description: |
+              A `cmmc_l2` ref MUST be derivable from the `nist_800_171`
+              refs on the same rule. Validation MUST reject a rule whose
+              cmmc_l2 set differs from the derived set, in either
+              direction: an extra practice is an unreviewed claim, and a
+              missing one is a stale emission.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Derivation MUST read only reviewed refs from rule YAML. It
+              MUST NOT read the Layer 1 candidate set, which is a review
+              queue whose rows are hypotheses.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Objective-level 800-171 refs MUST collapse to one practice
+              per requirement. Two objectives of the same requirement on
+              one rule produce one practice id, not two.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              The family prefix for each requirement group MUST come from
+              32 CFR 170, and the mapping MUST be complete and unambiguous
+              for all 14 groups before any ref is emitted.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              A rule carrying reviewed 800-171 refs also carries the
+              derived CMMC practice ids, and they appear in scan output
+              FrameworkRefs under framework id `cmmc_l2`.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Validation rejects a rule whose cmmc_l2 refs do not match
+              the derivation from its own nist_800_171 refs, both when a
+              practice is added by hand and when one is removed.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: |
+              Two assessment objectives of the same requirement on one
+              rule yield exactly one practice identifier.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              The family prefix map covers all 14 requirement groups with
+              exactly one prefix each, and matches 32 CFR 170.
+          references_constraints: [C-04]
+          priority: high
+        - id: AC-05
+          description: |
+              A rule with no 800-171 refs carries no cmmc_l2 refs.
+              Derivation never invents a mapping for an unmapped rule.
+          references_constraints: [C-02]
+          priority: critical
+
+    depends_on:
+        - spec_id: cli-nist-800-171-denominator
+          relationship: requires
+
+    tags: [rule, references, compliance, cmmc, nist-800-171, tier-2]

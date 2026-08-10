@@ -48,6 +48,8 @@ references:
   nist_800_53: ["AC-7(a)"]
   pci_dss_4: ["8.3.4"]
   nist_800_171: ["3.1.8[b]"]
+  cmmc_l2:
+    - "AC.L2-3.1.8"
 
 platforms:
   - family: rhel

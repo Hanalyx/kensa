@@ -24,6 +24,9 @@ references:
   nist_800_53:
   - AC-11
   nist_800_171: ["3.1.10[b]", "3.4.2[b]"]
+  cmmc_l2:
+    - "AC.L2-3.1.10"
+    - "CM.L2-3.4.2"
 platforms:
 - family: rhel
   min_version: 8

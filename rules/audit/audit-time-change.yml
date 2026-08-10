@@ -24,6 +24,9 @@ references:
   # unrelated mount control. Rule keeps its CIS cites + audits as defense-in-depth.
   nist_800_53: ["AU-2", "AU-12"]
   nist_800_171: ["3.3.1[c]", "3.4.3[a]", "3.4.3[d]"]
+  cmmc_l2:
+    - "AU.L2-3.3.1"
+    - "CM.L2-3.4.3"
 
 platforms:
   - family: rhel

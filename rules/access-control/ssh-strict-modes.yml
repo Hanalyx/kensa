@@ -37,6 +37,8 @@ references:
       severity: "CAT II"
   nist_800_53: ["CM-6", "AC-6"]
   nist_800_171: ["3.1.12[c]"]
+  cmmc_l2:
+    - "AC.L2-3.1.12"
 
 platforms:
   - family: rhel

@@ -45,6 +45,8 @@ references:
   - AU-2
   - AU-12
   nist_800_171: ["3.3.6[a]", "3.3.6[b]"]
+  cmmc_l2:
+    - "AU.L2-3.3.6"
 platforms:
 - family: ubuntu
   min_version: 22

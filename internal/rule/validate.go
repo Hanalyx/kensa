@@ -3,10 +3,12 @@ package rule
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/detect"
+	"github.com/Hanalyx/kensa/internal/mappings"
 )
 
 // ValidationError is one schema-constraint violation found by [Validate].
@@ -54,6 +56,11 @@ type ValidateOptions struct {
 //  6. File naming: filename stem must match rule ID (when opts.Filename is set).
 //  7. Category consistency: category must match opts.ExpectedCategory (when set).
 //  8. Capability references: when expressions must name known capabilities (when opts.KnownCapabilities is set).
+//  9. A declared framework reference key carries a value.
+//  10. CMMC Level 2 refs match the derivation from the rule's own 800-171 refs.
+//  11. Remediation params satisfy the mechanism contract.
+//  12. Check params satisfy the check-method contract.
+//  13. Param values are within the engine's accepted domain.
 //
 // Validate returns all violations found, never stopping early, so callers
 // can report every problem at once.
@@ -164,7 +171,7 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 		}
 	}
 
-	// (10) A declared framework key must carry a value. An empty key reads as
+	// (9) A declared framework key must carry a value. An empty key reads as
 	// "this rule is mapped to that framework" everywhere it is consumed, while
 	// contributing nothing: it produces no FrameworkRef, so a coverage query
 	// counts the rule as unmapped while a human reading the YAML counts it as
@@ -177,15 +184,27 @@ func Validate(rule *api.Rule, opts ValidateOptions) []ValidationError {
 		}
 	}
 
-	// (9) Remediation params satisfy the mechanism contract (internal/mechanism).
+	// (10) CMMC Level 2 refs must equal what derivation produces from this
+	// rule's own reviewed 800-171 refs.
+	//
+	// CMMC Level 2 IS the 110 NIST SP 800-171 Rev 2 requirements, one for one,
+	// per 32 CFR 170. So a practice id carries no claim the 800-171 ref did not
+	// already carry, and the only way it can go wrong is by drifting from it:
+	// an extra practice asserts a mapping nobody reviewed, and a missing one
+	// means the emission is stale. Both are caught here rather than trusted to
+	// whoever last edited the file, because these refs are generated and a
+	// generated file invites hand editing.
+	validateCMMCDerivation(rule, add)
+
+	// (11) Remediation params satisfy the mechanism contract (internal/mechanism).
 	validateRemediationParams(rule, add)
 
-	// (10) Check params satisfy the check-method contract (internal/check),
+	// (12) Check params satisfy the check-method contract (internal/check),
 	// closed-world: unknown check params (e.g. an unread 'comparator') are
 	// rejected at load instead of silently ignored at scan time.
 	validateCheckParams(rule, add)
 
-	// (11) Param VALUES are within the engine's accepted domain (separators,
+	// (13) Param VALUES are within the engine's accepted domain (separators,
 	// state enums). Rejects e.g. a config_set separator "\t" at load instead
 	// of at Capture on a live host.
 	validateValueDomains(rule, add)
@@ -292,4 +311,87 @@ func isEmptyRef(v interface{}) bool {
 		return strings.TrimSpace(t) == ""
 	}
 	return false
+}
+
+// validateCMMCDerivation enforces that cmmc_l2 refs are exactly the derivation
+// of the rule's reviewed nist_800_171 refs (spec rule-cmmc-l2-derived-refs
+// C-01). A rule with no 800-171 refs must carry no cmmc_l2 refs at all:
+// derivation never invents a mapping for an unmapped rule.
+func validateCMMCDerivation(rule *api.Rule, add func(field, msg string)) {
+	declared := refStrings(rule.References[mappings.CMMCLevel2Framework])
+	nist := refStrings(rule.References["nist_800_171"])
+	want := mappings.CMMCLevel2Practices(nist)
+
+	if len(declared) == 0 && len(want) == 0 {
+		return
+	}
+	if equalStringSets(declared, want) {
+		return
+	}
+	extra := setDifference(declared, want)
+	missing := setDifference(want, declared)
+	switch {
+	case len(nist) == 0:
+		add("references."+mappings.CMMCLevel2Framework,
+			fmt.Sprintf("declares CMMC practices %v but the rule has no reviewed "+
+				"nist_800_171 references to derive them from", extra))
+	case len(extra) > 0 && len(missing) > 0:
+		add("references."+mappings.CMMCLevel2Framework,
+			fmt.Sprintf("does not match the derivation from nist_800_171: "+
+				"unreviewed %v, missing %v; regenerate with scripts/gen_cmmc_refs.py",
+				extra, missing))
+	case len(extra) > 0:
+		add("references."+mappings.CMMCLevel2Framework,
+			fmt.Sprintf("declares %v, which does not follow from this rule's "+
+				"nist_800_171 references", extra))
+	default:
+		add("references."+mappings.CMMCLevel2Framework,
+			fmt.Sprintf("is missing %v, which its nist_800_171 references imply; "+
+				"regenerate with scripts/gen_cmmc_refs.py", missing))
+	}
+}
+
+// refStrings flattens a reference value into the strings it holds. Framework
+// values are a list, a bare scalar, or absent.
+func refStrings(v interface{}) []string {
+	switch t := v.(type) {
+	case nil:
+		return nil
+	case string:
+		if strings.TrimSpace(t) == "" {
+			return nil
+		}
+		return []string{t}
+	case []string:
+		return t
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, e := range t {
+			if s, ok := e.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+func equalStringSets(a, b []string) bool {
+	return len(setDifference(a, b)) == 0 && len(setDifference(b, a)) == 0
+}
+
+// setDifference returns the members of a that are not in b, sorted.
+func setDifference(a, b []string) []string {
+	in := make(map[string]bool, len(b))
+	for _, s := range b {
+		in[s] = true
+	}
+	var out []string
+	for _, s := range a {
+		if !in[s] {
+			out = append(out, s)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

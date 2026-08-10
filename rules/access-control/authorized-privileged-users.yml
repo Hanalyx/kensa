@@ -26,6 +26,8 @@ tags: [access-control, least-privilege, sudo, privileged-accounts]
 references:
   nist_800_53: ["AC-2", "AC-6", "AC-6(5)"]
   nist_800_171: ["3.1.5[b]"]
+  cmmc_l2:
+    - "AC.L2-3.1.5"
 
 platforms:
   - family: rhel
