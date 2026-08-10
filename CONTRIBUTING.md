@@ -147,28 +147,13 @@ Merge is blocked if this section is missing for a `transactional: true` rule.
 
 ## Commit messages
 
-Hanalyx's git and GitHub conventions are defined once for every product repo, and
-this section states how they apply here. Where the two differ, the shared
-standard wins.
-
 - **Imperative, present tense** in the subject (`fix(check): reject empty stdout`,
   not `fixed` / `fixes`). Keep the first line short; wrap the body.
 - The body explains the **mechanism and the why**, the same standard as code
-  comments (see below): no planning labels, no chronology, no pointers into
-  untracked docs.
+  comments: no planning labels, no chronology, no pointers into untracked docs.
 - Engine, capture, or rollback commits carry the **failure-mode analysis** in the
   body (see above). Reference the PR/issue.
-- **Never attribute a commit to an AI tool or agent.** No `Co-Authored-By:`
-  naming an assistant, no "generated with" footer, no agent name in the author or
-  committer field. Whoever opens the pull request owns the change and answers for
-  it. A `Co-Authored-By:` trailer for a human collaborator is still welcome.
-  Authorship stays transparent through the failure-mode analysis above, which a
-  human writes and signs, rather than through a trailer a tool appends.
-- **No planning labels in a branch name, a commit subject, or an issue title.**
-  `phase`, `wave`, `w8`, `tranche`, and any sprint, milestone, or step code mean
-  nothing to a reader a year from now. Name the change for what it does
-  (`fix/login-rate-limit`, not `fix/phase-4-auth`). Campaign context belongs in
-  the PR body, where it is prose rather than an identifier. A permanent,
+- Name a branch for what the change does (`fix/login-rate-limit`). A permanent,
   resolvable reference is fine: a PR number, an issue number, a CVE.
 
 ## Style
@@ -177,41 +162,11 @@ standard wins.
 - `make spec-sync` before push.
 - Tests are co-located with the source (`foo_test.go` next to `foo.go`) and carry
   `@spec`/`@ac` annotations that the coverage gate ingests.
-
-## Comments
-
-Comments explain the **intent and invariants** of the code, in terms a reader who
-has *only the code* can understand: no design docs, no PR history, no memory of
-the meeting.
-
-**Self-check:** *delete every design doc and forget every meeting. Does this
-comment still teach me why the code is this way?* If not, rewrite it.
-
-Do **not** write:
-
-- **Planning labels**: `Phase 3`, `Option B`, `Stage 2`, `Milestone 1`,
-  `Stream A`, `increment 2`, or task codes like `P-004`. They point into plans a
-  reader can't reach. Write the *mechanism* instead: not "implements Option B"
-  but "stages the change on a one-shot trial entry and leaves the saved default
-  as the fallback." (A `Phase N:` heading naming a step of an *algorithm in this
-  file*, for example the engine's `Phase 2: CAPTURE`, is fine: it describes the code.)
-- **Incident provenance / error codes**: `203/EXEC`, "caught by the reboot test
-  on RHEL 9.6". Write cause→effect: "under SELinux a file below `/var/lib` is
-  `var_lib_t`, which the service domain may not execute."
-- **Chronology**: `approved 2026-05-27`, "so far", "separate increment", "as of
-  this commit". It rots on the next change; it lives in git history and the
-  changelog.
-- **References into untracked docs**: `§7.1b`, `see docs/roadmap/…`. A fresh
-  clone doesn't contain `docs/`, so the pointer can't be followed. Inline the
-  constraint. (Referencing a *tracked* file like `CONTRIBUTING.md` is fine.)
-
-Do write the high-value comment: **why this and not the obvious alternative**,
-e.g. "delete the specific entry file, NOT `grubby --remove-kernel`, which would
-drop every entry for that kernel including the default."
-
-A `make comment-lint` check (and a CI job) enforces the planning-label rule on
-changed code. A comment that genuinely needs an exempt label can carry the
-`planlint:allow` directive.
+- Comments explain why the code is the way it is, in terms a reader who has only
+  the code can follow. `make comment-lint` (CI job **Comment lint**) rejects
+  planning labels such as `Phase 3` or `Option B` in changed Go comments. Write
+  the mechanism instead. A comment that genuinely needs one can carry the
+  `planlint:allow` directive.
 
 ## Documentation
 
@@ -223,10 +178,8 @@ consistency**). Run it after touching any of them or `VERSION`.
   PR**: a new flag, a changed default, a fixed verdict. Use the Keep a Changelog
   categories (Added / Changed / Deprecated / Removed / Fixed / Security). Never
   delete the `## Unreleased` heading; stamp it to `## vX.Y.Z (YYYY-MM-DD)` at
-  release and open a fresh empty one. Kensa uses parentheses rather than a dash
-  here, because the **Doc style** check rejects the em dash; the shared Hanalyx
-  standard leaves the heading format to each project. Headings stamped before
-  2026-07-25 keep the older separator until the CHANGELOG is swept.
+  release and open a fresh empty one. The parentheses are deliberate: the
+  **Doc style** check rejects the em dash.
 - `VERSION` matches the newest stamped CHANGELOG version, and the README states
   the current version. Bump both and refresh the README Status in the release
   PR. Front-door docs carry no stale version string (mark a deliberate historical
@@ -239,9 +192,6 @@ only the Markdown a pull request changes, and it scans those files whole rather
 than line by line, so touching a file means clearing anything already there. Fix
 the prose rather than suppress the finding. Where a term is genuinely unavoidable
 and a maintainer agrees, mark that line with `<!-- doc-style: allow -->`.
-
-The full checklist for AI sessions lives in the tracked `doc-consistency` skill
-(`.claude/skills/`).
 
 ## What gets merged without this discipline
 
