@@ -81,7 +81,7 @@ any pair).
   and the engine records that run as skipped with whatever the check printed as
   the reason. Opt-in: without the param every exit code keeps its meaning.
 
-- **NIST SP 800-171 Rev 2 now appears in scan output as a framework.** 313 rules
+- **NIST SP 800-171 Rev 2 now appears in scan output as a framework.** 324 rules
   carry reviewed references at assessment-objective granularity, `3.1.11[b]`
   rather than `3.1.11`:
 
@@ -187,10 +187,10 @@ any pair).
   applicable" so the host was never checked for local accounts nobody
   authorized. It now runs on RHEL 8 and later and on Ubuntu 22.04 and later.
 
-- **Six remediation mechanisms could cut the SSH control channel without arming
-  the dead man timer**, leaving 124 rules unprotected: `crypto_policy_set`,
-  `crypto_policy_subpolicy_set`, `apt_absent`, `authselect_feature_enable` and
-  `pam_module_arg`.
+- **Five remediation mechanisms could cut the SSH control channel without arming
+  the dead man timer**, leaving the 52 rules that use them unprotected:
+  `crypto_policy_set`, `crypto_policy_subpolicy`, `apt_absent`,
+  `authselect_feature_enable` and `pam_module_arg`.
   Setting a host to FIPS regenerates the SSH daemon's accepted key algorithms
   without ed25519, which locks out an operator using a modern default key.
 
