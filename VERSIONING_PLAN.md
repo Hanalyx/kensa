@@ -276,8 +276,15 @@ git checkout main && git pull --ff-only
 git tag -a "v0.2.0" -m "Release v0.2.0 — Sentinel"
 git push origin "v0.2.0"
 gh release create v0.2.0 --title "v0.2.0 — Sentinel" \
-    --notes-file <(awk '/^## v0.2.0/,/^## v[0-9]/' CHANGELOG.md | sed '$d')
+    --notes-file <(sed -n '/^## v0.2.0/,/^## v[0-9]/p' CHANGELOG.md | sed '$d')
 ```
+
+Use `sed` for the range, not `awk`. An awk range whose end pattern also
+matches its start line opens and closes on that one line, so
+`awk '/^## v0.2.0/,/^## v[0-9]/'` emits only the heading and the trailing
+`sed '$d'` then deletes it. The result is an empty notes file and a release
+page with no body, published without an error. A `sed` range never
+terminates on its start line. Check the output is not empty before tagging.
 
 The 0.x line ships source-only. OpenWatch and other Go consumers
 import the `api/` package via `go get github.com/Hanalyx/kensa@v0.x.y`
