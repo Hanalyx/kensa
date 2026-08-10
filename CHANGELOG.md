@@ -174,16 +174,6 @@ any pair).
   `deny=[1-3]`, which could not express an operator-declared bound. `root-umask`
   gained the same treatment for its per-digit comparison.
 
-- **A check can report that it cannot reach a verdict, and the scan records that
-  as skipped.** Previously every path out of a check was pass, fail, or an
-  error.
-
-- **CI is cheaper per merge and unchanged as a gate.** The post-merge push run
-  is now a two-job canary rather than a second full suite, superseded runs on a
-  pull request are canceled, and the vulnerability scan and release snapshot
-  moved to a daily schedule. All nine required checks still run on every pull
-  request.
-
 ### Removed
 - **`shell-timeout-600` and `shell-idle-timeout-tmout` are merged into
   `shell-timeout`.** They were one control split by framework and by operating
