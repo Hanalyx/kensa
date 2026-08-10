@@ -21,7 +21,7 @@ var ErrRecoverLocked = errors.New("store: recover lock held by another process")
 // live remediate/rollback holds it SHARED for the duration of a mutation — the
 // engine takes it via engine.WithRecoverLock, wired by the pkg/kensa Default*
 // constructors — so an exclusive recover fails fast (ErrRecoverLocked) instead
-// of racing an in-flight transaction. Both sides are wired (security.md #14).
+// of racing an in-flight transaction. Both sides are wired.
 //
 // flock is advisory and per-open-file-description, released automatically if
 // the holding process dies (so a crash never leaves a permanent lock).

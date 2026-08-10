@@ -17,16 +17,15 @@
 //
 // # Validator
 //
-// [Validate] checks a parsed [api.Rule] against the V1 schema constraints
-// from docs/CANONICAL_RULE_SCHEMA_V1.md §6.2. Errors are returned as a
+// [Validate] checks a parsed [api.Rule] against the V1 schema constraints.
+// Errors are returned as a
 // slice of [ValidationError] values rather than a single error so callers
 // can report all problems at once.
 //
 // # Linter
 //
-// [Lint] applies the effective-vs-static heuristics described in
-// docs/KENSA_GO_DAY1_PLAN.md §7.5. Linter findings are advisory: they are
-// [LintWarning] values, not errors.
+// [Lint] applies the effective-vs-static heuristics. Linter findings are
+// advisory: they are [LintWarning] values, not errors.
 package rule
 
 import (

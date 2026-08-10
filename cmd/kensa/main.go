@@ -87,14 +87,13 @@ func main() {
 // returns the process exit code. Extracting this from main lets tests
 // drive the parser end-to-end without spawning subprocesses.
 //
-// Exit code contract (deliverable C-001 in docs/roadmap/DELIVERABLES.md):
+// Exit code contract:
 //
 //	0  success, or --help / --version (informational request honored)
 //	1  runtime error (subcommand failed, transport error, etc.)
 //	2  usage error (bad flag, unknown subcommand, missing required arg)
 //
-// This contract follows GNU/POSIX convention. Documented in the manpage
-// (forthcoming) and in `docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md` §2.
+// This contract follows GNU/POSIX convention.
 func runCLI(argv []string) int {
 	// Backward-compat shim: stdlib `flag` accepted single-dash long forms
 	// like `-db /path`, but pflag (GNU/POSIX strict) treats that as `-d -b`.
@@ -530,8 +529,7 @@ Exit codes:
 
 // runDetect connects to a host and prints its capability set.
 //
-// Flag style follows the GNU/POSIX-strict short-letter table per
-// docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §4. Short forms:
+// Flag style follows the GNU/POSIX-strict short-letter table. Short forms:
 //
 //	-H, --host       target hostname (capital H — `-h` is reserved for --help)
 //	-u, --user       SSH username
@@ -677,8 +675,7 @@ Examples:
 
 // runCheck loads rule files and runs read-only compliance checks.
 //
-// Flag style: GNU/POSIX-strict per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
-// §4.2 short-letter table:
+// Flag style: GNU/POSIX-strict short-letter table:
 //
 //	-H, --host          target hostname
 //	-u, --user          SSH username
@@ -2362,9 +2359,8 @@ func runMechanisms(name string, args []string) error {
 // backward compatibility; the canonical GNU/POSIX form is `kensa
 // --version`. Honors `--help`/`-h` for parity with other subcommands.
 //
-// Planned removal: v0.2 (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
-// §5.12). After removal, only the top-level `--version` flag will print
-// the version string.
+// Planned removal: v0.2. After removal, only the top-level `--version`
+// flag will print the version string.
 func runVersion(args []string) error {
 	fs := pflag.NewFlagSet("version", pflag.ContinueOnError)
 	fs.SortFlags = false

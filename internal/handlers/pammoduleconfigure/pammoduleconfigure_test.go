@@ -107,7 +107,7 @@ func TestApply_RejectsControlCharValue(t *testing.T) {
 	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	// A newline in args injects a second PAM directive into the auth stack
-	// (security.md #13, sibling of pam_module_arg); reject at decode, host untouched.
+	// (the same class as pam_module_arg); reject at decode, host untouched.
 	_, err := pammoduleconfigure.New().Apply(context.Background(), tp, api.Params{
 		"service": "sshd", "type": "auth", "control": "required",
 		"module": "pam_faillock.so", "args": "preauth\nauth requisite pam_deny.so",

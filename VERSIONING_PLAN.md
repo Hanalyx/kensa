@@ -10,7 +10,7 @@
 
 Kensa uses **Semantic Versioning 2.0.0** (SemVer) with a single source of
 truth (`VERSION` file) and codenames for major releases. The `api/` package
-is held to a stricter contract — it is the public Go API consumed by
+is held to a stricter contract: it is the public Go API consumed by
 OpenWatch and is frozen under v1 semver discipline independent of the
 binary version (see [API Versioning](#api-versioning)).
 
@@ -26,13 +26,13 @@ MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 
 **Examples**:
 
-- `0.1.0` — Initial development release
-- `0.2.0` — New features added
-- `0.2.1` — Bug fix
-- `1.0.0-alpha.1` — First alpha of production release
-- `1.0.0-beta.2` — Second beta
-- `1.0.0-rc.1` — Release candidate
-- `1.0.0` — Production release
+- `0.1.0`: Initial development release
+- `0.2.0`: New features added
+- `0.2.1`: Bug fix
+- `1.0.0-alpha.1`: First alpha of production release
+- `1.0.0-beta.2`: Second beta
+- `1.0.0-rc.1`: Release candidate
+- `1.0.0`: Production release
 
 ### Version Components
 
@@ -45,9 +45,9 @@ MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 | **BUILD**      | Build metadata         | Optional: build date, commit SHA, CI build number (injected via `-ldflags`)                        |
 
 **Atomicity-contract changes are always MAJOR.** A change to the
-`Capture → Apply → Validate → Commit/Rollback` semantics — including a
-change to which handler is `Capturable: true`, a change to what `PreState`
-records, or a change to evidence-envelope shape — is a breaking change
+`Capture → Apply → Validate → Commit/Rollback` semantics is a breaking
+change. That includes a change to which handler is `Capturable: true`, a
+change to what `PreState` records, and a change to evidence-envelope shape,
 even if no Go signature moves.
 
 ---
@@ -71,7 +71,7 @@ Kensa's role as the compliance and atomicity guardian of a Linux fleet.
 
 | Version | Codename     | Theme                                | Status        |
 | ------- | ------------ | ------------------------------------ | ------------- |
-| 0.x.x   | **Sentinel** | The watchful guardian — dev cycle    | Current       |
+| 0.x.x   | **Sentinel** | The watchful guardian, dev cycle     | Current       |
 | 1.0.0   | TBD          | -                                    | Planned       |
 | 2.0.0   | TBD          | -                                    | Future        |
 
@@ -204,7 +204,7 @@ build:
 
 ## Version Lifecycle
 
-### Development Phase (0.x.x) — Sentinel
+### Development Phase (0.x.x): Sentinel
 
 Current phase. Indicates:
 
@@ -321,7 +321,7 @@ Callers must read per-step detail from TransactionResult.Steps[i].Detail.
 Atomicity-contract-affecting changes (engine, capture, rollback, or any
 handler's `Capturable: true` claim) require human-authored failure-mode
 analysis in the commit body per `CONTRIBUTING.md`. The commit type
-alone does not determine the version bump — a `fix:` commit that
+alone does not determine the version bump. A `fix:` commit that
 narrows the atomicity contract is still a MAJOR bump.
 
 ### Hotfix Process
@@ -359,7 +359,7 @@ layer. It is held to a stricter discipline than the binary version:
 | Module path                           | `github.com/Hanalyx/kensa/api`                                         |
 | Stability commitment                  | Frozen at v1 semver from kensa 0.1.0 onward                            |
 | Breaking change → kensa version bump  | Always MAJOR (kensa 1.0.0+ for any `api/` removal or signature change) |
-| Additive change                       | MINOR — new fields with zero-value-safe defaults, new types, new methods |
+| Additive change                       | MINOR: new fields with zero-value-safe defaults, new types, new methods |
 | Internal packages (`internal/*`)      | No stability commitment; refactor freely                               |
 
 OpenWatch pins to a kensa minor line and follows the kensa CHANGELOG for
@@ -462,7 +462,7 @@ commitment, not negotiable per-release.
 - **`api/` package**: any signature change, type removal, or behavior
   change visible to OpenWatch
 - **Rule schema**: any new required field, removed field, or changed
-  field semantics in CANONICAL_RULE_SCHEMA
+  field semantics
 - **Evidence envelope**: any change to signed fields or signature
   algorithm
 - **CLI flag removal**: removing a flag, changing a flag's type, or
@@ -517,8 +517,8 @@ Operators can suppress deprecation warnings with
 - [Semantic Versioning 2.0.0](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
-- `docs/guide/` — operator guide (atomicity contract, rule schema, CLI reference)
-- `CHANGELOG.md` — per-release notes
+- `docs/guide/`: operator guide (atomicity contract, rule schema, CLI reference)
+- `CHANGELOG.md`: per-release notes
 
 ---
 

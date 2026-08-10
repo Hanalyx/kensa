@@ -32,8 +32,6 @@
 // behavior the design promises (suspend resistance, clock-
 // jump immunity, SSH-kill response time). They're the
 // final integration gate before the deadman timer ships.
-//
-// Spec: docs/roadmap/PHASE-3-BREAKDOWN.md D-006.
 
 package main
 

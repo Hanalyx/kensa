@@ -29,8 +29,8 @@ import (
 //	StatusPartiallyApplied   was not met
 //	(any other)            → FAIL (✗)
 //
-// Severity badges come from rule.Severity (canonical values per
-// CANONICAL_RULE_SCHEMA_V0.md §3.3: critical / high / medium / low).
+// Severity badges come from rule.Severity (canonical values:
+// critical / high / medium / low).
 // Rendered as 4-char fixed-width tokens (HIGH, MED, LOW) so columns
 // align without wrapping.
 

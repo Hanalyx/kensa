@@ -15,13 +15,10 @@ spec:
             "actual handlers run via the wire protocol"
             (L-014 onwards).
 
-            **Architecture** (per docs/roadmap/L-014-DESIGN.md):
-              - Option A (env var + WithAgentClient option)
-              - Option L1 (full local-syscall Transport)
-              - Option D2 (new internal/agent/server/ package)
-
-            All three were founder-ratified 2026-05-11
-            after L-013 shipped.
+            **Architecture**: the agent selects its transport from an
+            environment variable, runs handlers over a local-syscall
+            transport on the target, and serves the wire protocol from
+            internal/agent/server/.
 
             **What ships:**
 
@@ -108,8 +105,7 @@ spec:
               per host per session.
             - Auto-rollback via direct-SSH fallback on
               agent crash.
-            - cgroups sandboxing (Stretch B in
-              LOW_LEVEL_MIGRATION_V1.md).
+            - cgroups sandboxing.
 
     objective:
         summary: |

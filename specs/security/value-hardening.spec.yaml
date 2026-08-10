@@ -8,9 +8,9 @@ spec:
         system: kensa
         feature: security-value-hardening
         description: |
-            Rule YAML and every --var tier are root-trusted input
-            (docs/test_docs/security.md limit #3). Limit #13 found that rule/
-            variable VALUES reached root-run writes with incomplete hardening:
+            Rule YAML and every --var tier are root-trusted input. A security
+            review found that rule and variable VALUES reached root-run writes
+            with incomplete hardening:
             (a) grub_parameter_set spliced the parameter value into a root-run
             sed / grubby edit with no charset check, so a regex/sed-special
             value corrupted the edit; (b) config-line-writing handlers spliced

@@ -12,12 +12,10 @@ spec:
             and supplies that mechanism's parameters as YAML keys. The handler
             that executes the mechanism reads those keys by exact name. Until
             now nothing bound the three representations of that param contract
-            — the schema doc (CANONICAL_RULE_SCHEMA_V1.md §3.5.4), the rule
-            corpus, and the handler source — so they drifted: the 2026-06-09
-            end-to-end test (docs/test_docs/E2E_LIVE_TEST_2026-06-09.md, F1)
-            found 201 rules that fail at Capture because the handler reads a
-            different key (e.g. config_set reads "file" while the schema and
-            corpus use "path").
+            — the rule schema, the rule corpus, and the handler source — so
+            they drifted: end-to-end testing found 201 rules that fail at
+            Capture because the handler reads a different key (e.g. config_set
+            reads "file" while the schema and corpus use "path").
 
             internal/mechanism is the single source of truth for the per-
             mechanism param contract. This spec defines the two gates that

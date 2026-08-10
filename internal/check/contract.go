@@ -3,10 +3,10 @@
 //
 // Every entry is derived by reading the param accesses in the corresponding
 // check function in check.go (stringParam/optionalStringParam/
-// stringSliceParam/boolParam + direct params[...] reads), NOT from
-// CANONICAL_RULE_SCHEMA_V1.md — the schema §3.5.3 table is stale and
-// contradicts the implementation (it lists methods that don't exist and omits
-// real ones). The schema doc is regenerated FROM this map, not the reverse.
+// stringSliceParam/boolParam + direct params[...] reads), NOT from the rule
+// schema, whose check-method table is stale and contradicts the implementation
+// (it lists methods that don't exist and omits real ones). The schema is
+// regenerated FROM this map, not the reverse.
 //
 // Verified code semantics this contract encodes faithfully (do not "fix" them
 // here — they are how the engine behaves today):

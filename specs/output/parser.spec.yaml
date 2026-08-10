@@ -98,8 +98,7 @@ spec:
         - id: C-07
           description: |
               "format:-" MUST be normalized to a stdout Spec (Path="").
-              The Unix dash convention for stdin/stdout (cited as sacred
-              in CLI_GNU_POSIX_MIGRATION_V1.md §2) means an operator who
+              The Unix dash convention for stdin/stdout means an operator who
               types "--output json:-" expects stdout, not a file named
               "-" in cwd. Normalizing at parse time prevents the silent
               footgun of os.Create("-").

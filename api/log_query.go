@@ -8,13 +8,11 @@ import (
 )
 
 // LogQuery is the read-side interface over the persisted transaction log.
-// It is the foundation of OpenWatch's Eye identity (see
-// docs/OPENWATCH_VISION.md §3.1): every transaction Kensa has executed
-// is queryable here, with pre-state, apply detail, validation results,
-// commit/rollback decision, and the signed evidence envelope.
+// It is the foundation of OpenWatch's Eye identity: every transaction Kensa
+// has executed is queryable here, with pre-state, apply detail, validation
+// results, commit/rollback decision, and the signed evidence envelope.
 //
-// The implementation lives in internal/store and lands in Week 22 per
-// docs/KENSA_GO_DAY1_PLAN.md §11.5. The interface is stable from
+// The implementation lives in internal/store. The interface is stable from
 // commit 1.
 type LogQuery interface {
 	// Query returns transactions matching filter, paginated by page.

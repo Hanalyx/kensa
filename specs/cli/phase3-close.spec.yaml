@@ -11,9 +11,8 @@ spec:
             CLI Phase 3 deliverable C-038. Closing deliverable
             for Phase 3: groups each SSH-using subcommand's
             --help output into Target / Rule / Output / General
-            sections per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
-            §3.2-3.5, and adds cli-smoke.sh assertions covering
-            every flag introduced in C-024..C-037.
+            sections, and adds cli-smoke.sh assertions covering
+            every flag the phase introduced.
 
             The grouping is a presentation-only concern: each
             subcommand still parses against a single FlagSet;

@@ -131,7 +131,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	}
 
 	// module and arg are written into a PAM config line; a newline in either
-	// injects extra PAM directives (security.md #13 class).
+	// injects extra PAM directives.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"pam_module_arg module": module, "pam_module_arg arg": arg,
 	}); err != nil {

@@ -3,8 +3,7 @@
 // for runCoverage, runVersion, and the print*Usage helpers via runCLI
 // so we get coverage of the help-render paths.
 //
-// Deliverable C-009 in docs/roadmap/DELIVERABLES.md. Goal: push
-// cmd/kensa/ coverage to ≥90%. The runDetect/runCheck/runRemediate
+// Goal: push cmd/kensa/ coverage to ≥90%. The runDetect/runCheck/runRemediate
 // /runRollback/runHistory/runPlan happy-path arms remain at flag-parse
 // coverage only — getting 90% on those would require a full mock SSH
 // transport which is out of C-009 scope (kensa-fuzz already has live-

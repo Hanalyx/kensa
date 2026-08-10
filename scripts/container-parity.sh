@@ -15,7 +15,7 @@
 # This is the QUICK tier. It cannot exercise sysctl, kernel modules, mount
 # options, SELinux booleans, audit rules, systemd unit state, the bootloader, or
 # dconf, because none of those are namespaced or present in a container. Those
-# need a live host. See CLAUDE.md, "Testing tiers".
+# need a live host.
 #
 # Usage:
 #   scripts/container-parity.sh                      # full corpus, EL 9

@@ -40,8 +40,8 @@ func existingMode(path string) os.FileMode {
 
 // Params is the decoded parameter struct for cron_job.
 //
-// Input key naming follows CANONICAL_RULE_SCHEMA_V1.md §3.5.4: the
-// schema/corpus contract is {schedule, command, user} required, plus
+// Input key naming follows the mechanism param contract
+// (internal/mechanism): {schedule, command, user} required, plus
 // {name, file} optional. Neither "name" nor "file" is required — when
 // both are absent the handler derives a stable, rollback-identifiable
 // cron file name (see deriveName) so Apply/Capture/Rollback still
@@ -72,8 +72,8 @@ var (
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// Input keys follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4: {schedule,
-// command, user} are required; {name, file} are optional. "file" is a
+// Input keys follow the mechanism param contract (internal/mechanism):
+// {schedule, command, user} are required; {name, file} are optional. "file" is a
 // full path (e.g. "/etc/cron.d/aide"); "name" is a basename under
 // /etc/cron.d/. When both are absent a stable name is derived so the
 // written file is deterministic and rollback-identifiable.
@@ -112,7 +112,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	}
 
 	// schedule/user/command are written into a "schedule user command" cron
-	// line; a newline in any injects extra cron entries (security.md #13 class).
+	// line; a newline in any injects extra cron entries.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"cron_job schedule": schedule, "cron_job user": user, "cron_job command": command,
 	}); err != nil {

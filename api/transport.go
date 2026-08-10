@@ -18,8 +18,7 @@ import (
 //
 // The primary implementation (internal/transport/ssh) wraps the system
 // OpenSSH client with ControlMaster multiplexing. Reasons for using the
-// system binary rather than a Go SSH library are enumerated in
-// docs/KENSA_GO_DAY1_PLAN.md §1.3 and §6.1: FIPS via RHEL's certified
+// system binary rather than a Go SSH library: FIPS via RHEL's certified
 // OpenSSH, ~/.ssh/config support, system crypto-policy compliance, and
 // a smaller supply chain.
 //

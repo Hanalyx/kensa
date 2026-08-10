@@ -64,8 +64,9 @@ var (
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// The input parameter names follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4:
-// the mount-option set is carried under the key "options". The corpus
+// The input parameter names follow the mechanism param contract
+// (internal/mechanism): the mount-option set is carried under the key
+// "options". The corpus
 // expresses it as a YAML list (e.g. ["nodev", "nosuid"]) which the rule
 // parser delivers as []interface{}; a plain comma-separated string is
 // also accepted. Either form is normalised to a single comma-separated
@@ -85,7 +86,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	joined := strings.Join(opts, ",")
 	// The option string is appended to field 4 of the matching /etc/fstab line;
 	// a newline in an option (splitCSV splits only on ',') injects an entire new
-	// fstab entry — an attacker-chosen mount (security.md #13 class). The mount
+	// fstab entry — an attacker-chosen mount. The mount
 	// point selects the line; guard both.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"mount_option_set mount_point": mp, "mount_option_set options": joined,
@@ -96,8 +97,8 @@ func decodeParams(p api.Params) (*Params, error) {
 }
 
 // optionList normalises the "options" parameter into a slice of option
-// tokens. It accepts a YAML list ([]interface{} / []string) per
-// CANONICAL_RULE_SCHEMA_V1.md §3.5.4, or a comma-separated string.
+// tokens. It accepts a YAML list ([]interface{} / []string), or a
+// comma-separated string.
 // Empty tokens are dropped. Returns an error if any list element is not
 // a string.
 func optionList(v interface{}) ([]string, error) {

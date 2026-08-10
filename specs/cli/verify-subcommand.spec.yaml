@@ -47,13 +47,12 @@ spec:
                real (ephemeral) signer rather than an
                empty-signature placeholder.
 
-            5. Documentation updates:
-               docs/test_docs/security.md Critical Limit
-               #1 ("Evidence envelopes are unsigned")
-               removed. docs/KENSA_API_DOC.md
-               noopSigner placeholder notes scrubbed.
-               cmd/kensa/scan_persist.go comment about
-               noopSigner updated.
+            5. Documentation updates: the disclaimer
+               that evidence envelopes are unsigned is
+               removed everywhere it appears, and the
+               noopSigner placeholder notes are scrubbed,
+               including the cmd/kensa/scan_persist.go
+               comment.
 
             **Trust-directory model.** The verifier
             looks up public keys by key_id (the
@@ -84,7 +83,7 @@ spec:
                 - "pkg/kensa.Default() reads KENSA_SIGNING_KEY env var"
                 - "Delete noopSigner from internal/engine/stubs.go"
                 - "Change engine.New() default signer to evidence.Generate()"
-                - "Documentation updates: security.md Critical Limit #1, KENSA_API_DOC.md, scan_persist.go comments"
+                - "Documentation updates: remove the unsigned-envelope disclaimer and the noopSigner notes, including scan_persist.go comments"
                 - "CHANGELOG entry under v1.1 Unreleased / Added"
             excludes:
                 - "Multi-key trust dir (rotation history): default loader handles a SINGLE active key per .pub file. Multi-key support (key_history) is a v1.2 deliverable."
@@ -150,12 +149,11 @@ spec:
           enforcement: error
         - id: C-06
           description: |
-              docs/test_docs/security.md Critical Limit
-              #1 ("Evidence envelopes are unsigned")
-              MUST be removed. docs/KENSA_API_DOC.md
-              noopSigner placeholder notes scrubbed.
-              These docs were a v1.0 disclaimer that no
-              longer holds with the signer wired through.
+              Every statement that evidence envelopes are
+              unsigned MUST be removed, and the noopSigner
+              placeholder notes scrubbed. They were a v1.0
+              disclaimer that no longer holds with the
+              signer wired through.
           type: business
           enforcement: error
         - id: C-07
@@ -235,10 +233,9 @@ spec:
           priority: critical
         - id: AC-08
           description: |
-              docs/test_docs/security.md Critical Limit
-              #1 absent post-merge; KENSA_API_DOC.md
-              noopSigner placeholder notes absent.
-              Verified during the C-060 merge workflow.
+              No statement that evidence envelopes are
+              unsigned survives the merge, and no
+              noopSigner placeholder note remains.
           references_constraints: [C-06]
           priority: medium
 

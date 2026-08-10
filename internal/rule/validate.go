@@ -43,8 +43,7 @@ type ValidateOptions struct {
 	KnownCapabilities map[string]struct{}
 }
 
-// Validate checks rule against the V1 schema constraints from
-// docs/CANONICAL_RULE_SCHEMA_V1.md §6.2.
+// Validate checks rule against the V1 schema constraints.
 //
 // Constraints checked:
 //
@@ -279,8 +278,7 @@ func collectCapabilityRefs(when interface{}) []string {
 }
 
 // KnownCapabilities is the canonical set of capability names defined in the
-// V1 schema (from docs/CANONICAL_RULE_SCHEMA_V0.md §4, carried forward to V1).
-// Callers may pass this to [ValidateOptions.KnownCapabilities] to enable
+// V1 schema. Callers may pass this to [ValidateOptions.KnownCapabilities] to enable
 // capability-reference checking.
 // KnownCapabilities is the set of capability names a rule may gate on. It is
 // DERIVED from the probe list in internal/detect rather than maintained by hand.

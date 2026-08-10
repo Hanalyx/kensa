@@ -50,8 +50,9 @@ var (
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// Input parameter keys follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4:
-// "service", "module", "type", "control" (required) and "args" (optional).
+// Input parameter keys follow the mechanism param contract
+// (internal/mechanism): "service", "module", "type", "control" (required)
+// and "args" (optional).
 // The internal Params field names and pre.Data map keys are left unchanged
 // so the capture/rollback round-trip stays byte-identical.
 func decodeParams(p api.Params) (*Params, error) {
@@ -77,8 +78,8 @@ func decodeParams(p api.Params) (*Params, error) {
 	options, _ := p["args"].(string)
 	// service/type/control/module/args are spliced into a PAM directive line
 	// written to /etc/pam.d/<service> (sed/echo); a newline in any injects an
-	// extra PAM directive into the auth stack (security.md #13 class — sibling
-	// of pam_module_arg).
+	// extra PAM directive into the auth stack (the same class as
+	// pam_module_arg).
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"pam_module_configure service": service, "pam_module_configure type": modType,
 		"pam_module_configure control": control, "pam_module_configure module": module,

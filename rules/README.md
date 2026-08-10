@@ -31,9 +31,8 @@ loader walks recursively so the layout is for humans, not the engine:
 
 ## Schema
 
-Every rule conforms to the contract in `docs/CANONICAL_RULE_SCHEMA_V1.md`
-(`docs/` is local-only; the schema is enforced by the loader at
-`internal/rule/`). Validate the whole corpus with:
+Every rule conforms to the V1 rule schema, which the loader at
+`internal/rule/` enforces. Validate the whole corpus with:
 
 ```bash
 make build

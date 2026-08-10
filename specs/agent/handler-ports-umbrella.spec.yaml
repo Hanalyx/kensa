@@ -38,7 +38,7 @@ spec:
 
             **Per-handler deliverables**
             (L-015..L-032 numbering preserved for audit-trail
-            traceability from DELIVERABLES.md):
+            traceability):
 
               L-015 file_content              (file)
               L-016 fileabsent                (file)
@@ -93,7 +93,6 @@ spec:
         scope:
             includes:
                 - "internal/agent/server/handler_ports_test.go: 18 per-handler tests"
-                - "Update DELIVERABLES.md: L-015..L-032 status from `blocked` to `done` (mechanical batch closure)"
             excludes:
                 - "Handler code edits: ZERO handler-side changes per audit (Option L1 drop-in works)"
                 - "Live-host validation for L-022..L-032 system-state handlers: L-014c"

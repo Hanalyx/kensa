@@ -96,7 +96,7 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, errMissingLine
 	}
 	// The line is appended verbatim; an embedded newline makes it multiple
-	// lines — line injection (security.md #13 class). config_append is a
+	// lines — line injection. config_append is a
 	// single-line primitive, so reject control characters.
 	if err := valueguard.NoControlChars("config_append line", line); err != nil {
 		return nil, err

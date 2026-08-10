@@ -1,7 +1,6 @@
 // Package filepermissions implements the file_permissions handler:
 // set owner, group, mode, and (optionally) SELinux context on a file
-// or directory. First capturable handler shipped per
-// docs/KENSA_GO_DAY1_PLAN.md §5.4.
+// or directory. The first capturable handler Kensa shipped.
 //
 // Spec: handler-file-permissions
 // (specs/handlers/file_permissions.spec.yaml).

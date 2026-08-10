@@ -56,8 +56,8 @@ var errMissingName = errors.New("kernel_module_disable: params missing required 
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// The input key is "name" per CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (the
-// corpus and internal/mechanism.Contracts agree on "name"). The internal
+// The input key is "name": the corpus and internal/mechanism.Contracts
+// agree on it. The internal
 // Params.Module field and the pre.Data["module"] key are unchanged so the
 // capture/rollback round-trip stays byte-identical.
 func decodeParams(p api.Params) (*Params, error) {
@@ -69,7 +69,7 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, errMissingName
 	}
 	// The module name is written into blacklist/install lines in the
-	// modprobe.d drop-in; a newline injects extra directives (security.md #13b).
+	// modprobe.d drop-in; a newline injects extra directives.
 	if err := valueguard.NoControlChars("kernel_module_disable module", v); err != nil {
 		return nil, err
 	}

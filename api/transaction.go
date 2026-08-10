@@ -118,7 +118,7 @@ type Transaction struct {
 	Deadline time.Time
 	// Transactional declares whether this transaction can offer the
 	// atomicity guarantee. The value comes from the rule YAML's
-	// `transactional` field per docs/CANONICAL_RULE_SCHEMA_V1.md §3.2.
+	// `transactional` field.
 	// Pre-flight rejects a transaction where Transactional is true but
 	// any [Step] uses a non-capturable mechanism.
 	Transactional bool

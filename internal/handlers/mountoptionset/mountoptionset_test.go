@@ -137,7 +137,7 @@ func TestApply_RejectsControlCharValue(t *testing.T) {
 	t.Run("security-value-hardening/AC-02", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	// A newline in an option injects an entire new /etc/fstab entry — an
-	// attacker-chosen mount (security.md #13); reject at decode, host untouched.
+	// attacker-chosen mount; reject at decode, host untouched.
 	_, err := mountoptionset.New().Apply(context.Background(), tp, api.Params{
 		"mount_point": "/tmp",
 		"options":     []interface{}{"nodev\nUUID=x /mnt ext4 defaults 0 0"},

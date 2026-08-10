@@ -36,8 +36,8 @@ spec:
             carries no way to tell them apart, so the distinction has to be
             declared and enforced.
 
-            This spec applies the pattern CANONICAL_RULE_SCHEMA_V1 §3.2 already
-            uses for `transactional`: the author declares intent, the engine
+            This spec applies the pattern the rule schema already uses for
+            `transactional`: the author declares intent, the engine
             derives the same fact independently from a different source, and
             divergence is a hard error.
 

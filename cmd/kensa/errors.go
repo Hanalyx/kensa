@@ -16,8 +16,6 @@
 // or construct &UsageError{...} directly. Don't mix usage and runtime
 // signals in a single error — if a single subcommand path can fail
 // either way, return the right type for the actual cause.
-//
-// Deliverable C-008 in docs/roadmap/DELIVERABLES.md.
 package main
 
 import "errors"

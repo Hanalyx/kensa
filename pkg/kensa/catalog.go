@@ -21,9 +21,9 @@ import (
 //     api.Rule already carries.
 //
 // These types live on pkg/kensa (public-but-not-frozen), not api/, deliberately:
-// the read model is a derivation that will grow, and api/ is frozen. Per the
-// Kensa/OpenWatch boundary (docs/KENSA_OPENWATCH_BOUNDARY.md §3.3) it carries
-// only FACTS Kensa can derive — it intentionally does NOT carry a remediation
+// the read model is a derivation that will grow, and api/ is frozen. It
+// carries only FACTS Kensa can derive — it intentionally does NOT carry a
+// remediation
 // risk level (that is operator policy, computed by the consumer) or a blanket
 // RequiresReboot boolean (not derivable for the change-specific cases; see
 // RebootBehavior).
@@ -195,8 +195,7 @@ type RemediationSummary struct {
 	// flag, enabling SELinux from disabled) using mechanisms that hundreds of
 	// non-reboot rules also use. Deriving reboot from mechanism there would be
 	// a dangerous false-negative; a complete signal needs an authored
-	// `requires_reboot:` rule-schema field (deferred). See
-	// docs/KENSA_OPENWATCH_BOUNDARY.md §3.3.
+	// `requires_reboot:` rule-schema field (deferred).
 	RebootBehavior string
 }
 

@@ -10,9 +10,8 @@ import (
 	"github.com/Hanalyx/kensa/api"
 )
 
-// inMemoryStore is a non-durable [Store] used during Week 2 before the
-// SQLite implementation lands in Week 3 (see KENSA_GO_DAY1_PLAN.md
-// §11.1). Tests also use it when a real SQLite file would add
+// inMemoryStore is a non-durable [Store] kept from before the SQLite
+// implementation landed. Tests use it when a real SQLite file would add
 // unnecessary fixture cost. Production code wires the SQLite store via
 // [Engine.WithStore].
 type inMemoryStore struct {
@@ -115,8 +114,8 @@ func (s *inMemoryStore) ClearJournalEntry(_ context.Context, txnID uuid.UUID) er
 
 // noopDeadman is a [DeadmanArmer] that records arm/cancel calls without
 // scheduling anything on the host. Replaced by the at(1)/systemd-run
-// implementation in Week 15-16 per KENSA_GO_DAY1_PLAN.md §11.4. Until
-// then control-channel-sensitive changes appear armed but do not have
+// implementation. Until then control-channel-sensitive changes appear
+// armed but do not have
 // a real out-of-band rollback path; rules that require true atomicity
 // in the presence of control-channel risk should not be remediated
 // against production hosts before Week 16.

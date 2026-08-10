@@ -113,8 +113,8 @@ func decodeParams(p api.Params) (*Params, error) {
 		return nil, fmt.Errorf("sysctl_set: 'value' must be a string, got %T", valRaw)
 	}
 	// Both key and value are written into a "key = value" line in the persist
-	// drop-in; a newline in either injects extra sysctl directives (security.md
-	// #13b). Reject control characters at the boundary.
+	// drop-in; a newline in either injects extra sysctl directives.
+	// Reject control characters at the boundary.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"sysctl_set key": key, "sysctl_set value": val,
 	}); err != nil {

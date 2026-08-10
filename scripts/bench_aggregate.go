@@ -6,8 +6,7 @@
 // Builds a synthetic corpus of 500K transactions across 1000 hosts and
 // benchmarks the AggregateByHost and AggregateByRule query paths.
 //
-// The benchmark verifies the <500ms p95 commitment to OpenWatch that
-// was described in docs/KENSA_OPENWATCH_PROGRESS_2026-04-15.md.
+// The benchmark verifies the <500ms p95 commitment to OpenWatch.
 //
 // Usage:
 //

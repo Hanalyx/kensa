@@ -10,8 +10,8 @@ spec:
         description: |
             The file_permissions handler sets owner, group, mode, and
             SELinux context on a file or directory. It is the first
-            capturable handler to ship per KENSA_GO_DAY1_PLAN.md §5.4,
-            chosen as the proving ground for the handler pattern because
+            capturable handler Kensa shipped, chosen as the proving
+            ground for the handler pattern because
             it has a simple, well-defined capture and no control-channel
             implications.
         related_specs:

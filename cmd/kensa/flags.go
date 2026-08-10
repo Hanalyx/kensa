@@ -1,5 +1,4 @@
-// Centralized short-letter table for the kensa CLI (deliverable C-005
-// in docs/roadmap/DELIVERABLES.md).
+// Centralized short-letter table for the kensa CLI.
 //
 // Every short flag letter the kensa binary accepts is declared as a
 // constant in this file. Adding a new short letter is a deliberate,
@@ -17,10 +16,9 @@
 // The case discipline is intentional. Several short letters use the
 // uppercase form because the lowercase form was already taken by a
 // more-frequently-used flag in the same scope or by a sacred GNU
-// reservation. The rationale is in
-// docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §4.
+// reservation.
 //
-// When a future deliverable introduces a new short flag, add the
+// When a new short flag is introduced, add the
 // constant here and use it in the pflag registration. Don't pass
 // raw string literals like "h" or "u" into BoolVarP / StringVarP —
 // the centralization is the whole point.
@@ -51,25 +49,23 @@ const (
 	//     uppercase D preserves recognizability for operators migrating
 	//     from that form (`-D` looks adjacent to the legacy `-db`).
 	//  2. Lowercase d is left unclaimed for a potential future
-	//     `--dry-run` short (future deliverables in
-	//     CLI_GNU_POSIX_MIGRATION_V1.md introduce `--dry-run` for
-	//     remediate; if a short alias is later added, `-d` is the
-	//     conventional choice).
+	//     `--dry-run` short on remediate; if a short alias is later
+	//     added, `-d` is the conventional choice.
 	ShortDB = "D"
 
 	// SSH connection / target options (used by detect, check,
 	// remediate, rollback, plan).
 
 	// ShortHost is `--host`. Capital H because lowercase `-h` is
-	// reserved for `--help`. Deviation from Python kensa's `-h, --host`
-	// (intentional; documented in CLI_GNU_POSIX_MIGRATION_V1.md §4.3).
+	// reserved for `--help`. Deviation from Python kensa's `-h, --host`,
+	// and intentional.
 	ShortHost = "H"
 
 	// ShortUser is `--user`. SSH username.
 	ShortUser = "u"
 
-	// ShortPort is `--port`. SSH port. CAPITAL P per
-	// CLI_GNU_POSIX_MIGRATION_V1.md §4.2; lowercase `-p` is reserved
+	// ShortPort is `--port`. SSH port. CAPITAL P because
+	// lowercase `-p` is reserved
 	// for `--password` (wired in C-026). The C-024 reconciliation
 	// flipped this from the original default; CHANGELOG.md notes
 	// the breaking change.
@@ -82,8 +78,7 @@ const (
 	// the entire CLI for consistency.
 	ShortKey = "k"
 
-	// ShortSudo: --sudo has NO short letter. Per
-	// CLI_GNU_POSIX_MIGRATION_V1.md §3.2, Python kensa's --sudo
+	// ShortSudo: --sudo has NO short letter. Python kensa's --sudo
 	// also has no short. The C-024 reconciliation freed the
 	// previous `-s` for `--severity` (C-030). The constant is
 	// retained as the empty string so call sites that read
@@ -93,8 +88,8 @@ const (
 	// Output / format options.
 
 	// ShortFormat: --format has NO short letter as of C-024.
-	// Per CLI_GNU_POSIX_MIGRATION_V1.md §4.2, lowercase `-f` is
-	// reserved for `--framework` (wired in C-033). The --format
+	// Lowercase `-f` is reserved for `--framework` (wired in
+	// C-033). The --format
 	// long form remains as a deprecated alias (per C-020); it
 	// will be removed in v0.2. Operators using `-f` for format
 	// migrate to `-o FORMAT` or `--output FORMAT`. The constant

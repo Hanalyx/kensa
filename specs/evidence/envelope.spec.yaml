@@ -15,9 +15,8 @@ spec:
             attempted, validation results, commit/rollback decision,
             post-state, framework mappings, and an Ed25519 signature
             over the canonicalized payload bytes. This spec is the
-            commitment named in KENSA_OPENWATCH_RESPONSE_2026-04-14.md
-            §5.2 — the canonical schema OpenWatch's audit UI renders
-            from without reverse-engineering Go types.
+            canonical schema OpenWatch's audit UI renders from without
+            reverse-engineering Go types.
         related_specs:
             - engine-transaction
             - transaction-log

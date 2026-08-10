@@ -8,9 +8,8 @@ import (
 )
 
 // Planner produces a full transaction plan without executing it.
-// OpenWatch's Control Plane (see docs/OPENWATCH_VISION.md §3.3) uses
-// the plan to render the preview UI before a human approves
-// execution.
+// OpenWatch's Control Plane uses the plan to render the preview UI before a
+// human approves execution.
 type Planner interface {
 	// PlanTransaction performs capability detection and
 	// implementation selection for rule against the host reachable
@@ -102,8 +101,8 @@ type Plan struct {
 // interactive views over the struct fields, but the canonical form
 // always goes through Preview.
 //
-// Preview returns [ErrNotYetImplemented] until the engine
-// implementation lands per docs/KENSA_GO_DAY1_PLAN.md §11.5.
+// Preview returns [ErrNotYetImplemented] until the engine implementation
+// lands.
 func (p *Plan) Preview(format PreviewFormat) (string, error) {
 	return "", ErrNotYetImplemented
 }
@@ -168,8 +167,7 @@ type Rule struct {
 	Severity    string
 	Category    string
 	Tags        []string
-	// Transactional comes from the rule YAML's `transactional` field
-	// per docs/CANONICAL_RULE_SCHEMA_V1.md §3.2.
+	// Transactional comes from the rule YAML's `transactional` field.
 	Transactional   bool
 	Platforms       []Platform
 	Implementations []Implementation
