@@ -24,8 +24,8 @@ spec:
             (public-but-not-frozen): a derivation that will grow, kept off the
             frozen api/.
 
-            Per the Kensa/OpenWatch boundary (docs/KENSA_OPENWATCH_BOUNDARY.md
-            §3.3) it carries only FACTS Kensa can derive. It deliberately does
+            Per the Kensa/OpenWatch boundary it carries only FACTS Kensa can
+            derive. It deliberately does
             NOT carry a remediation risk level (operator policy, computed by the
             consumer) or a blanket RequiresReboot boolean (not derivable for the
             change-specific cases; RebootBehavior is the honest mechanism-level
@@ -85,8 +85,7 @@ spec:
               the host's environment) nor a blanket RequiresReboot boolean
               (mechanism dictates reboot only for boot-param rules; deriving it
               for change-specific cases is a false-negative). RebootBehavior is
-              the honest mechanism-level signal: "boot-param" or "none". See
-              docs/KENSA_OPENWATCH_BOUNDARY.md §3.3.
+              the honest mechanism-level signal: "boot-param" or "none".
           type: business
           enforcement: error
 

@@ -55,7 +55,7 @@ spec:
         - id: C-01
           description: |
               CheckContracts MUST be derived from check.go param reads, not
-              from CANONICAL_RULE_SCHEMA_V1.md (which is stale). It MUST cover
+              from the prose rule schema, which is stale. It MUST cover
               every method in the check dispatch switch; a method in the
               dispatch with no contract entry is a gap.
           type: technical

@@ -44,7 +44,7 @@ func SeparatorValues() []string { return append([]string(nil), separatorValues..
 // Params is the decoded parameter struct for the config_set mechanism.
 type Params struct {
 	// File is the absolute path of the configuration file, decoded from the
-	// rule's `path` param (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). Required.
+	// rule's `path` param (internal/mechanism). Required.
 	File string
 	// Key is the configuration key to set. Required.
 	Key string
@@ -63,9 +63,9 @@ var (
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// The file path is read from the `path` rule param, the canonical name in
-// CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (and the name the rule corpus uses). Only
-// this input key changed in the handler→schema alignment; the captured
+// The file path is read from the `path` rule param, the canonical name in the
+// mechanism param contract (internal/mechanism) and the name the rule corpus
+// uses. Only this input key changed in the alignment; the captured
 // pre-state format and the Apply/Rollback logic are unchanged.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
@@ -98,7 +98,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	// Key and value are written into a "key<sep>value" line and spliced into a
 	// root-run sed on the shell path (sedEscape does not neutralize newlines).
 	// Reject control characters so neither can inject a line or break the sed
-	// (security.md #13, sedEscape-newline-gap sibling).
+	// (the sedEscape newline gap).
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"config_set key": key, "config_set value": value,
 	}); err != nil {

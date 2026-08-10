@@ -11,10 +11,9 @@ spec:
             runs read-only probes and reports whether the host is inside the
             guard's VALIDATED envelope (GRUB on BIOS, not image-based, not
             encrypted /boot). It fails closed: any out-of-envelope condition
-            yields a refusal rather than a silent best-effort. This
-            operationalizes the §7.3 edge-case table from
-            docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md so code and doc stay in
-            lockstep.
+            yields a refusal rather than a silent best-effort. The
+            edge-case table the gate implements lives in this spec, so the
+            code and the contract stay in lockstep.
         related_specs:
             - bootguard-capture
     objective:

@@ -126,7 +126,7 @@ spec:
               gain the helper grant regardless of this guard. The local
               empty group keeps the common (no-collision) case
               zero-blast-radius; the collision case is an explicit
-              operator-facing limit recorded in docs/test_docs/security.md.
+              operator-facing limit.
           type: security
           enforcement: error
 

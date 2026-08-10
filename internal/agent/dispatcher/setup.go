@@ -84,8 +84,7 @@ type Options struct {
 	// api.HostConfig.SudoPassword. Empty keeps the `sudo -n` path.
 	// Note: the on-host local transport needs no password — the
 	// agent runs as root after the sudo spawn, so its NewAuto sees
-	// euid 0 and does not re-sudo. See
-	// docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	// euid 0 and does not re-sudo.
 	SudoPassword string
 }
 

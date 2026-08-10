@@ -109,7 +109,8 @@ var errMissingRule = errors.New("audit_rule_set: params missing required 'rule'"
 
 // decodeParams converts api.Params into the typed Params struct.
 //
-// Input keys follow CANONICAL_RULE_SCHEMA_V1.md §3.5.4: "rule" carries the
+// Input keys follow the mechanism param contract (internal/mechanism):
+// "rule" carries the
 // audit rule text (required) and "persist_file" the absolute drop-in path
 // (optional, defaulting to defaultPersistFile). The internal RuleFile field
 // and the pre.Data["path"] capture key are unchanged so the capture/rollback

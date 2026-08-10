@@ -36,7 +36,7 @@ func (w LintWarning) String() string {
 // Lint runs the effective-vs-static heuristics on rule and returns a
 // (possibly empty) slice of [LintWarning] values.
 //
-// Heuristics from docs/KENSA_GO_DAY1_PLAN.md §7.5:
+// Heuristics:
 //
 //   - (W001) config_value on /etc/ssh/sshd_config without a sibling
 //     sshd_config_d-gated implementation. Systems with drop-in support

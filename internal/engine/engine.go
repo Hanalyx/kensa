@@ -2,8 +2,8 @@
 // (capture → apply → validate → commit-or-rollback) defined by the
 // engine-transaction spec at specs/engine/transaction.spec.yaml.
 //
-// The engine is Tier 1: its correctness IS the atomicity commitment in
-// docs/TRANSACTION_CONTRACT_V1.md. Every change to this package
+// The engine is Tier 1: its correctness IS the atomicity commitment Kensa
+// makes to an operator. Every change to this package
 // requires a human-authored failure-mode analysis in the PR per
 // CONTRIBUTING.md, and the rollback path requires two-human review.
 //
@@ -167,7 +167,7 @@ func WithStore(s Store) Option { return func(e *Engine) { e.store = s } }
 // WithRecoverLock fences this engine's mutations against `kensa recover`. path
 // is the store's recover-lock file (store.RecoverLockPath(dbPath)); Run and
 // RollbackTransaction then take its SHARED side while they work, so a recover
-// (EXCLUSIVE) cannot race an in-flight transaction (security.md #14). The
+// (EXCLUSIVE) cannot race an in-flight transaction. The
 // Default* constructors wire this automatically. An empty path disables the
 // fence (a bare engine has no store path to key on).
 func WithRecoverLock(path string) Option { return func(e *Engine) { e.recoverLockPath = path } }

@@ -82,8 +82,7 @@ func hasAnyFlag(fs *pflag.FlagSet) bool {
 }
 
 // detectFlagGroups defines the --help layout for `kensa detect`.
-// Per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §3.2, detect
-// uses target_options + a small subset of output_options. There
+// detect uses target_options + a small subset of output_options. There
 // is intentionally no Rule options group here — detect doesn't
 // load rules; future contributors must NOT add --severity / --tag
 // / --rules-dir on detect "for symmetry".

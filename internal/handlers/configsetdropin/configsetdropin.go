@@ -27,7 +27,7 @@ const mechanism = "config_set_dropin"
 // Params is the decoded parameter struct for config_set_dropin.
 type Params struct {
 	// Path is the absolute drop-in file path, composed from the rule's `dir`
-	// + `file` params (CANONICAL_RULE_SCHEMA_V1.md §3.5.4). Required.
+	// + `file` params (internal/mechanism). Required.
 	Path string
 	// Key is the configuration key. Required.
 	Key string
@@ -47,8 +47,8 @@ var (
 // decodeParams converts api.Params into the typed Params struct.
 //
 // The drop-in file path is composed from the `dir` + `file` rule params, the
-// canonical names in CANONICAL_RULE_SCHEMA_V1.md §3.5.4 (and what the corpus
-// uses). Only these input keys changed in the handler→schema alignment; the
+// canonical names in the mechanism param contract (internal/mechanism), and
+// what the corpus uses. Only these input keys changed in the alignment; the
 // captured pre-state ("path") and the Apply/Rollback logic are unchanged.
 func decodeParams(p api.Params) (*Params, error) {
 	if p == nil {
@@ -78,7 +78,7 @@ func decodeParams(p api.Params) (*Params, error) {
 		}
 	}
 	// Key and value are written into a "key<sep>value" line in the drop-in; a
-	// newline in either injects extra directives (security.md #13b).
+	// newline in either injects extra directives.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"config_set_dropin key": key, "config_set_dropin value": value,
 	}); err != nil {

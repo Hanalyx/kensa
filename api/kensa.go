@@ -9,11 +9,9 @@ import (
 
 // Kensa is the top-level entry point for programmatic consumers. The
 // kensa CLI wraps it; OpenWatch imports it directly; future AI-agent
-// surfaces (exposed by OpenWatch, not by this package — see
-// docs/KENSA_OPENWATCH_RESPONSE_2026-04-14.md §4.1) mediate through it.
+// surfaces (exposed by OpenWatch, not by this package) mediate through it.
 //
-// The method set is organized around the OpenWatch identities defined
-// in docs/OPENWATCH_VISION.md:
+// The method set is organized around the OpenWatch identities:
 //
 //   - Execution    — [Kensa.Transact] / [Kensa.Scan] / [Kensa.Remediate] / [Kensa.Rollback]
 //   - Control Plane — [Kensa.Plan] / [Kensa.Execute]
@@ -160,7 +158,7 @@ type HostConfig struct {
 	// `sudo -S -p '' sh -c '<cmd>'` and feeds this value over the SSH
 	// session's stdin — it is held in memory only and never appears in
 	// argv, logs, or captured evidence (stdout/stderr). Ignored unless
-	// Sudo is true. See docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	// Sudo is true.
 	SudoPassword string
 	// StrictHostKeys controls SSH host-key verification policy.
 	// When true, the transport sets StrictHostKeyChecking=yes:

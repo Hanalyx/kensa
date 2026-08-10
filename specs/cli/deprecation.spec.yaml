@@ -12,10 +12,8 @@ spec:
             output-destination mechanism (C-019), replacing the
             single-target --format and the OSCAL-only --oscal
             flags on detect/check/remediate. The old flags keep
-            working for one minor version (per
-            CLI_GNU_POSIX_MIGRATION_V1.md §6 deprecation policy)
-            so existing operator scripts don't break at upgrade
-            time.
+            working for one minor version, so existing operator
+            scripts don't break at upgrade time.
 
             Operators using the deprecated flags MUST see a
             stderr warning on every invocation. Without that

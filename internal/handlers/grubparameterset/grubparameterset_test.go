@@ -166,7 +166,7 @@ func TestApply_RejectsUnsafeValue(t *testing.T) {
 	t.Run("security-value-hardening/AC-01", func(t *testing.T) {})
 	tp := engine.NewFakeTransport()
 	// A sed/shell-special value is spliced into the root-run grub edit; it must
-	// be rejected at decode with the host untouched (security.md #13a).
+	// be rejected at decode with the host untouched.
 	_, err := grubparameterset.New().Apply(context.Background(), tp,
 		api.Params{"key": "systemd.confirm_spawn", "value": "1|rm -rf /"}, nil)
 	if err == nil {

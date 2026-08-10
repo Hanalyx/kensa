@@ -8,8 +8,7 @@ spec:
         feature: bootguard-capture
         description: |
             The bootguard package provides the read-only boot-state capture
-            that underpins the grub deadman guard (see
-            docs/roadmap/GRUB-DEADMAN-GUARD-DESIGN.md). It detects the
+            that underpins the grub deadman guard. It detects the
             bootloader flavor — BLS on RHEL 8/9/10, legacy grub.cfg on
             Ubuntu 22.04/24.04/26.04 — and snapshots the state needed to
             later restore a host that boots into a bad kernel parameter.

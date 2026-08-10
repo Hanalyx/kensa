@@ -95,8 +95,7 @@ type FuzzResult struct {
 }
 
 // Short-letter constants for kensa-fuzz. Mirror the kensa CLI
-// conventions (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §4):
-// -h is help, -H is host, -u user, -p port, -k key, -s sudo. -m for
+// conventions: -h is help, -H is host, -u user, -p port, -k key, -s sudo. -m for
 // --mechanism (no conflict in this binary). --phase, --params,
 // --timeout are long-only (run-shape parameters; rare enough to skip
 // short letters).

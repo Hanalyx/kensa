@@ -9,8 +9,7 @@ spec:
         feature: cli-short-letter-reconciliation
         description: |
             CLI Phase 3's foundation: reconciles the kensa short-
-            letter table with `CLI_GNU_POSIX_MIGRATION_V1.md` §4.2
-            so the Phase 3 flag additions (--password, --severity,
+            letter table so the Phase 3 flag additions (--password, --severity,
             --tag, --framework, --capability, --workers, --var,
             --limit) can claim their canonical short letters per
             Python kensa parity (modulo five GNU-mandated deviations).

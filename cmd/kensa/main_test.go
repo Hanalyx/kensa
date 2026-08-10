@@ -1,5 +1,4 @@
-// Tests for the top-level CLI exit-code contract (deliverable C-001 in
-// docs/roadmap/DELIVERABLES.md).
+// Tests for the top-level CLI exit-code contract.
 //
 // These tests drive runCLI directly with synthetic argv slices so they
 // don't spawn a subprocess. They cover the full GNU/POSIX exit-code

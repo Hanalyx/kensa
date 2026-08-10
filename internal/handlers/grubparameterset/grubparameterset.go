@@ -131,7 +131,7 @@ func decodeParams(params api.Params) (key, value string, err error) {
 	// The value is spliced into the root-run bootloader edit (grub sed /
 	// grubby). The key is already allowlisted (bootguard); harden the value
 	// too so a regex/sed-special or newline value is rejected cleanly rather
-	// than corrupting the edit (security.md #13a).
+	// than corrupting the edit.
 	if err := valueguard.GrubParamValue(value); err != nil {
 		return "", "", err
 	}

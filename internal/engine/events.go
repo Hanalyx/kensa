@@ -8,8 +8,7 @@ import (
 )
 
 // publish sends event to the configured [EventBus]. Errors are
-// swallowed deliberately: the event stream must not stall the engine
-// (engine-transaction priority over OPENWATCH_VISION.md heartbeat).
+// swallowed deliberately: the event stream must not stall the engine.
 func (e *Engine) publish(ctx context.Context, event api.Event) {
 	var publisher api.EventPublisher = e.events
 	_ = publisher.Publish(ctx, event)

@@ -11,9 +11,8 @@ import (
 
 // Rule ordering, conflict detection, and supersedes resolution.
 //
-// Ports the algorithm from Python kensa's runner/ordering.py
-// (referenced as the design template per the C-021 deliverable in
-// docs/roadmap/DELIVERABLES.md). The algorithm is pure: given a
+// Ports the algorithm from Python kensa's runner/ordering.py, used as the
+// design template. The algorithm is pure: given a
 // list of rules with depends_on / conflicts_with / supersedes
 // metadata, produces an execution order, detects cycles, and lists
 // which rules to skip.

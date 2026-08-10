@@ -50,7 +50,7 @@ set -eu
 # correct symmetry and guarantees we create a local group we control.
 #
 # Residual assumption (documented in specs/packaging/sudoers-helper.spec.yaml
-# C-06 and docs/test_docs/security.md): sudo itself resolves %kensa
+# C-06): sudo itself resolves %kensa
 # through nsswitch, so an environment that already has a *populated*
 # directory group named "kensa" must rename/scope it before installing,
 # or those members gain the helper grant regardless of this local group.

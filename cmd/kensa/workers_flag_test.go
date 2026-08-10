@@ -69,7 +69,7 @@ func TestValidateWorkers_MaxConst(t *testing.T) {
 	t.Run("cli-workers-flag/AC-09", func(t *testing.T) {})
 	t.Run("cli-workers-flag/AC-04", func(t *testing.T) {})
 	if MaxWorkers != 50 {
-		t.Errorf("MaxWorkers changed from 50 to %d; update CLI_GNU_POSIX_MIGRATION_V1.md and the spec", MaxWorkers)
+		t.Errorf("MaxWorkers changed from 50 to %d; update the spec", MaxWorkers)
 	}
 }
 

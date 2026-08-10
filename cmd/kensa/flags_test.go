@@ -1,5 +1,4 @@
-// Tests for the centralized short-letter table (deliverable C-005 in
-// docs/roadmap/DELIVERABLES.md).
+// Tests for the centralized short-letter table.
 //
 // The collision-detection test below is the structural guard for the
 // short-letter discipline: if a future PR adds a new `Short*` constant

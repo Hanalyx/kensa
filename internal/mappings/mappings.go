@@ -3,8 +3,7 @@
 //
 // # V0 References Format
 //
-// The V0/V1 references block supports two shapes, as specified in
-// docs/CANONICAL_RULE_SCHEMA_V1.md §3.3:
+// The V0/V1 references block supports two shapes:
 //
 //  1. Versioned-object frameworks (CIS, STIG): the framework key maps to an
 //     object whose keys are OS-version identifiers (e.g., "rhel9"), and each

@@ -1,6 +1,5 @@
 // Command kensa-validate validates Kensa V1 rule YAML files against the
-// canonical rule schema (docs/CANONICAL_RULE_SCHEMA_V1.md) and applies
-// the effective-vs-static linter from docs/KENSA_GO_DAY1_PLAN.md §7.5.
+// canonical rule schema and applies the effective-vs-static linter.
 //
 // Usage:
 //
@@ -41,8 +40,7 @@ import (
 )
 
 // Short-letter constants for kensa-validate. Mirror the kensa CLI
-// conventions where they apply (per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md
-// §4): -h is help, -f is format, -r is rules-dir. --cap-check and
+// conventions where they apply: -h is help, -f is format, -r is rules-dir. --cap-check and
 // --no-lint are long-only (rare flags). --strict gets uppercase -S
 // since lowercase -s in the kensa CLI is sudo (cross-binary mental
 // consistency: capital letters connote "treat-as-error" / serious flag).
@@ -177,9 +175,8 @@ func runCLI(argv []string) int {
 func printUsage(w io.Writer, fs *pflag.FlagSet) {
 	fmt.Fprintf(w, `Usage: kensa-validate [flags] [FILE...]
 
-Validate Kensa V1 rule YAML files against the canonical rule schema
-(docs/foundation_docs/CANONICAL_RULE_SCHEMA_V1.md) and apply the
-effective-vs-static linter.
+Validate Kensa V1 rule YAML files against the canonical rule schema and
+apply the effective-vs-static linter.
 
 When FILE arguments are given, only those files are validated. When
 --rules-dir is given, all *.yml files under that directory tree are

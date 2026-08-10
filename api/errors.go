@@ -8,10 +8,9 @@ import (
 )
 
 // ErrNotYetImplemented signals that an [api] method's engine-side
-// implementation has not yet landed for the current milestone. Method
-// signatures are stable from commit 1; bodies fill in progressively per
-// docs/KENSA_GO_DAY1_PLAN.md §11. Consumers should treat this error as
-// transient and retry once the relevant milestone ships.
+// implementation has not yet landed. Method signatures are stable from
+// commit 1; bodies fill in progressively. Consumers should treat this error
+// as transient and retry once the feature ships.
 var ErrNotYetImplemented = errors.New("kensa: not yet implemented")
 
 // ErrHostBusy signals that a non-blocking operation found the target
@@ -26,7 +25,7 @@ var ErrHostBusy = errors.New("kensa: host has an in-flight transaction")
 // the engine only when it was constructed with the recover-lock fence (the
 // Default* constructors wire it); a bare engine has no store path to fence on.
 // The fence stops a recover from compensating a transaction the engine is
-// mid-flight on (docs/test_docs/security.md #14).
+// mid-flight on, which would roll back a change that is still being applied.
 var ErrRecoverActive = errors.New("kensa: store is being recovered by another process")
 
 // ErrSchedulerUnavailable signals that the engine refused to execute a

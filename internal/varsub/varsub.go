@@ -40,8 +40,7 @@
 // every --config-dir tier) shares this boundary, so write access
 // to a config dir is write access to what other operators' runs
 // execute. Do not add value escaping here expecting it to be a
-// security control: the model is trusted-operator input. See
-// docs/test_docs/security.md limit #3.
+// security control: the model is trusted-operator input.
 package varsub
 
 import (

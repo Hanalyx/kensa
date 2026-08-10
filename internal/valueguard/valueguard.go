@@ -1,8 +1,7 @@
 // Package valueguard hardens rule/variable values before they reach a
-// root-run write. Rule YAML and every --var tier are root-trusted input
-// (docs/test_docs/security.md limit #3), so a dangerous value must become a
-// clean validation error at the handler boundary rather than config corruption
-// or content injection on the target host (limit #13).
+// root-run write. Rule YAML and every --var tier are root-trusted input, so a
+// dangerous value must become a clean validation error at the handler boundary
+// rather than config corruption or content injection on the target host.
 //
 // Two guards, matching the two mechanisms:
 //   - NoControlChars: a value destined for a single config-file line must not

@@ -15,9 +15,9 @@ spec:
             schedules it via `at` or `systemd-run`; if the control channel
             survives apply+validate, the timer is cancelled, otherwise the
             scheduled script fires out-of-band and restores pre-state.
-            Without this subsystem, the atomicity commitment in
-            TRANSACTION_CONTRACT_V1.md §2.2 is not honorable for changes
-            that affect SSH, networking, firewall, or PAM.
+            Without this subsystem, the atomicity commitment is not
+            honorable for changes that affect SSH, networking, firewall,
+            or PAM.
         related_specs:
             - engine-transaction
             - handler-interface

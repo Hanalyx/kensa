@@ -1,10 +1,8 @@
 // kensa agent wire protocol — v1.
 //
-// L-007 deliverable scaffolded Request/Response/Error/Heartbeat
-// with opaque bytes payloads. L-009 replaces the bytes payloads
-// with a typed `oneof` covering Apply / Capture / Rollback /
-// Heartbeat. Founder ratified protobuf as the wire format
-// 2026-05-11 (see ~/.claude/.../memory/l007_wire_protocol.md).
+// Request/Response/Error/Heartbeat carry a typed `oneof` covering
+// Apply / Capture / Rollback / Heartbeat. Protobuf is the wire
+// format.
 //
 // **Versioning policy.** This package is import-path-versioned
 // (internal/agent/wirev1). A v2 wire format lands as a parallel

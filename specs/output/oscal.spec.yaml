@@ -107,8 +107,7 @@ spec:
           description: |
               The legacy cmd/kensa --oscal flag MUST keep working
               for at least one minor version after the -o oscal:
-              mechanism lands (per DELIVERABLES.md C-016 acceptance:
-              "both work for one minor version"). cmd/kensa's
+              mechanism lands: both work for one minor version. cmd/kensa's
               writeOSCALFile delegates to the registered writer so
               both surfaces share one implementation.
           type: business

@@ -76,9 +76,8 @@ builds:
 #
 #   kensa_<v>_linux_<arch>_with-rules.tar.gz  binaries + LICENSE + docs +
 #                                             the full 539-rule corpus. The
-#                                             air-gapped single-download path
-#                                             called out in CLAUDE.md's
-#                                             packaging plan: copy one file
+#                                             air-gapped single-download path:
+#                                             copy one file
 #                                             onto a disconnected host, untar,
 #                                             you have everything needed to
 #                                             run `kensa check --rules-dir

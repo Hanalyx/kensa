@@ -10,7 +10,7 @@ spec:
         description: |
             The whole drift class exists because the prose schema, the corpus,
             the engine, and the validator could disagree silently. The audit
-            found CANONICAL_RULE_SCHEMA_V1.md §3.5.3 listed check methods that
+            found the schema's check-method table listed methods that
             don't exist (config_absent, file_not_exists, file_content_no_match,
             selinux_boolean, pam_module) and omitted real ones (package_installed,
             dpkg_*, apparmor_state, file_absent, file_content, service_enabled/
@@ -31,7 +31,7 @@ spec:
         scope:
             includes:
                 - "TestSchemaContractDispatchParity (dispatch <-> CheckContracts, parsed from check.go source)"
-                - "regenerate CANONICAL_RULE_SCHEMA_V1.md §3.5.3 from CheckContracts (correct methods + key fields)"
+                - "regenerate the prose schema's check-method table from CheckContracts (correct methods + key fields)"
             excludes:
                 - "automated gate on the prose doc itself (docs/ is gitignored; the code SSOT + parity test is the enforced guarantee)"
 

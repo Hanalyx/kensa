@@ -1,7 +1,7 @@
 // Package ssh implements [api.Transport] over the system OpenSSH
 // client with persistent ControlMaster multiplexing. Choosing the
 // system binary instead of golang.org/x/crypto/ssh is a deliberate
-// architectural decision per docs/KENSA_GO_DAY1_PLAN.md §1.3 and §6.1:
+// architectural decision:
 //
 //   - FIPS compliance through RHEL's certified OpenSSH binary instead
 //     of an internal Go crypto stack.
@@ -56,8 +56,7 @@ type Config struct {
 	// cannot reach recorded evidence. `-p ''` suppresses sudo's
 	// prompt so nothing is written to the captured stderr on success.
 	// Empty keeps the `sudo -n` behavior. Ignored when Sudo is false
-	// (Connect rejects that combination). See
-	// docs/roadmap/SUDO_PASSWORD_SCAN_DECISION.md.
+	// (Connect rejects that combination).
 	SudoPassword string
 	// KeyPath is an explicit identity file. Empty defers to ssh-agent
 	// and ~/.ssh/config.

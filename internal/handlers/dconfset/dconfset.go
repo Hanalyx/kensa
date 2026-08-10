@@ -151,7 +151,7 @@ func decodeParams(p api.Params) (*Params, error) {
 	}
 
 	// schema/key/value are written into the dconf keyfile snippet; a newline in
-	// any injects extra keyfile lines (security.md #13 class).
+	// any injects extra keyfile lines.
 	if err := valueguard.NoControlCharsIn(map[string]string{
 		"dconf_set schema": schema, "dconf_set key": key, "dconf_set value": value,
 	}); err != nil {

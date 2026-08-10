@@ -1,5 +1,5 @@
 // Package output is the home for the kensa CLI's --output FORMAT[:PATH]
-// mechanism (deliverable C-011 in docs/roadmap/DELIVERABLES.md).
+// mechanism.
 //
 // The package is built up across CLI Phase 2:
 //
@@ -10,9 +10,8 @@
 //   - C-016/C-017: oscal, evidence serializers
 //   - C-019: concurrent fan-out for multi-output runs
 //
-// The -o FORMAT[:PATH] design is lifted from Python
-// kensa (see docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §6) and
-// extends it with kensa-specific formats (jsonl, oscal). Operators
+// The -o FORMAT[:PATH] design is lifted from Python kensa and extends it
+// with kensa-specific formats (jsonl, oscal). Operators
 // can request multiple simultaneous outputs in one run:
 //
 //	kensa check -H prod-01 -u admin --sudo \
@@ -204,14 +203,14 @@ func FormatRequiresPath(format string) bool {
 // type to a writer constructor (e.g., func() Writer); the public API
 // of IsKnownFormat and KnownFormats is shaped to remain unchanged.
 //
-// Format vocabulary per docs/roadmap/CLI_GNU_POSIX_MIGRATION_V1.md §6.2:
+// Format vocabulary:
 //
 //	text       human-readable default (default for most subcommands)
 //	json       structured JSON object
 //	jsonl      newline-delimited JSON (NDJSON) — kensa addition
 //	csv        comma-separated values for spreadsheet ingestion
 //	pdf        binary PDF report (path required)
-//	evidence   signed-envelope JSON (per TRANSACTION_CONTRACT_V1.md)
+//	evidence   signed-envelope JSON
 //	oscal      OSCAL Assessment Results JSON — kensa addition
 //	markdown   GitHub-flavored Markdown (used by `kensa plan`)
 var knownFormats = map[string]struct{}{

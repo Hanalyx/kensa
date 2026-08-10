@@ -25,7 +25,7 @@
 # private half from the daily keyring at the end (step 7).
 #
 # References:
-#   docs/CONTRIBUTING.md      (release process)
+#   CONTRIBUTING.md           (release process)
 #   .github/workflows/release.yml
 #   .goreleaser.yaml          (where signature.key_file reads
 #                              GPG_PRIVATE_KEY_PATH)

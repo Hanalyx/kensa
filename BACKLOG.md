@@ -153,11 +153,11 @@ Live result on `.217`: 13/31 caps detected (was 7/25).
 ## Handlers
 
 All four mechanisms originally listed here have **shipped** (29 handlers
-total now, see `CLAUDE.md` § "Shipped Handlers"):
+total now):
 - ~~`audit_rule_set`, implementation pending.~~ **SHIPPED**, capturable,
   `cli-best-effort` shell-out version. The `AUDIT_NETLINK` "Phase 5"
   variant (transaction-phase events via `elastic/go-libaudit`) remains the
-  v1.0 quality bar; tracked in `docs/roadmap/DELIVERABLES.md`.
+  v1.0 quality bar.
 - ~~`grub_parameter_set`, non-capturable, needs a deadman guard.~~
   **SHIPPED** via #15 / #21, bootguard-staged, Option-B one-shot trial +
   saved-default auto-fallback. RHEL 8 `$kernelopts` capture (S-009) is the
@@ -202,8 +202,9 @@ packages have passing tests.
   it: (1) add the RHEL 9 deny-all corpus rule (rules.d/ layout; today
   rhel8-only), (2) harden the `config_append` deny-all into a placement-aware
   atomic write + exec-validate (the deny-all is a lock-out foot-gun).
-  Full strategic framing + the reusable "should Kensa talk to subsystem X?"
-  test: `docs/roadmap/FAPOLICYD_HANDLER_DECISION.md` §0.
+  The general test for whether Kensa should talk to a subsystem at all: it
+  must be able to read the subsystem's live state back, or a remediation
+  cannot be verified or reversed.
 
 ### Rollback-robustness follow-ups, LOW priority (per-handler idempotency audit)
 

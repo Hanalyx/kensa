@@ -1,8 +1,7 @@
 // Package mechanism is the single source of truth for remediation-mechanism
 // parameter contracts.
 //
-// The parameter names below are the ratified contract from
-// docs/foundation_docs/CANONICAL_RULE_SCHEMA_V1.md §3.5.4. Three artifacts must
+// The parameter names below are the ratified contract. Three artifacts must
 // all agree with this map:
 //
 //  1. the rule corpus (rules/**/*.yml) — checked by the rule validator (Layer 2,
@@ -72,11 +71,11 @@ var Contracts = map[string]Contract{
 // HandlerParamDivergence records mechanisms whose handler currently requires a
 // parameter name that contradicts this contract (the schema/corpus names).
 //
-// Each entry is confirmed technical debt from the 2026-06-09 end-to-end test
-// (docs/test_docs/E2E_LIVE_TEST_2026-06-09.md, finding F1): the handler reads a
-// different key than the rules send, so every conforming rule of that mechanism
-// fails at Capture. The fix is to align the handler to the contract name (with
-// the proper §7 review for handler changes) and delete the entry here.
+// Each entry is confirmed technical debt found by end-to-end testing: the
+// handler reads a different key than the rules send, so every conforming rule
+// of that mechanism fails at Capture. The fix is to align the handler to the
+// contract name, with the review a handler change requires, and delete the
+// entry here.
 //
 // The Layer-3 integration test (cmd/kensa) treats these as expected failures so
 // CI stays green, and ratchets: it fails if a listed mechanism no longer
