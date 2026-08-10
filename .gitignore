@@ -38,10 +38,10 @@ inventory.ini
 !/docs/.gitignore
 
 # Local-only artifacts
-# Agent runtime config is local-only, EXCEPT shared skills, which are tracked
-# so contributors get them from a clean clone.
-.claude/*
-!.claude/skills/
+# Agent runtime config, session state, and skills are local-only. Skills carry
+# internal endpoints, namespace layout, and fleet addresses, none of which
+# belong in a public repository.
+.claude/
 .specter-results.json
 go-test.json
 
