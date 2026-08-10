@@ -1,0 +1,193 @@
+spec:
+    id: cli-nist-800-171-denominator
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: cli-nist-800-171-denominator
+        description: |
+            Sprint story S-10. `kensa coverage --framework nist_800_171`
+            reports covered assessment objectives against a denominator
+            that is measured and visible, rather than against 320 or as
+            a bare percentage.
+
+            The existing framework coverage report
+            (cli-framework-coverage) is deliberately numerator-only:
+            it counts controls the corpus cites and stops, because
+            kensa has no external control catalog. That policy is
+            correct for CIS, STIG and 800-53, and it is what this
+            spec changes for exactly one framework, because for
+            800-171 the catalog now exists: the 320 Rev 2 assessment
+            objectives, with a reviewed feasibility tier per objective.
+
+            **Why a denominator is dangerous here, and what makes one
+            honest.** A percentage invites the reading "we cover 34% of
+            800-171, a competitor covers 60%". Most of 800-171 is not
+            host state at all. 142 objectives inside the covered
+            families, plus 52 in families NIST writes as organizational,
+            describe interviews, records, buildings and decisions. No
+            configuration scanner evidences any of them, ours or
+            anyone's. A denominator of 320 therefore measures the
+            standard, not the product, and publishing it would be
+            dishonest in the flattering direction for whoever has the
+            larger numerator.
+
+            So the denominator is the set of objectives that a host
+            scanner CAN evidence, and it is always shown with the
+            buckets that were removed to reach it.
+
+            **Per-fleet, per DEC-1.** Whether an objective is
+            evidenceable can depend on the fleet. On hosts whose
+            accounts are local, an operator declares the authorized set
+            and kensa compares it against the host; on hosts joined to a
+            directory the authority is off-box. Seven objectives move
+            between assessable and handoff on that basis alone. The
+            denominator is therefore computed from scan output, which
+            already carries the `directory_joined` capability per host,
+            and no single published percentage is emitted.
+
+            **Numerator is mapping status, not scan posture.** An
+            objective is covered when a reviewed mapping says a rule
+            satisfies it. It is NOT covered because a rule passed on
+            this host, and it is not uncovered because a rule failed.
+            Coverage answers "can kensa evidence this objective at
+            all", which is a property of the corpus; pass and fail
+            answer "is this host compliant", which is what the scan
+            already reports. Conflating them would let a fleet of
+            compliant hosts appear to have better framework coverage
+            than an identical fleet of non-compliant ones.
+
+    objective:
+        summary: |
+            Report NIST SP 800-171 Rev 2 objective coverage with the
+            denominator measured, per-fleet, and always accompanied by
+            the buckets excluded to produce it, so that the number
+            cannot be quoted without its boundary.
+        scope:
+            includes:
+                - An embedded catalog of the 320 Rev 2 objectives with tier and family
+                - Denominator computed from an optional scan report
+                - Static mode that shows both architecture ceilings rather than one number
+                - An explicit unclassified bucket
+                - Text and JSON output
+            excludes:
+                - Revision 3. The published claim stays pinned to Rev 2
+                - Changes to api/. Everything computes from existing scan output
+                - Any change to the numerator-only policy for other frameworks
+                - Publishing a single cross-fleet percentage, which DEC-1 forbids
+
+    constraints:
+        - id: C-01
+          description: |
+              The numerator MUST be reviewed mapping status, never scan
+              posture. An objective counts as covered when a reviewed
+              mapping records that a rule satisfies it. Whether that
+              rule passed, failed or skipped on any host MUST NOT
+              affect the numerator.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              A percentage MUST NOT be emitted without its denominator
+              and the excluded buckets in the same output. Every
+              rendering, text and JSON, MUST carry the assessable
+              denominator, the boundary count, and the unclassified
+              count.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              Objectives that carry no feasibility classification MUST
+              be reported in a distinct `unclassified` bucket. They MUST
+              NOT be folded into assessable or into boundary.
+
+              39 objectives are in this state today (CA 14, MA 10,
+              MP 15; see KN-KN-029), and at least one of them, 3.8.7,
+              has a shipped rule that plausibly evidences it. Absorbing
+              them into boundary would overstate what cannot be done;
+              absorbing them into assessable would overstate the
+              denominator. Either way the report would assert a
+              disposition nobody made.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              When a scan report is supplied, the denominator MUST be
+              computed from that fleet's identity architecture, read
+              from the `directory_joined` capability already present in
+              scan output. A fleet with any joined host MUST report the
+              joined denominator for the affected objectives.
+          type: technical
+          enforcement: error
+        - id: C-05
+          description: |
+              Without a scan report, the command MUST show BOTH
+              architecture ceilings side by side and MUST NOT pick one.
+              DEC-1 decided that no single published percentage is
+              honest; defaulting to the local-accounts figure would
+              reintroduce it by another name.
+          type: security
+          enforcement: error
+        - id: C-06
+          description: |
+              The embedded catalog MUST be generated from the reviewed
+              corpus by a committed script, and MUST carry a digest of
+              its source. A drift check MUST fail when the embedded
+              catalog and the reviewed corpus disagree.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Coverage counts an objective whose reviewed mapping says
+              satisfies, and does not count one whose mapping says
+              partial, related, no-rule or not-applicable. Changing a
+              rule's scan status on a host does not change any count.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: |
+              Text and JSON output both carry the assessable
+              denominator, the boundary count and the unclassified
+              count. No output form emits a percentage alone.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-03
+          description: |
+              Objectives with no feasibility classification are reported
+              as unclassified, and the count matches the reviewed
+              corpus. They appear in neither the assessable denominator
+              nor the boundary count.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: |
+              Given a scan report whose hosts are all local-accounts,
+              the report uses the local-accounts denominator. Given one
+              with a directory-joined host, it uses the joined
+              denominator for the seven identity-conditional objectives.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: |
+              Without a scan report, both ceilings are rendered and
+              neither is presented as the answer.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: |
+              The embedded catalog totals 320 objectives across 14
+              families, and its per-family counts match NIST SP 800-171A.
+              A generated catalog that disagrees with the reviewed
+              corpus fails the drift check.
+          references_constraints: [C-06]
+          priority: high
+
+    depends_on:
+        - spec_id: cli-framework-coverage
+          relationship: extends
+
+    tags: [cli, coverage, compliance, nist-800-171, tier-2]
