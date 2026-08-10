@@ -32,6 +32,10 @@ references:
       cci: ["CCI-002038", "CCI-004895"]
   nist_800_53: ["AC-6", "AC-6(5)"]
   nist_800_171: ["3.1.2[b]", "3.1.5[b]", "3.4.9[b]"]
+  cmmc_l2:
+    - "AC.L2-3.1.2"
+    - "AC.L2-3.1.5"
+    - "CM.L2-3.4.9"
 
 platforms:
   - family: rhel

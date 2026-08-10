@@ -49,6 +49,8 @@ references:
   - IA-5(1)(b)
   - IA-5
   nist_800_171: ["3.5.7[d]"]
+  cmmc_l2:
+    - "IA.L2-3.5.7"
 platforms:
 - family: rhel
   min_version: 8

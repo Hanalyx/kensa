@@ -42,6 +42,8 @@ references:
       stig_id: "RHEL-10-800170"
       severity: "CAT II"
   nist_800_171: ["3.4.2[b]"]
+  cmmc_l2:
+    - "CM.L2-3.4.2"
 platforms:
 - family: rhel
   min_version: 8

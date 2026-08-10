@@ -23,6 +23,8 @@ references:
     ubuntu22: { section: "3.3.1.1", level: "L1", type: "Automated" }
     ubuntu24: { section: "3.3.1.1", level: "L1", type: "Automated" }
   nist_800_171: ["3.4.2[b]"]
+  cmmc_l2:
+    - "CM.L2-3.4.2"
 
 platforms:
   - family: rhel

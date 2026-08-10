@@ -17,6 +17,8 @@ references:
     ubuntu24: { section: "5.3.3.2.5", level: "L1", type: "Automated" }
   nist_800_53: ["IA-5"]
   nist_800_171: ["3.5.7[c]"]
+  cmmc_l2:
+    - "IA.L2-3.5.7"
 
 platforms:
   - family: rhel

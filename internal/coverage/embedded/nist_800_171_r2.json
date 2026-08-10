@@ -1,0 +1,1624 @@
+{
+ "_generated_by": "scripts/gen_800171_catalog.py",
+ "_source_digest": "0bc9c8cd78d5ed17b90b8c98e6b0ebaf764b3442d88269d5dff7874d3751cf34",
+ "revision": "r2",
+ "total": 320,
+ "boundary_families": [
+  "AT",
+  "IR",
+  "PE",
+  "PS",
+  "RA"
+ ],
+ "identity_conditional": [
+  "3.1.1[d]",
+  "3.5.3[c]",
+  "3.5.3[d]",
+  "3.5.6[b]",
+  "3.5.7[c]",
+  "3.5.7[d]",
+  "3.5.8[b]"
+ ],
+ "objectives": {
+  "3.1.10[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": "not-evidenceable"
+  },
+  "3.1.10[b]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.10[c]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.1.11[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.11[b]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.1.12[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.12[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.12[c]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.1.12[d]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.1.13[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.13[b]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.1.14[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.14[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.15[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.15[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.15[c]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "no-rule"
+  },
+  "3.1.15[d]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "no-rule"
+  },
+  "3.1.16[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.16[b]": {
+   "family": "AC",
+   "tier": "T3",
+   "verdict": "satisfies"
+  },
+  "3.1.17[a]": {
+   "family": "AC",
+   "tier": "T3",
+   "verdict": "satisfies"
+  },
+  "3.1.17[b]": {
+   "family": "AC",
+   "tier": "T3",
+   "verdict": "satisfies"
+  },
+  "3.1.18[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.18[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.18[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.19[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.19[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.1[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.1[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.1[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.1[d]": {
+   "family": "AC",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.1.1[e]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.1[f]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.20[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.20[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.20[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.20[d]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.20[e]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.20[f]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.21[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.21[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.21[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.22[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.22[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.22[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.22[d]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.22[e]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.2[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.2[b]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.3[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.3[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.3[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.3[d]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.3[e]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.4[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.4[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.4[c]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "no-rule"
+  },
+  "3.1.5[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.5[b]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.1.5[c]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.5[d]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.1.6[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.6[b]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.1.7[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.7[b]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.7[c]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.1.7[d]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.1.8[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.8[b]": {
+   "family": "AC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.1.9[a]": {
+   "family": "AC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.1.9[b]": {
+   "family": "AC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.10.1[a]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.1[b]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.1[c]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.1[d]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.2[a]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.2[b]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.2[c]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.2[d]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.3[a]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.3[b]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.4": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.5[a]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.5[b]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.5[c]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.6[a]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.10.6[b]": {
+   "family": "PE",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.1[a]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.1[b]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.2[a]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.2[b]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.2[c]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.2[d]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.2[e]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.3[a]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.11.3[b]": {
+   "family": "RA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.1[a]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.1[b]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.2[a]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.2[b]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.2[c]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.3": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[a]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[b]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[c]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[d]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[e]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[f]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[g]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.12.4[h]": {
+   "family": "CA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.13.10[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.10[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.11": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.12[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.12[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.12[c]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.13[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.13[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.14[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.14[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.15": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.16": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.1[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.1[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.1[c]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.1[d]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.1[e]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.1[f]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.1[g]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.1[h]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.2[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.2[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.2[c]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.2[d]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.2[e]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.2[f]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.3[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.3[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.3[c]": {
+   "family": "SC",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.13.4": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.5[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.5[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.6[a]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.13.6[b]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.7": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.8[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.8[b]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.8[c]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.9[a]": {
+   "family": "SC",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.13.9[b]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.13.9[c]": {
+   "family": "SC",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.14.1[a]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.1[b]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.1[c]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.1[d]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.1[e]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.1[f]": {
+   "family": "SI",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.14.2[a]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.2[b]": {
+   "family": "SI",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.14.3[a]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.3[b]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.3[c]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.4": {
+   "family": "SI",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.14.5[a]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.5[b]": {
+   "family": "SI",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.14.5[c]": {
+   "family": "SI",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.14.6[a]": {
+   "family": "SI",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.14.6[b]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.6[c]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.7[a]": {
+   "family": "SI",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.14.7[b]": {
+   "family": "SI",
+   "tier": "T2",
+   "verdict": "no-rule"
+  },
+  "3.2.1[a]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.1[b]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.1[c]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.1[d]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.2[a]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.2[b]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.2[c]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.3[a]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.2.3[b]": {
+   "family": "AT",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.3.1[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.1[b]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.1[c]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.1[d]": {
+   "family": "AU",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.3.1[e]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.1[f]": {
+   "family": "AU",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.3.2[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.2[b]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.3.3[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.3[b]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.3[c]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.4[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.4[b]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.4[c]": {
+   "family": "AU",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.3.5[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.5[b]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.6[a]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.6[b]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.7[a]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.7[b]": {
+   "family": "AU",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.3.7[c]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[a]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[b]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[c]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[d]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[e]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.8[f]": {
+   "family": "AU",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.3.9[a]": {
+   "family": "AU",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.3.9[b]": {
+   "family": "AU",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.4.1[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.1[b]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.1[c]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.1[d]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.1[e]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.1[f]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.2[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.2[b]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.4.3[a]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.4.3[b]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.3[c]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.3[d]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.4.4": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[b]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[c]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[d]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[e]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[f]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[g]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.5[h]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.4.6[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.6[b]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.4.7[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[b]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[c]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.4.7[d]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[e]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[f]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.4.7[g]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[h]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[i]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.4.7[j]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[k]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[l]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.4.7[m]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[n]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.7[o]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "satisfies"
+  },
+  "3.4.8[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.8[b]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.8[c]": {
+   "family": "CM",
+   "tier": "T2",
+   "verdict": "partial"
+  },
+  "3.4.9[a]": {
+   "family": "CM",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.4.9[b]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.4.9[c]": {
+   "family": "CM",
+   "tier": "T1",
+   "verdict": "no-rule"
+  },
+  "3.5.10[a]": {
+   "family": "IA",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.5.10[b]": {
+   "family": "IA",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.5.11": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.1[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.1[b]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.1[c]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.2[a]": {
+   "family": "IA",
+   "tier": "T1",
+   "verdict": "satisfies"
+  },
+  "3.5.2[b]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.2[c]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.3[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.3[b]": {
+   "family": "IA",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.5.3[c]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.3[d]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.4": {
+   "family": "IA",
+   "tier": "T1",
+   "verdict": "partial"
+  },
+  "3.5.5[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.5[b]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.6[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.6[b]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.7[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.7[b]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.7[c]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.7[d]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.8[a]": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.5.8[b]": {
+   "family": "IA",
+   "tier": "T3",
+   "verdict": "partial"
+  },
+  "3.5.9": {
+   "family": "IA",
+   "tier": "T4",
+   "verdict": ""
+  },
+  "3.6.1[a]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[b]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[c]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[d]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[e]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[f]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.1[g]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[a]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[b]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[c]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[d]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[e]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.2[f]": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.6.3": {
+   "family": "IR",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.1": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.2[a]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.2[b]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.2[c]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.2[d]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.3": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.4": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.5[a]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.5[b]": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.7.6": {
+   "family": "MA",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.1[a]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.1[b]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.1[c]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.1[d]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.2": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.3[a]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.3[b]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.4[a]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.4[b]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.5[a]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.5[b]": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.6": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.7": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.8": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.8.9": {
+   "family": "MP",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.9.1": {
+   "family": "PS",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.9.2[a]": {
+   "family": "PS",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.9.2[b]": {
+   "family": "PS",
+   "tier": "",
+   "verdict": ""
+  },
+  "3.9.2[c]": {
+   "family": "PS",
+   "tier": "",
+   "verdict": ""
+  }
+ }
+}

@@ -62,11 +62,20 @@ repos:
         # those findings in .secrets.baseline instead would need re-auditing
         # every time a rule is added, which turns a false positive into
         # recurring work.
+        #
+        # internal/coverage/embedded/ is excluded for a narrower reason: the
+        # generated 800-171 catalog carries a sha256 of the corpus it was built
+        # from, which reads as a high-entropy hex string. It is a content
+        # digest, deliberately regenerated whenever the corpus changes, and JSON
+        # cannot carry an inline allowlist pragma. Pinning it would mean
+        # re-auditing on every regeneration.
         exclude: |
           (?x)^(
             KEYS|
             rules/.*|
             scripts/roundtrip_baseline\.json|
+            scripts/roundtrip_baseline_.*\.json|
+            internal/coverage/embedded/.*\.json|
             \.secrets\.baseline
           )$
 

@@ -20,6 +20,9 @@ references:
   nist_800_53:
   - CM-7
   nist_800_171: ["3.4.6[b]", "3.4.7[c]"]
+  cmmc_l2:
+    - "CM.L2-3.4.6"
+    - "CM.L2-3.4.7"
 platforms:
 - family: rhel
   min_version: 8

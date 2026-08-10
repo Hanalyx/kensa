@@ -22,6 +22,8 @@ tags: [network, ports, least-functionality, attack-surface]
 references:
   nist_800_53: ["CM-7", "CM-7(1)", "SC-7"]
   nist_800_171: ["3.4.7[i]"]
+  cmmc_l2:
+    - "CM.L2-3.4.7"
 
 platforms:
   - family: rhel

@@ -47,6 +47,8 @@ func runCoverageReport(args []string) error {
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVar(&full, "full", false, "in text output, show every rule ID per control (default: truncate to first 3)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	var fromScan string
+	fs.StringVar(&fromScan, "from-scan", "", "scan report JSON; computes the 800-171 denominator for that fleet")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -62,6 +64,25 @@ func runCoverageReport(args []string) error {
 
 	if framework == "" {
 		return NewUsageError("--framework is required for the coverage report (e.g. --framework cis_rhel9)")
+	}
+	// A framework gets a denominator when it ships an objective catalog, and
+	// keeps the numerator-only policy when it does not. That is the whole
+	// condition: asking the catalog registry rather than naming a framework
+	// keeps the next catalog from adding a branch here. Numerator-only is not
+	// a limitation but a refusal to invent a denominator for a framework whose
+	// control set kensa cannot enumerate (see cli-framework-coverage).
+	if coverage.HasObjectiveCatalog(framework) {
+		switch format {
+		case "text", "json":
+		default:
+			return NewUsageError(fmt.Sprintf("--format %q: must be 'text' or 'json'", format))
+		}
+		return runNIST800171Coverage(fromScan, format, quiet)
+	}
+	if fromScan != "" {
+		return NewUsageError("--from-scan applies only to a framework that ships an " +
+			"objective catalog; the rest report the controls the corpus cites, with no " +
+			"denominator to compute against")
 	}
 	if rulesDir == "" {
 		return NewUsageError("--rules-dir DIR is required to scan a rule corpus")

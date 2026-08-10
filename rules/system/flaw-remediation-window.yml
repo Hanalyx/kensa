@@ -31,6 +31,8 @@ tags: [patching, flaw-remediation, vulnerability, sla]
 references:
   nist_800_53: ["SI-2", "SI-2(3)"]
   nist_800_171: ["3.14.1[f]"]
+  cmmc_l2:
+    - "SI.L2-3.14.1"
 
 platforms:
   - family: rhel

@@ -38,6 +38,9 @@ references:
   - SC-8
   - IA-5
   nist_800_171: ["3.4.6[b]", "3.4.7[c]"]
+  cmmc_l2:
+    - "CM.L2-3.4.6"
+    - "CM.L2-3.4.7"
 platforms:
 - family: ubuntu
   min_version: 22
