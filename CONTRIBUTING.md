@@ -145,14 +145,6 @@ For each step in the remediation:
 
 Merge is blocked if this section is missing for a `transactional: true` rule.
 
-## Dual-language fixtures during coexistence
-
-Fixtures in `fixtures/handlers/*/` are shared with the Python Kensa reference
-implementation. A fixture change must pass both the Go and Python test suites
-before it merges. If the Python and Go implementations diverge against the same
-fixture, the spec arbitrates. Fix whichever implementation is wrong, not the
-fixture.
-
 ## Commit messages
 
 Hanalyx's git and GitHub conventions are defined once for every product repo, and
