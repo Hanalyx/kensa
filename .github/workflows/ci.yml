@@ -181,7 +181,14 @@ jobs:
           protoc --version
       - name: Install protoc-gen-go
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          # Install the version go.mod pins, not @latest. tools.go exists so
+          # that everyone regenerating wire.pb.go produces byte-identical
+          # output, and @latest silently opts CI out of that: the generated
+          # header carries the plugin version, so an upstream release turns
+          # proto-check red on an unrelated change.
+          V=$(go list -m -f '{{.Version}}' google.golang.org/protobuf)
+          echo "protoc-gen-go pinned by go.mod: $V"
+          go install "google.golang.org/protobuf/cmd/protoc-gen-go@$V"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       # Build bin/kensa before running tests — some tests in
       # internal/agent/dispatcher/setup_test.go skip when
@@ -230,7 +237,14 @@ jobs:
           protoc --version
       - name: Install protoc-gen-go
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          # Install the version go.mod pins, not @latest. tools.go exists so
+          # that everyone regenerating wire.pb.go produces byte-identical
+          # output, and @latest silently opts CI out of that: the generated
+          # header carries the plugin version, so an upstream release turns
+          # proto-check red on an unrelated change.
+          V=$(go list -m -f '{{.Version}}' google.golang.org/protobuf)
+          echo "protoc-gen-go pinned by go.mod: $V"
+          go install "google.golang.org/protobuf/cmd/protoc-gen-go@$V"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Verify wire.pb.go in sync with wire.proto
         # Belt-and-suspenders for TestCodegenSync: even if a future
