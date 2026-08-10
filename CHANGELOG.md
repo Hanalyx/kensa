@@ -112,19 +112,6 @@ any pair).
   connection settings come from, how privileges and capability probes interact
   with `--sudo`, and which command uses which mode.
 
-- **Three corpus tests that fail the build on a check which cannot report a
-  finding.** One rejects a command check that can only exit 0, against an
-  allowlist of the seven that deliberately surface data for a human. One rejects
-  a default implementation that inspects something unrelated to the
-  capability-gated one it stands in for. One rejects reading `$?` immediately
-  after a `fi`, where the failure branch is unreachable. Each names the fix.
-
-- **A test that fails when a mechanism the corpus uses is not classified.** It
-  names the mechanism and an example rule.
-
-- **A `workflow_dispatch` trigger on CI**, so a run can be started by hand when
-  webhook delivery is unavailable.
-
 ### Changed
 - **`no-unauthorized-accounts` reaches a real verdict.** It listed local
   accounts, printed `MANUAL REVIEW REQUIRED` and exited 0, so it reported pass
@@ -182,10 +169,6 @@ any pair).
   `shell-timeout` declares `supersedes: [shell-timeout-600,
   shell-idle-timeout-tmout]`, so a rule set that still carries them reports them
   skipped rather than double-reported.
-
-- **The standalone secret-scan job**, which ran `detect-secrets` a second time.
-  The Pre-commit hygiene job already runs the same version against the same
-  baseline with the same excludes. Enforcement is unchanged.
 
 ### Fixed
 - **`security-updates-installed` reported compliant on a host with 384 pending
@@ -255,10 +238,9 @@ any pair).
   query. The twelve were removed rather than populated, because filling them in
   would have meant inventing citations. `kensa-validate` rejects the pattern.
 
-- **`rule.KnownCapabilities` is derived from the probe list.** It had drifted:
-  `ufw`, `apt`, `apparmor`, `dpkg` and three others were probed while absent
-  from the known set, so a rule gating on any of them failed `--cap-check` for a
-  capability the engine does detect.
+- **`--cap-check` rejected capabilities the engine does detect.** A rule gating
+  on `ufw`, `apt`, `apparmor`, `dpkg` or three others failed validation even
+  though those are probed. The known set is now derived from the probe list.
 
 - **The `--config-dir` help text described a state the code left long ago.** It
   said only `defaults.yml` was read; `hosts/<hostname>.yml`, `conf.d/*.yml` and,
