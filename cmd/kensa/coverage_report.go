@@ -65,12 +65,13 @@ func runCoverageReport(args []string) error {
 	if framework == "" {
 		return NewUsageError("--framework is required for the coverage report (e.g. --framework cis_rhel9)")
 	}
-	// 800-171 is the one framework with a denominator, because it is the one
-	// with a catalog: the 320 Rev 2 assessment objectives, each carrying a
-	// reviewed feasibility tier. Every other framework keeps the
-	// numerator-only policy, which is not a limitation but a refusal to
-	// invent a denominator (see cli-framework-coverage).
-	if framework == coverage.NIST800171Framework {
+	// A framework gets a denominator when it ships an objective catalog, and
+	// keeps the numerator-only policy when it does not. That is the whole
+	// condition: asking the catalog registry rather than naming a framework
+	// keeps the next catalog from adding a branch here. Numerator-only is not
+	// a limitation but a refusal to invent a denominator for a framework whose
+	// control set kensa cannot enumerate (see cli-framework-coverage).
+	if coverage.HasObjectiveCatalog(framework) {
 		switch format {
 		case "text", "json":
 		default:
@@ -79,8 +80,9 @@ func runCoverageReport(args []string) error {
 		return runNIST800171Coverage(fromScan, format, quiet)
 	}
 	if fromScan != "" {
-		return NewUsageError("--from-scan applies only to --framework nist_800_171; " +
-			"other frameworks report the controls the corpus cites, with no denominator")
+		return NewUsageError("--from-scan applies only to a framework that ships an " +
+			"objective catalog; the rest report the controls the corpus cites, with no " +
+			"denominator to compute against")
 	}
 	if rulesDir == "" {
 		return NewUsageError("--rules-dir DIR is required to scan a rule corpus")

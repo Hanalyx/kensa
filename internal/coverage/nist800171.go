@@ -41,15 +41,34 @@ type objectiveCatalog struct {
 	Objectives          map[string]objectiveEntry `json:"objectives"`
 }
 
-var nist800171Catalog = mustLoadCatalog()
+// objectiveCatalogs keys every framework that ships an objective catalog by
+// its framework id. The dispatch asks this map whether a denominator is
+// possible, rather than naming a framework: a framework with a catalog gets
+// one, a framework without keeps the numerator-only policy. Adding the next
+// catalog is a data change plus one entry here, not a new branch in the CLI.
+var objectiveCatalogs = map[string]objectiveCatalog{
+	NIST800171Framework: mustLoadCatalog(nist800171Raw),
+}
 
-func mustLoadCatalog() objectiveCatalog {
+func mustLoadCatalog(raw []byte) objectiveCatalog {
 	var c objectiveCatalog
-	if err := json.Unmarshal(nist800171Raw, &c); err != nil {
-		panic("coverage: embedded 800-171 catalog is unreadable: " + err.Error())
+	if err := json.Unmarshal(raw, &c); err != nil {
+		panic("coverage: embedded objective catalog is unreadable: " + err.Error())
 	}
 	return c
 }
+
+// HasObjectiveCatalog reports whether this framework can be given a
+// denominator. Callers use it instead of comparing against a framework name,
+// so the question stays "is there a catalog" rather than "is it this one".
+func HasObjectiveCatalog(framework string) bool {
+	_, ok := objectiveCatalogs[framework]
+	return ok
+}
+
+// nist800171Catalog is the one catalog that exists today. It is fetched
+// through the map so the map is the single source of truth.
+var nist800171Catalog = objectiveCatalogs[NIST800171Framework]
 
 // Architecture is the identity architecture a denominator is computed for.
 // It exists because seven objectives are answerable on a host whose accounts
