@@ -187,11 +187,18 @@ consistency**). Run it after touching any of them or `VERSION`.
 - Report a security issue via [`SECURITY.md`](SECURITY.md), never a public issue.
 
 Markdown is also checked for writing style by `make docs-style` (CI job **Doc
-style**), which fails on em dashes, emojis, and AI-speak filler and hype. It scans
-only the Markdown a pull request changes, and it scans those files whole rather
-than line by line, so touching a file means clearing anything already there. Fix
-the prose rather than suppress the finding. Where a term is genuinely unavoidable
-and a maintainer agrees, mark that line with `<!-- doc-style: allow -->`.
+style**). It fails on em dashes, emojis, AI-speak filler and hype, British
+spellings, and prose that reads above the grade gate. The emoji rule also runs
+on `.yml`, `.yaml`, and `.json`.
+
+Run `make docs-style` before you push. `scripts/check-doc-style.py` holds the
+exact rules and the word lists; read it when you need to know what will fail.
+
+It scans only the Markdown a pull request changes, and it scans those files whole
+rather than line by line, so touching a file means clearing anything already
+there. Fix the prose rather than suppress the finding. Where a term is genuinely
+unavoidable and a maintainer agrees, mark that line with
+`<!-- doc-style: allow -->`.
 
 ## What gets merged without this discipline
 
