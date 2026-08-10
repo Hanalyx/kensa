@@ -318,13 +318,13 @@ jobs:
         run: make docs-check
 
   doc-style:
-    # Enforces the Hanalyx developer documentation style guide (canonical copy:
-    # Context Plane dev/DEVELOPER_DOCUMENTATION_STYLE_GUIDE): no em dashes, no
-    # emojis, no AI-speak filler or hype. Scans only Markdown changed against
-    # origin/main, so the pre-existing backlog does not block unrelated work.
+    # Enforces the Hanalyx documentation style rules: no em dashes, no emojis,
+    # no AI-speak filler or hype, US English, and a reading grade gate. The full
+    # list is at the top of scripts/check-doc-style.py. Scans only Markdown
+    # changed against origin/main, so the pre-existing backlog does not block
+    # unrelated work.
     # Fenced and inline code are exempt; a maintainer-cleared line may carry
-    # <!-- doc-style: allow -->. Shared tool, owned by hanalyx-platform-agent;
-    # see scripts/check-doc-style.py and CONTRIBUTING.md.
+    # <!-- doc-style: allow -->. Shared tool, owned by hanalyx-platform-agent.
     name: Doc style
     runs-on: ubuntu-latest
     # Merge gate. Runs on a pull request, and by hand. Skipped on the

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Hanalyx documentation style check (language-neutral: runs anywhere python3 is present).
 
-Enforces the prohibited list from the developer documentation style guide (canonical copy:
-Context Plane dev/DEVELOPER_DOCUMENTATION_STYLE_GUIDE):
+Enforces the Hanalyx documentation prohibited list. The rules below and the word tables further
+down are the whole of what a pull request has to satisfy.
 
   1. Em dashes (the U+2014 character).            markdown prose
   2. AI-speak filler and hype words and phrases.  markdown prose
@@ -419,7 +419,7 @@ def main():
     if findings:
         sys.stderr.write(
             f"\ndoc-style FAILED: {findings} finding(s). "
-            "See dev/DEVELOPER_DOCUMENTATION_STYLE_GUIDE.\n"
+            "The rules are listed at the top of this script, and in CONTRIBUTING.md.\n"
             "Fix the prose, or add `<!-- doc-style: allow -->` to a line a maintainer has cleared.\n"
         )
         return 1
