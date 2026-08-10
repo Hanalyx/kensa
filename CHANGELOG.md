@@ -50,6 +50,45 @@ any pair).
   are wrong. It is opt-in: without the param every exit code keeps its meaning.
 
 ### Fixed
+- **Eight audit and session rules did not run on RHEL 8.** They declared
+  `rhel >= 9`, so on RHEL 8 they reported "not applicable" and the host was
+  never checked: `logind-idle-session-timeout`, `auditd-write-logs`,
+  `auditd-immutable-rules`, and `audit-cmd-init`, `-poweroff`, `-reboot`,
+  `-shutdown` and `-sudoedit`.
+
+  Each floor matched the earliest release with a published benchmark for that
+  rule, not anything the check needs. The clearest evidence is the audit-cmd
+  family itself: 24 of its 29 rules already declared `rhel >= 8`, with the same
+  check method and the same remediation mechanism as the five that did not.
+
+  Measured on RHEL 8.10 before changing anything. `write_logs` is present in
+  `auditd.conf` with audit 3.1.2, `/etc/audit/rules.d/audit.rules` and `-e 2`
+  immutability are supported, `/usr/sbin/init` exists, and `StopIdleSessionSec`
+  ships as a commented default that logind accepts and applies when set.
+
+  Now `rhel >= 8`. Verified on RHEL, AlmaLinux, Rocky and Oracle Linux 8, all
+  four with identical results: six rules complete a full round-trip (fail,
+  remediate, pass, rollback, fail, with `/etc` byte-identical), `auditd-write-logs`
+  runs and already passes, and `logind-idle-session-timeout` runs and reports a
+  real verdict with remediation left manual as it was before.
+
+- **`no-unauthorized-accounts` did not run on RHEL 8 or RHEL 9.** The rule
+  declared `rhel >= 10`, so on any earlier release it reported "not applicable"
+  and the host was never checked for local accounts nobody authorized.
+
+  The floor came from the rule's source benchmark, which is published for
+  RHEL 10, rather than from anything the check needs. The check reads
+  `/etc/passwd` with awk and compares against the operator's
+  `authorized_local_accounts` set, which works the same on every supported
+  release. Its six sibling rules already declared `rhel >= 8` and
+  `ubuntu >= 22`.
+
+  Now declared `rhel >= 8` and `ubuntu >= 22`, matching the siblings. Verified
+  on RHEL, AlmaLinux, Rocky and Oracle Linux at 8, 9 and 10: with no set
+  declared the rule reports that it cannot assess the host, with the host's own
+  accounts declared it passes, and with a wrong set it fails and names the
+  account that is present but not authorized.
+
 - **`security-updates-installed` reported compliant on a host with 384 pending
   updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
   on the next line, expecting dnf's exit 100. After an `if` whose condition fails
