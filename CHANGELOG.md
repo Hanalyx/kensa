@@ -50,6 +50,23 @@ any pair).
   are wrong. It is opt-in: without the param every exit code keeps its meaning.
 
 ### Fixed
+- **`no-unauthorized-accounts` did not run on RHEL 8 or RHEL 9.** The rule
+  declared `rhel >= 10`, so on any earlier release it reported "not applicable"
+  and the host was never checked for local accounts nobody authorized.
+
+  The floor came from the rule's source benchmark, which is published for
+  RHEL 10, rather than from anything the check needs. The check reads
+  `/etc/passwd` with awk and compares against the operator's
+  `authorized_local_accounts` set, which works the same on every supported
+  release. Its six sibling rules already declared `rhel >= 8` and
+  `ubuntu >= 22`.
+
+  Now declared `rhel >= 8` and `ubuntu >= 22`, matching the siblings. Verified
+  on RHEL, AlmaLinux, Rocky and Oracle Linux at 8, 9 and 10: with no set
+  declared the rule reports that it cannot assess the host, with the host's own
+  accounts declared it passes, and with a wrong set it fails and names the
+  account that is present but not authorized.
+
 - **`security-updates-installed` reported compliant on a host with 384 pending
   updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
   on the next line, expecting dnf's exit 100. After an `if` whose condition fails
