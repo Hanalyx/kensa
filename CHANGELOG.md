@@ -16,6 +16,8 @@ any pair).
 
 ## Unreleased
 
+## v0.10.0 (2026-08-10)
+
 ### Added
 - **`flaw-remediation-window`** reports how long the oldest pending security
   advisory has gone uncorrected, measured against `flaw_remediation_max_days`.
