@@ -302,3 +302,54 @@ func TestApply_FallsBackWhenNoCapability(t *testing.T) {
 		t.Errorf("expected augenrules shell path; Runs=%v", tp.Runs)
 	}
 }
+
+// TestPersistOnly_StagesAndNeverLoads pins the persist_only contract for audit
+// CONTROL directives.
+//
+// `-e 2` is not a rule. Capture used to fail on it outright, because the wire
+// builder cannot parse a control directive, and the engine then correctly
+// refused the whole remediation. It must instead be written to the drop-in,
+// left unloaded, and reported Staged so the transaction terminates PENDING
+// reboot.
+//
+// Loading it at runtime would be worse than useless: it blocks every later
+// audit change on the host and no rollback can undo it, because restoring the
+// drop-in does not clear the kernel flag.
+//
+// @spec handler-audit-rule-set
+// @ac AC-06
+func TestPersistOnly_StagesAndNeverLoads(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-06", func(t *testing.T) {})
+	f := auditnl.NewFakeAudit()
+	h := auditruleset.New()
+	ctx := context.Background()
+	const finalize = "/etc/audit/rules.d/99-finalize.rules"
+	params := api.Params{
+		"rule":         "-e 2",
+		"persist_file": finalize,
+		"persist_only": true,
+	}
+
+	// Capture must succeed even though "-e 2" is not a parseable rule.
+	pre, err := h.Capture(ctx, f, params)
+	if err != nil {
+		t.Fatalf("Capture on a control directive: %v", err)
+	}
+
+	res, err := h.Apply(ctx, f, params, pre)
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if !res.Success {
+		t.Fatalf("Apply success = false, detail=%s", res.Detail)
+	}
+	if !res.Staged {
+		t.Errorf("Staged = false, want true so the transaction terminates PENDING reboot")
+	}
+	if f.LoadedCount() != 0 {
+		t.Errorf("loaded rule count = %d, want 0: a persist_only directive must never reach the kernel", f.LoadedCount())
+	}
+	if got := f.Files[finalize]; !strings.Contains(got, "-e 2") {
+		t.Errorf("drop-in = %q, want it to carry the directive", got)
+	}
+}

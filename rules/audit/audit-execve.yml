@@ -30,8 +30,12 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S execve"
+      rule: |
+        -a always,exit -F arch=b32 -S execve
+        -a always,exit -F arch=b64 -S execve
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"
+      rule: |
+        -a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -k execpriv
+        -a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv
       persist_file: "/etc/audit/rules.d/50-execve.rules"

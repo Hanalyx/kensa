@@ -25,7 +25,9 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-k MAC-policy"
+      rule: |
+        -w /etc/selinux -p wa -k MAC-policy
+        -w /usr/share/selinux -p wa -k MAC-policy
     remediation:
       steps:
         - mechanism: audit_rule_set

@@ -1719,6 +1719,49 @@ func writeOSCALFile(path string, result *api.RemediationResult) error {
 // (--list, --info, --start, legacy --txn) plus --help.
 // Each mode lives in cmd/kensa/rollback_session.go; this
 // function only does flag parsing and mode mux.
+// openAgentOptions returns engine options carrying an agent client, plus a
+// cleanup to run when the caller is done.
+//
+// Rollback needs this as much as remediate does. Handlers select their
+// implementation by type-asserting the transport (for example
+// transport.(auditnl.AuditTransport)), so a transport without the agent
+// silently sends a handler down its shell fallback. The rollback then stops
+// being the mechanical inverse of the apply it is undoing.
+//
+// audit_rule_set is the case that exposed it. Apply loads rule lines over
+// AUDIT netlink and writes the drop-in atomically. A shell rollback instead
+// runs `augenrules --load`, which recompiles /etc/audit/audit.rules and leaves
+// behind an /etc/audit/audit.rules.prev that the apply never created, so the
+// host does not return to its prior state.
+//
+// Honors KENSA_NO_AGENT=1 the same way remediate does.
+func openAgentOptions(ctx context.Context, hostCfg api.HostConfig) ([]engine.Option, func(), error) {
+	noop := func() {}
+	if os.Getenv("KENSA_NO_AGENT") == "1" {
+		return nil, noop, nil
+	}
+	// SocketTag gives this connection a private ControlMaster, so closing it
+	// cannot tear down a master another transport is still multiplexing over.
+	bootstrapTransport, err := ssh.Factory{SocketTag: "agent"}.Connect(ctx, hostCfg)
+	if err != nil {
+		return nil, noop, fmt.Errorf("agent mode: connect to host for bootstrap: %w", err)
+	}
+	agentClient, cleanup, err := dispatcher.OpenAgent(ctx, bootstrapTransport, hostCfg.Hostname, dispatcher.Options{
+		User:         hostCfg.User,
+		Sudo:         hostCfg.Sudo,
+		SudoPassword: hostCfg.SudoPassword,
+		Stderr:       os.Stderr,
+	})
+	if err != nil {
+		_ = bootstrapTransport.Close()
+		return nil, noop, fmt.Errorf("agent mode: %w", err)
+	}
+	return []engine.Option{engine.WithAgentClient(agentClient)}, func() {
+		cleanup()
+		_ = bootstrapTransport.Close()
+	}, nil
+}
+
 func runRollback(ctx context.Context, dbPath string, args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"host": true, "user": true, "port": true, "key": true,
@@ -1841,7 +1884,13 @@ func runRollback(ctx context.Context, dbPath string, args []string) error {
 	if err != nil {
 		return err
 	}
-	svc, err := kensa.Default(ctx, dbPath)
+	engineOpts, agentCleanup, err := openAgentOptions(ctx, hostCfg)
+	if err != nil {
+		return err
+	}
+	defer agentCleanup()
+
+	svc, err := kensa.DefaultWithEngineOptions(ctx, dbPath, engineOpts...)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}

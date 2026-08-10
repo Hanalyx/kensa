@@ -28,8 +28,12 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng"
+      rule: |
+        -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng
+        -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng"
+      rule: |
+        -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng
+        -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F exit=-EACCES -k perm_chng
       persist_file: "/etc/audit/rules.d/50-perm-chng.rules"

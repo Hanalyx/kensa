@@ -24,7 +24,8 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-w /var/log/sudo.log"
+      rule: |
+        -w /var/log/sudo.log -p wa -k sudo_log
     remediation:
       mechanism: audit_rule_set
       rule: "-w /var/log/sudo.log -p wa -k sudo_log"

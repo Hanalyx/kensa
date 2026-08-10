@@ -34,8 +34,12 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules"
+      rule: |
+        -a always,exit -F arch=b32 -S init_module,finit_module,delete_module -k modules
+        -a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules"
+      rule: |
+        -a always,exit -F arch=b32 -S init_module,finit_module,delete_module -k modules
+        -a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k modules
       persist_file: "/etc/audit/rules.d/50-modules.rules"

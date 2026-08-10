@@ -32,8 +32,12 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S umount2"
+      rule: |
+        -a always,exit -F arch=b32 -S umount2
+        -a always,exit -F arch=b64 -S umount2
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S umount2 -F auid>=1000 -F auid!=unset -k privileged-umount"
+      rule: |
+        -a always,exit -F arch=b32 -S umount2 -F auid>=1000 -F auid!=unset -k privileged-umount
+        -a always,exit -F arch=b64 -S umount2 -F auid>=1000 -F auid!=unset -k privileged-umount
       persist_file: "/etc/audit/rules.d/50-mounts.rules"

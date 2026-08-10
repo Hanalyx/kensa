@@ -21,7 +21,9 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity"
+      rule: |
+        -a always,exit -F arch=b32 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity
+        -a always,exit -F arch=b64 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity
     remediation:
       mechanism: manual
       note: "Add -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity to /etc/audit/rules.d/ and augenrules --load."

@@ -23,7 +23,9 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset"
+      rule: |
+        -a always,exit -F arch=b32 -S delete_module -F auid>=1000 -F auid!=unset
+        -a always,exit -F arch=b64 -S delete_module -F auid>=1000 -F auid!=unset
     remediation:
       mechanism: manual
       note: "Add -S delete_module (b64, auid>=1000, -k kernel_modules) audit rule to /etc/audit/rules.d/ and augenrules --load."

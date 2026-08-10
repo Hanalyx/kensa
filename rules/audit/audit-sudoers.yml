@@ -38,7 +38,9 @@ implementations:
 - default: true
   check:
     method: audit_rule_exists
-    rule: -w /etc/sudoers
+    rule: |
+      -w /etc/sudoers -p wa -k scope
+      -w /etc/sudoers.d -p wa -k scope
   remediation:
     steps:
     - mechanism: audit_rule_set

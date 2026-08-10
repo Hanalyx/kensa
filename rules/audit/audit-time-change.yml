@@ -44,5 +44,7 @@ implementations:
       expected_exit: 0
     remediation:
       mechanism: audit_rule_set
-      rule: "-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change"
+      rule: |
+        -a always,exit -F arch=b32 -S adjtimex,settimeofday,clock_settime -k time-change
+        -a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change
       persist_file: "/etc/audit/rules.d/50-time-change.rules"

@@ -52,6 +52,15 @@ spec:
               All writes MUST use PRAGMA synchronous=FULL. Async writes
               risk losing pre-state to a power failure between write
               and fsync.
+
+              The pragmas that carry this guarantee, along with
+              foreign_keys and busy_timeout, are per-connection state.
+              They MUST be configured so that EVERY connection the pool
+              opens carries them, not issued once after opening. A
+              pragma issued through database/sql binds only to whichever
+              pooled connection served it, so a replacement connection
+              comes up with SQLite's defaults: synchronous NORMAL,
+              foreign_keys OFF, busy_timeout 0.
           type: security
           enforcement: error
         - id: C-03
@@ -131,6 +140,23 @@ spec:
               migration interrupted mid-way recovers on next startup.
           references_constraints: [C-06]
           priority: critical
+        - id: AC-10
+          description: |
+              synchronous, foreign_keys and busy_timeout read back at
+              their configured values after the pooled connection has
+              been replaced, not only on the connection open() served.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-11
+          description: |
+              A write that loses the ledger lock to another client
+              fails with an error that names the database file and the
+              --db flag, and is classified so a caller can distinguish
+              contention from corruption. Reporting it as a failure of
+              whichever rule was in flight is not acceptable: it sends
+              the reader to the rule corpus.
+          references_constraints: [C-02]
+          priority: medium
 
     # Deferred ACs — moved out of strict-coverage scope; track in
     # backlog for future deliverables.

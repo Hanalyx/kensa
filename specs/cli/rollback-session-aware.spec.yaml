@@ -186,6 +186,35 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-10
+          description: |
+              `rollback` MUST run with the agent when one is available, exactly
+              as `remediate` does, honoring KENSA_NO_AGENT=1 the same way.
+
+              Handlers select their implementation by type-asserting the
+              transport (for example transport.(auditnl.AuditTransport)). A
+              transport without the agent silently sends every handler to its
+              shell fallback, so the rollback stops being the mechanical inverse
+              of the apply it is undoing. audit_rule_set showed the cost: apply
+              loaded rules over netlink while a shell rollback ran
+              `augenrules --load`, which recompiled /etc/audit/audit.rules and
+              left an audit.rules.prev the apply never created, so the host did
+              not return to its prior state.
+          type: security
+          enforcement: error
+        - id: C-11
+          description: |
+              Validation MUST complete before any host connection is opened, and
+              a session with nothing to roll back MUST NOT connect at all.
+
+              A usage error (wrong subcommand, missing or mismatched hostname)
+              rejected only after an SSH round trip makes an invalid request pay
+              for a host it is not entitled to target. A session with zero
+              committed transactions has no host work to do, so connecting can
+              only waste time or fail on an unreachable host that was never
+              needed.
+          type: technical
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -318,4 +347,26 @@ spec:
           references_constraints: [C-09]
           priority: critical
 
+        - id: AC-18
+          description: |
+              openAgentOptions returns no engine options and a usable cleanup
+              when KENSA_NO_AGENT=1, and otherwise attempts the agent open, so a
+              rollback carries the agent wherever remediate would. An
+              unreachable host failing rather than silently returning no options
+              is what distinguishes "attempted" from "skipped".
+          references_constraints: [C-10]
+          priority: critical
+        - id: AC-16
+          description: |
+              `rollback --start` rejects a non-remediate session, a session with
+              no recorded hostname, and a hostname mismatch WITHOUT opening a
+              connection to the host.
+          references_constraints: [C-11]
+          priority: critical
+        - id: AC-17
+          description: |
+              A session with zero committed transactions returns its result
+              without connecting to the host.
+          references_constraints: [C-11]
+          priority: critical
     tags: [cli, rollback, session, store, phase-4, c-049]

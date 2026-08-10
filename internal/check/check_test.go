@@ -2,6 +2,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"strings"
 	"testing"
@@ -102,7 +103,7 @@ func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
 	// Only /etc/group is loaded; its key usergroup_modification is present.
 	ft := &fakeTransport{
 		cmdResult: map[string]api.CommandResult{
-			"auditctl -l 2>/dev/null": result(0, "-w /etc/group -p wa -k usergroup_modification"),
+			"auditctl -l": result(0, "-w /etc/group -p wa -k usergroup_modification"),
 		},
 	}
 	watch := func(path string) api.Check {
@@ -134,7 +135,7 @@ func TestCheckAuditRuleExists_ExecPathMatch(t *testing.T) {
 	// Only /usr/bin/sudo is loaded; its key priv_cmd is shared with chsh etc.
 	loaded := "-a always,exit -F arch=b64 -S execve -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd"
 	ft := &fakeTransport{
-		cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded)},
+		cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)},
 	}
 	exec := func(path string) api.Check {
 		return api.Check{Method: "audit_rule_exists", Params: api.Params{
@@ -160,7 +161,7 @@ func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
 	// Only the chmod b64 + b32 rules are loaded (auditctl-style: -F key=, auid!=-1).
 	loaded := "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng\n" +
 		"-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng"
-	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded)}}
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)}}
 	rule := func(arches []string, syscalls string) api.Check {
 		var lines []string
 		for _, a := range arches {
@@ -180,7 +181,7 @@ func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
 	}
 	// Multi-line completeness: chmod requiring an arch that isn't loaded fails.
 	loaded2 := "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=-1 -F key=perm_chng"
-	ft2 := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l 2>/dev/null": result(0, loaded2)}}
+	ft2 := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded2)}}
 	if passed, _, err := runForTest(context.Background(), ft2, rule([]string{"b32", "b64"}, "chmod,fchmod,fchmodat")); err != nil {
 		t.Fatalf("err: %v", err)
 	} else if passed {
@@ -1003,5 +1004,59 @@ func TestAuditMatch_NoPrefixPathFalseMatch(t *testing.T) {
 	loadedAuid := []string{"-a always,exit -S execve -F auid>=10000 -F key=exec"}
 	if AuditLineLoaded("-a always,exit -S execve -F auid>=1000 -k exec", loadedAuid) {
 		t.Error("AuditLineLoaded: auid>=1000 false-matched auid>=10000")
+	}
+}
+
+// TestCheckAuditRuleExists_UnreadableRulesetIsNotAssessable locks the
+// distinction between "the rule is not loaded" and "we could not look".
+//
+// On RHEL 10 auditctl moved out of the `audit` package into `audit-rules`,
+// which a stock install does not pull in. The command is then missing, stdout
+// is empty, and every audit rule on the host reported non-compliant for a
+// reason that had nothing to do with its audit configuration. `rpm -q audit`
+// still reports the package present, so the host does not make the cause
+// obvious either.
+//
+// Reporting FAIL there states something the check never measured. It must
+// report not-assessable, which the scan surfaces as skipped.
+func TestCheckAuditRuleExists_UnreadableRulesetIsNotAssessable(t *testing.T) {
+	chk := api.Check{Method: "audit_rule_exists", Params: api.Params{
+		"rule": "-w /etc/passwd -p wa -k identity",
+	}}
+
+	// auditctl absent: the shell reports 127 and says why on stderr.
+	missing := &fakeTransport{cmdResult: map[string]api.CommandResult{
+		"auditctl -l": {ExitCode: 127, Stderr: "sh: auditctl: command not found"},
+	}}
+	passed, _, err := runForTest(context.Background(), missing, chk)
+	if !errors.Is(err, ErrNotAssessable) {
+		t.Fatalf("auditctl missing must be not-assessable, got passed=%v err=%v", passed, err)
+	}
+	if passed {
+		t.Error("a check that could not read the ruleset must not report passed")
+	}
+	if !strings.Contains(err.Error(), "audit-rules") {
+		t.Errorf("the reason should name the package that provides auditctl; got %v", err)
+	}
+
+	// Any other non-zero exit is equally unreadable, even with no stderr.
+	silent := &fakeTransport{cmdResult: map[string]api.CommandResult{
+		"auditctl -l": {ExitCode: 1},
+	}}
+	if _, _, err := runForTest(context.Background(), silent, chk); !errors.Is(err, ErrNotAssessable) {
+		t.Errorf("non-zero exit must be not-assessable; got %v", err)
+	}
+
+	// Contrast: a readable but EMPTY ruleset is a real verdict, not a skip.
+	// "No rules" is what auditctl prints on a host with none loaded, exit 0.
+	empty := &fakeTransport{cmdResult: map[string]api.CommandResult{
+		"auditctl -l": result(0, "No rules"),
+	}}
+	passed, _, err = runForTest(context.Background(), empty, chk)
+	if err != nil {
+		t.Fatalf("an empty ruleset is readable; expected a verdict, got %v", err)
+	}
+	if passed {
+		t.Error("rule is genuinely not loaded; must fail, not pass")
 	}
 }

@@ -88,6 +88,21 @@ type Params struct {
 	RuleFile string
 	// Rule is the complete audit rule line(s) to write. Required.
 	Rule string
+	// PersistOnly writes the drop-in and deliberately does NOT load into the
+	// running kernel, terminating the transaction StatusStaged (PENDING
+	// reboot).
+	//
+	// It exists for audit CONTROL directives rather than rules. `-e 2` makes
+	// the audit configuration immutable: loading it blocks every later audit
+	// change on that host until reboot, and no rollback can undo it, because
+	// restoring the drop-in does not clear the kernel flag. Applying it at
+	// runtime would therefore break the capture/rollback contract the engine
+	// relies on. Persisting it and reporting PENDING reboot keeps that contract
+	// and still converges the host at its next boot.
+	//
+	// This is the same shape as the immutable-host case below, declared by the
+	// rule instead of detected from host state.
+	PersistOnly bool
 }
 
 var errMissingRule = errors.New("audit_rule_set: params missing required 'rule'")
@@ -115,7 +130,15 @@ func decodeParams(p api.Params) (*Params, error) {
 		}
 		persist = s
 	}
-	return &Params{RuleFile: persist, Rule: rule}, nil
+	persistOnly := false
+	if v, ok := p["persist_only"]; ok {
+		b, ok := v.(bool)
+		if !ok {
+			return nil, fmt.Errorf("audit_rule_set: 'persist_only' must be a boolean, got %T", v)
+		}
+		persistOnly = b
+	}
+	return &Params{RuleFile: persist, Rule: rule, PersistOnly: persistOnly}, nil
 }
 
 // Handler implements the audit_rule_set mechanism.
@@ -214,6 +237,9 @@ func (h *Handler) applyNetlink(ctx context.Context, at auditnl.AuditTransport, p
 	// The drop-in is fully captured, so rollback stays byte-perfect. A status
 	// read error is non-fatal here: fall through to the normal load path, whose
 	// AddRule failure is surfaced as a non-compliant StepResult.
+	if p.PersistOnly {
+		return h.stagePersistNetlink(ctx, at, p)
+	}
 	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
 		return h.stagePersistNetlink(ctx, at, p)
 	}
@@ -262,10 +288,14 @@ func (h *Handler) stagePersistNetlink(ctx context.Context, at auditnl.AuditTrans
 	if werr := kernelio.WriteFile(ctx, at, p.RuleFile, auditFileMode, []byte(merged)); werr != nil {
 		return nil, fmt.Errorf("audit_rule_set: staged persist write: %w", werr)
 	}
+	reason := "audit config immutable (enabled 2)"
+	if p.PersistOnly {
+		reason = "persist_only directive, never loaded at runtime"
+	}
 	return &api.StepResult{
 		Success: true,
 		Staged:  true,
-		Detail:  fmt.Sprintf("audit_rule_set: audit config immutable (enabled 2); staged into %s, PENDING reboot to load (netlink)", p.RuleFile),
+		Detail:  fmt.Sprintf("audit_rule_set: %s; staged into %s, PENDING reboot to load (netlink)", reason, p.RuleFile),
 	}, nil
 }
 
@@ -287,6 +317,28 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 	// --load is run (to regenerate the compiled /etc/audit/audit.rules for a
 	// consistent reboot) but its exit is tolerated, because on an immutable
 	// host the load sub-step is expected to no-op.
+	// persist_only: write the drop-in and do not load. Running augenrules here
+	// would compile and load the directive, which is the thing this flag exists
+	// to avoid.
+	if p.PersistOnly {
+		cmd := fmt.Sprintf("printf '%%s' %s > %s", shellEscape(merged), shellEscape(path))
+		res, err := transport.Run(ctx, cmd)
+		if err != nil {
+			return nil, fmt.Errorf("audit_rule_set: persist_only write transport error: %w", err)
+		}
+		if !res.OK() {
+			return &api.StepResult{
+				Success: false,
+				Detail:  fmt.Sprintf("audit_rule_set: persist_only write failed (exit %d): %s", res.ExitCode, strings.TrimSpace(res.Stderr)),
+			}, nil
+		}
+		return &api.StepResult{
+			Success: true,
+			Staged:  true,
+			Detail:  fmt.Sprintf("audit_rule_set: persist_only directive, never loaded at runtime; staged into %s, PENDING reboot to load (shell)", path),
+		}, nil
+	}
+
 	if auditImmutableShell(ctx, transport) {
 		cmd := fmt.Sprintf(
 			"printf '%%s' %s > %s && { augenrules --load >/dev/null 2>&1 || true; }",
@@ -395,14 +447,22 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	if enabled, serr := c.GetStatus(); serr == nil && enabled == 2 {
 		immutableStaged = true
 	}
+	// A persist_only directive is never loaded, so there is nothing for
+	// Rollback to unload. Skip the wire build entirely: its text is a control
+	// directive (`-e 2`), not a rule, and BuildRule cannot parse one — which
+	// would fail capture and, correctly but unhelpfully, refuse the whole
+	// remediation.
+	staged := immutableStaged || p.PersistOnly
 	var added []string
-	for _, line := range auditnl.RuleLines(p.Rule) {
-		wire, berr := auditnl.BuildRule(line)
-		if berr != nil {
-			return nil, fmt.Errorf("audit_rule_set: capture %w: %v", api.ErrCaptureIncomplete, berr)
-		}
-		if !immutableStaged && !containsWire(loaded, wire) {
-			added = append(added, line) // we will add it → rollback unloads it
+	if !staged {
+		for _, line := range auditnl.RuleLines(p.Rule) {
+			wire, berr := auditnl.BuildRule(line)
+			if berr != nil {
+				return nil, fmt.Errorf("audit_rule_set: capture %w: %v", api.ErrCaptureIncomplete, berr)
+			}
+			if !containsWire(loaded, wire) {
+				added = append(added, line) // we will add it → rollback unloads it
+			}
 		}
 	}
 
@@ -413,7 +473,7 @@ func (h *Handler) captureNetlink(ctx context.Context, at auditnl.AuditTransport,
 	// Which of this rule's lines are NOT already in the drop-in — the lines
 	// Apply will add and Rollback must remove (leaving any sibling's lines).
 	_, fileAdded := mergeRuleLines(content, auditnl.RuleLines(p.Rule))
-	return h.preState(p, existed, content, added, fileAdded, immutableStaged), nil
+	return h.preState(p, existed, content, added, fileAdded, staged), nil
 }
 
 // captureShell records whether the rule file existed and its content.
