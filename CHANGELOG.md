@@ -11,12 +11,15 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.8.0...v0.9.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.9.0...v0.10.0> (swap the tags for
 any pair).
 
 ## Unreleased
 
+## v0.10.0 (2026-08-10)
+
 ### Added
+
 - **A rule that measures how long a known security flaw has gone uncorrected.**
   `flaw-remediation-window` takes the oldest pending security advisory and
   compares its age against `flaw_remediation_max_days`, which the operator declares.
@@ -49,68 +52,12 @@ any pair).
   operator-declared value had to pick between pass, fail and error, all of which
   are wrong. It is opt-in: without the param every exit code keeps its meaning.
 
-### Fixed
-- **Eight audit and session rules did not run on RHEL 8.** They declared
-  `rhel >= 9`, so on RHEL 8 they reported "not applicable" and the host was
-  never checked: `logind-idle-session-timeout`, `auditd-write-logs`,
-  `auditd-immutable-rules`, and `audit-cmd-init`, `-poweroff`, `-reboot`,
-  `-shutdown` and `-sudoedit`.
-
-  Each floor matched the earliest release with a published benchmark for that
-  rule, not anything the check needs. The clearest evidence is the audit-cmd
-  family itself: 24 of its 29 rules already declared `rhel >= 8`, with the same
-  check method and the same remediation mechanism as the five that did not.
-
-  Measured on RHEL 8.10 before changing anything. `write_logs` is present in
-  `auditd.conf` with audit 3.1.2, `/etc/audit/rules.d/audit.rules` and `-e 2`
-  immutability are supported, `/usr/sbin/init` exists, and `StopIdleSessionSec`
-  ships as a commented default that logind accepts and applies when set.
-
-  Now `rhel >= 8`. Verified on RHEL, AlmaLinux, Rocky and Oracle Linux 8, all
-  four with identical results: six rules complete a full round-trip (fail,
-  remediate, pass, rollback, fail, with `/etc` byte-identical), `auditd-write-logs`
-  runs and already passes, and `logind-idle-session-timeout` runs and reports a
-  real verdict with remediation left manual as it was before.
-
-- **`no-unauthorized-accounts` did not run on RHEL 8 or RHEL 9.** The rule
-  declared `rhel >= 10`, so on any earlier release it reported "not applicable"
-  and the host was never checked for local accounts nobody authorized.
-
-  The floor came from the rule's source benchmark, which is published for
-  RHEL 10, rather than from anything the check needs. The check reads
-  `/etc/passwd` with awk and compares against the operator's
-  `authorized_local_accounts` set, which works the same on every supported
-  release. Its six sibling rules already declared `rhel >= 8` and
-  `ubuntu >= 22`.
-
-  Now declared `rhel >= 8` and `ubuntu >= 22`, matching the siblings. Verified
-  on RHEL, AlmaLinux, Rocky and Oracle Linux at 8, 9 and 10: with no set
-  declared the rule reports that it cannot assess the host, with the host's own
-  accounts declared it passes, and with a wrong set it fails and names the
-  account that is present but not authorized.
-
-- **`security-updates-installed` reported compliant on a host with 384 pending
-  updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
-  on the next line, expecting dnf's exit 100. After an `if` whose condition fails
-  and which has no `else`, the compound statement itself returns 0, so `$?` was
-  always 0, the pending-updates branch was unreachable, and the check fell
-  through to its OK path.
-
-  Measured on a live fleet host: `dnf check-update` exited 100 with 384 packages
-  pending, and the rule reported PASS. It now reports FAIL and names the count.
-
-  A dnf failure is also a failure now. The old version printed OK when the check
-  could not run at all, which meant no network or a broken repository read as
-  patched.
-
-### Added
 - **A corpus test for unreachable failure branches.** The existing always-passing
   test could not see this one: it looks for a check where every exit is 0, and
   this rule contained a real `exit 1` that simply could not be reached. Reading
   `$?` immediately after a `fi` is now a build failure, with the fix in the
   message.
 
-### Added
 - **A rule that compares who holds privileged access against the set a site
   declared.** `authorized-privileged-users` reports any account able to act as
   root that is not in `authorized_privileged_users`.
@@ -126,7 +73,6 @@ any pair).
   correctly configured sudo policy granting root to someone who left last year is
   both least-privilege and wrong.
 
-### Added
 - **A rule that compares registered network protocols against the set a site
   declared.** `authorized-network-protocols` reads what the kernel has registered
   in `/proc/net/protocols` and reports anything not in
@@ -141,23 +87,6 @@ any pair).
   real evidence and they structurally cannot speak to a protocol nobody thought
   to blacklist, which is the one worth finding.
 
-### Changed
-- **`suid-sgid-files-reviewed` now compares the full inventory against a declared
-  baseline**, which is what its own output had been asking for. It printed
-  "review full inventory against baseline" and left that to a human; it now does
-  it, against `suid_sgid_baseline`.
-
-  The world-writable check it already had is unchanged and still runs first.
-  Those are two different assertions: one is wrong on any host and needs no site
-  input, the other cannot be answered without one.
-
-  A package list would be the obvious way to answer "nonessential programs" and
-  it was measured and rejected: 682 packages on one fleet host, 626 on another,
-  and the set changes on every patch, so a declared list is stale within a cycle
-  and produces failures nobody reads. The SUID inventory is about twenty entries
-  and barely moves, which is what makes a baseline worth keeping accurate.
-
-### Added
 - **A rule that compares enabled services against the set a site declared.**
   `authorized-enabled-services` reports every enabled systemd service that is not
   in `authorized_services`, and skips with a stated reason until that set is
@@ -178,7 +107,6 @@ any pair).
   drawback, since the unintended ones are invisible until the intended set is
   written down once.
 
-### Added
 - **A rule that checks which system accounts can obtain access.**
   `authorized-service-accounts` reports every account below UID 1000 that holds a
   real login shell and is not in `authorized_service_accounts`, and skips with a
@@ -195,7 +123,6 @@ any pair).
   almost every case, but an account that legitimately runs a login shell is rare
   and real, and taking it away can stop the service the host exists for.
 
-### Added
 - **A rule that compares listening ports against the set a site declared.**
   `authorized-listening-ports` reports every listening TCP and UDP port that is
   not in `authorized_listening_ports`, and skips with a stated reason until that
@@ -210,88 +137,16 @@ any pair).
   Remediation is deliberately manual. The same finding can mean an unwanted
   service or an out-of-date list, and only the operator knows which.
 
-### Fixed
-- **Six remediation mechanisms could cut the SSH control channel without arming
-  the dead man timer.** The timer is what lets a host reverse a change on its own
-  when the controller never confirms, and the decision came from a static list
-  that six mechanisms, used by 124 rules, were missing from entirely. A missing
-  entry read as "cannot cut the channel", so each was silently unprotected.
-
-  `crypto_policy_set` is the measured case. Setting a host to FIPS regenerates
-  the SSH daemon's accepted key algorithms **without ed25519**, so an operator
-  using a modern default key is locked out the moment the change commits, by the
-  change Kensa just made, over the connection Kensa was using. Both crypto
-  mechanisms are also non-capturable, so there was no pre-state to return to
-  either.
-
-  `apt_absent` had the same gap as its already-classified counterpart
-  `package_absent`: removing the SSH server ends the session. `authselect_feature_enable`
-  and `pam_module_arg` both rewrite authentication stacks, like the
-  `pam_module_configure` that was already covered.
-
-  Verified as a before and after on a live container: a plan for a crypto policy
-  rule reported `ControlChannelSensitive: false` and now reports `true`, and the
-  same for a rule whose only mechanism is `apt_absent`.
-
-### Added
 - **A test that fails when a mechanism the corpus uses is not classified.** The
   defect was not a wrong judgment about any one mechanism, it was a list that
   had to be remembered and quietly fell behind six times. Forgetting it is now a
   build failure that names the mechanism and an example rule.
 
-### Fixed
-- **A rule skipped for an undeclared variable now appears in the results.**
-  `kensa check` warned on stderr and then dropped the rule, leaving no trace in
-  machine output. Anything counting coverage saw the objective quietly leave the
-  denominator, which is the failure this area exists to prevent. Such a rule is
-  now reported as `skipped`, carrying its severity and the name of the variable
-  to declare.
-
-  The rule's identity is recovered by reading its `id:` line rather than by
-  decoding the document. Once substitution has failed the file still holds
-  `{{ name }}`, and unquoted that is a YAML mapping rather than text, so the
-  document may not decode at all. The `id:` is a plain value on its own line and
-  is never templated.
-
-  `LoadRules` stays strict and keeps failing the whole load, deliberately. Both
-  halves of its stated contract are now honored, by different means: a caller
-  that receives rules has no other channel to learn some are missing, so an
-  error it must handle is the honest way to say so, while the command line now
-  reports the same fact as a visible result.
-
-### Changed
-- **A check can now report that it cannot reach a verdict, and the scan records
-  that as skipped.** Previously every path out of a check was pass, fail, or
-  something broke, because the result carried only a boolean. A check that
-  establishes it has nothing to judge had to pick one of those, and all three
-  were wrong.
-
-- **An empty declared set is now a skip rather than an error.** It still cannot
-  become a pass. The change is that a site which has not written its policy yet
-  is a normal state, not a fault, so it no longer puts a red row on every host in
-  a fleet that has simply not been configured. The skip carries the name of the
-  variable to declare.
-
-- **`no-unauthorized-accounts` reaches a real verdict.** It used to list local
-  accounts, print `MANUAL REVIEW REQUIRED` and exit 0, so it reported **pass on
-  every host** for something nobody had verified. It now compares the accounts
-  against `authorized_local_accounts` and fails naming any account not in it.
-
-  Members may be user names, numeric UIDs, or a mix, because a site may
-  authorize an account either way and both name the same account.
-
-  **On a fleet that has not declared the set, this rule moves from pass to
-  skipped.** That is a verdict change on shipped STIG and 800-53 surface, in the
-  honest direction: it stops counting as covered something that was never
-  checked.
-
-### Added
 - **`alias_separator` on `set_compare`**, for when one thing on the host answers
   to several names. Each observed line becomes one entity, authorized if any of
   its names was declared. Without it, a host emitting both a name and a UID would
   report the UID as an unauthorized extra whenever only the name was declared.
 
-### Added
 - **Variable values are checked against a declared type before a host is
   contacted.** The type comes from the built-in defaults, so the file that
   already holds the values is the only place a type is written down and there is
@@ -313,7 +168,6 @@ any pair).
   A variable Kensa ships no default for, such as one a site's own rule
   introduces, is not type checked.
 
-### Added
 - **A rule variable can hold a list.** Declare one as a YAML list, or pass it as
   comma-separated members on the command line:
 
@@ -346,43 +200,11 @@ any pair).
   member acceptable, and neither is true. A variable no tier declares leaves the
   rule **skipped** with the name to declare, rather than guessed at.
 
-### Fixed
-- **The `--config-dir` help text described a state the code left long ago.** It
-  said only `defaults.yml` was read. Measured against a live host,
-  `hosts/<hostname>.yml` and `conf.d/*.yml` are read as well, and `groups/`
-  applies in inventory mode, where a host belongs to a group.
-
-### Fixed
-- **Agent mode ignored `--port` and `--key`, and could reach a different host
-  than the one named.** The agent session built its own SSH invocation carrying
-  neither, so `-H 127.0.0.1 -P 2231` connected to 127.0.0.1 port 22. That
-  attempt failed only because authentication happened to fail there; with a
-  working key it would have applied the remediation to the wrong machine and
-  recorded it against the right one.
-
-  The session now multiplexes over the connection that already bootstrapped the
-  agent, so it inherits the port, identity file, host key policy and
-  authentication method instead of re-deriving them. Settings cannot drift,
-  because there is no second set to keep in step. It also gains SSH password
-  authentication, which the agent path could never do.
-
-  If that connection is unavailable, Kensa now **refuses** and names the
-  workaround rather than falling back to a bare connection that ignores your
-  settings.
-
-- **Two connections to one host shared a control socket.** The socket name is
-  built from user, host, port and process, which two connections to the same
-  host share, so closing one tore down the other. It was harmless while both
-  were short-lived, and it stopped being harmless once a long-lived agent
-  session rode one of them. The connection the agent uses is now private to it.
-
-### Added
 - **A transport modes chapter in the guide**, covering agent mode against direct
   SSH: how the connection is made, what each mode can and cannot do, where
   connection settings come from, how privileges and capability probes interact
   with `--sudo`, and which command uses which mode.
 
-### Added
 - **Identity findings now match how the host actually resolves users.** Two
   checks run only where identity comes from a directory: the PAM auth stack
   loading `pam_sss`, and nsswitch routing group lookups to the directory as well
@@ -394,84 +216,11 @@ any pair).
   same as "does identity come from a directory", because certificate and smart
   card authentication use SSSD with no directory at all.
 
-### Fixed
-- **A local-accounts host no longer fails for not running SSSD.**
-  `sssd-service-enabled-active` had no gate, so it demanded SSSD of every Ubuntu
-  host. A measured server with local accounts and no SSSD installed reported
-  FAIL, which reads as a broken host rather than a rule that does not apply. It
-  now skips there, and it covers RHEL as well.
-- **A host configured for certificate login no longer goes silent when its
-  daemon is dead.** An earlier version of this change gated the service check on
-  `directory_joined`, which made a certificate-auth host with a stopped SSSD
-  report `skipped`. That claims the control does not apply, when the truth was
-  that it did and the daemon was down. A skip removes an objective from the
-  coverage denominator, so it has to be true, not merely quieter than a wrong
-  failure. Gating on `sssd_configured` restores the finding: a hardened fleet
-  host carrying an SSSD certificate configuration with a failed daemon now
-  reports FAIL, where before this work it was never checked at all.
-- **The directory probe no longer reports a never-joined host as joined.**
-  Testing that `sssd.conf` exists fails in both directions: `/etc/sssd` is mode
-  0700, so an unprivileged caller always reads "no". The probe now looks for a
-  configured `[domain/...]` section, which survives a stopped daemon and is
-  absent on a host that never joined.
-
-### Changed
-- **CI no longer runs the full suite twice per merge.** The workflow fired on
-  both the pull request and the push that follows the squash merge. Measured
-  across the last 100 runs, **39 of 40 push runs re-tested a tree a pull request
-  run had already tested byte for byte**. Comparing commit hashes hides this,
-  because squashing mints a new one; comparing trees shows it.
-
-  The push run is now a canary of two jobs rather than a second full suite. It
-  keeps unit tests and the static-link check, which are the cheapest pair that
-  would catch the two cases a pull request run genuinely cannot see: two changes
-  that each pass alone but break main together, and a squash of a branch that was
-  stale when it merged.
-
-- **Two checks moved to a daily schedule.** The vulnerability scan reads an
-  advisory database that changes without us, and the release snapshot only breaks
-  when packaging config or dependencies change. Asking either one on every pull
-  request runs them far more often than their answers can change, and it lets an
-  unrelated upstream advisory turn a docs-only change red.
-
-- **One in-flight run per branch.** Pushing three times to a pull request used to
-  run three full suites to completion. Superseded runs are now canceled. Runs on
-  main are never canceled, because they are the post-merge record.
-
-  Measured effect at the current merge rate: **187 to 75 job-hours per month**,
-  with the merge gate unchanged. Every one of the nine required checks still runs
-  on every pull request.
-
-### Removed
-- **The standalone secret-scan job**, which ran `detect-secrets` a second time.
-  The `detect-secrets` hook in `.pre-commit-config.yaml` is default stage, so the
-  required Pre-commit hygiene job already runs the same version against the same
-  baseline with the same excludes. Enforcement is unchanged and still sits on a
-  required check.
-
-### Added
 - **A `workflow_dispatch` trigger on CI.** During the GitHub Actions incident of
   2026-08-06, webhook delivery was throttled and no push or pull request event
   created a workflow run for several hours. There was no way to start CI by hand.
   Now there is.
 
-### Fixed
-- **Two rules reported compliance when the tool they inspect was absent.**
-  `selinux-user-mapping` guarded on `command -v semanage` and
-  `firewalld-loopback-source` on `command -v firewall-cmd`, each returning
-  success when the tool was missing. Both assert a requirement, so absence means
-  the control is not in place, not that the host is compliant. They are now gated
-  on the `selinux` and `firewalld` capabilities, which already existed, so such a
-  host is skipped with a reason.
-
-  Fixing the first one exposed a second false pass underneath it. With the guard
-  removed, a host where SELinux is enforcing but `semanage` is absent read an
-  empty login mapping and fell through to the OK path, printing
-  `OK: __default__ SELinux login is` with no value. An unreadable mapping is an
-  inability to verify, not evidence of confinement, and it now fails with that
-  reason.
-
-### Added
 - **Two corpus tests for checks that can report compliance without verifying
   it.** This class has shipped four times: a banner rule passing on a host with
   no graphical stack, a timeout rule passing a host at double its limit, a
@@ -490,28 +239,6 @@ any pair).
   whether a rule's title states a requirement or a prohibition, and the other
   needs scan output from real hosts, so neither can be a gate.
 
-### Fixed
-- **Four rules gated on a capability that was never probed, so their real check
-  could never run.** `nftables-default-deny`, `nftables-base-chains`,
-  `nftables-loopback` and `journald-to-rsyslog` gate on `nftables_active` or
-  `rsyslog_active`. Neither existed as a probe, so the gate never matched and
-  every host fell through to a default implementation that answered a different
-  question than the rule asks.
-
-  `nftables-default-deny` is the clearest case. Its default only checked whether
-  firewalld was running. On a fleet host it reported **pass** while
-  `nft list ruleset` showed `policy accept`, a pass for deny-by-default on a host
-  that does not have it. `journald-to-rsyslog` was worse: its default was an
-  unconditional `exit 0`, so the rule passed everywhere. With the gate working it
-  now fails on a host where rsyslog is active and journald forwarding is off,
-  which is a real finding it had been masking.
-
-  Both capabilities are now probed, and the permissive defaults are removed. With
-  every implementation capability-gated the engine reports `skipped` where the
-  rule does not apply, which is the honest verdict, instead of a pass that
-  answers a different question.
-
-### Added
 - **A `directory_joined` capability, so a rule can tell a host whose users are
   local from one whose identity lives in a directory.** The existing `sssd`
   capability only reports that the unit file is installed, which a base image
@@ -531,29 +258,6 @@ any pair).
   sssd is actually running. That false positive was caught on a real host after
   the container tests passed.
 
-### Fixed
-- **`rule.KnownCapabilities` is now derived from the probe list instead of being
-  maintained by hand.** The two had drifted: `ufw`, `apt`, `apparmor`, `dpkg` and
-  three others were probed while absent from the known set, so a rule gating on
-  any of them would fail `--cap-check` for a capability the engine does detect.
-  A new test asserts every probed capability is known, which is what found it.
-
-### Fixed
-- **A declared framework key with no value is now a validation error.** Twelve
-  rules carried one: eight with a bare `nist_800_53:` and four with a bare
-  `cis:`. An empty key is the worst of both readings. A human scanning the YAML
-  sees the rule mapped to that framework; the engine produces no FrameworkRef, so
-  a coverage query sees it unmapped. Neither reader is warned.
-
-  The twelve keys were removed rather than populated. Filling them in would have
-  meant inventing citations: the eight sysctl rules have siblings citing `CM-6`,
-  which is a plausible fit and not evidence, and a framework citation nobody
-  checks until an assessor does is worse missing than absent. Populating them
-  properly needs the benchmark text and is separate work.
-
-  `kensa-validate` now rejects the pattern, so it cannot come back.
-
-### Added
 - **NIST SP 800-171 is now a framework the corpus carries.** `nist_800_171` and
   `nist_800_171_r3` are registered in `pkg/kensa/catalog.go`, and 313 rules carry
   reviewed references at OBJECTIVE granularity, `3.1.11[b]` rather than `3.1.11`, with 463
@@ -581,7 +285,131 @@ any pair).
   verified crosswalk rather than a mechanical reformat. The published claim stays
   pinned to Revision 2, which is what 32 CFR 170.2 keys CMMC to.
 
+- **Four antimalware rules**, covering 800-171 3.14.2, 3.14.4 and 3.14.5:
+  `antimalware-service-running`, `antimalware-signature-updates`,
+  `antimalware-on-access-scan` and `antimalware-scheduled-scan`.
+
+  The corpus carried no antimalware rules at all. No benchmark backs these. All
+  ten CIS and STIG benchmarks mention virus, malicious code, antimalware and
+  clamav zero times. The source is NIST 800-53 SI-3, which each rule cites, and
+  no CIS or STIG coverage changes.
+
+  No product is hardcoded. Each check reads a candidate unit list from a
+  variable covering ClamAV and common endpoint agents, which `--var` overrides.
+  Hardcoding ClamAV would have failed a host running Trellix, CrowdStrike or
+  Sophos.
+
+  Remediation is manual on all four. Picking and licensing an antimalware
+  product is an operator decision, on-access scanning taxes every file
+  operation, and a full scan needs a maintenance window.
+
+- **`kensa coverage --framework nist_800_171` now reports against a measured
+  denominator.** Covered assessment objectives are counted against a number the
+  report shows its work for, rather than against 320 or as a bare percent.
+
+  Most of 800-171 is not host state. Of the 320 Rev 2 objectives, 194 describe
+  interviews, records, buildings and organizational decisions. No configuration
+  scanner evidences those, so a percentage against 320 flatters whoever has the
+  larger numerator. The assessable count is always printed with the buckets
+  removed to reach it.
+
+  The denominator depends on the fleet. Seven objectives are answerable when a
+  host owns its accounts and not when a directory does. The count is computed
+  from the `directory_joined` capability that scan output already carries. With
+  no scan report both ceilings are shown and neither is chosen.
+
+  The numerator is reviewed mapping status, never scan posture. Coverage answers
+  whether Kensa can evidence an objective at all, which is a property of the
+  corpus. Whether a host passes is a separate question. Letting scan results
+  move this number would make a fleet of broken hosts look worse covered than an
+  identical healthy one.
+
+  Other frameworks are unchanged and stay numerator-only. Kensa has no control
+  catalog for CIS, STIG or 800-53, and inventing a denominator would measure the
+  standard rather than the product.
+
+- **CMMC Level 2 practice refs, derived from the 800-171 refs a rule already
+  carries.** There are 422 refs across 324 rules, covering 51 distinct
+  practices, so scan output can be filtered by CMMC.
+
+  This is a renaming, not a crosswalk. 32 CFR 170 defines Level 2 as the 110
+  NIST SP 800-171 Rev 2 requirements, one for one, and names each practice
+  `<FAMILY>.L2-<requirement>`. A practice id follows from a reviewed requirement
+  citation and asserts nothing the 800-171 ref did not already assert.
+
+  Derivation reads only reviewed refs, never the candidate set. Validation
+  rejects an extra practice as an unreviewed claim, and a missing one as a stale
+  emission. A committed script writes the refs into rule YAML, so a synthesized
+  ref always shows up in a reviewable diff.
+
 ### Changed
+
+- **`suid-sgid-files-reviewed` now compares the full inventory against a declared
+  baseline**, which is what its own output had been asking for. It printed
+  "review full inventory against baseline" and left that to a human; it now does
+  it, against `suid_sgid_baseline`.
+
+  The world-writable check it already had is unchanged and still runs first.
+  Those are two different assertions: one is wrong on any host and needs no site
+  input, the other cannot be answered without one.
+
+  A package list would be the obvious way to answer "nonessential programs" and
+  it was measured and rejected: 682 packages on one fleet host, 626 on another,
+  and the set changes on every patch, so a declared list is stale within a cycle
+  and produces failures nobody reads. The SUID inventory is about twenty entries
+  and barely moves, which is what makes a baseline worth keeping accurate.
+
+- **A check can now report that it cannot reach a verdict, and the scan records
+  that as skipped.** Previously every path out of a check was pass, fail, or
+  something broke, because the result carried only a boolean. A check that
+  establishes it has nothing to judge had to pick one of those, and all three
+  were wrong.
+
+- **An empty declared set is now a skip rather than an error.** It still cannot
+  become a pass. The change is that a site which has not written its policy yet
+  is a normal state, not a fault, so it no longer puts a red row on every host in
+  a fleet that has simply not been configured. The skip carries the name of the
+  variable to declare.
+
+- **`no-unauthorized-accounts` reaches a real verdict.** It used to list local
+  accounts, print `MANUAL REVIEW REQUIRED` and exit 0, so it reported **pass on
+  every host** for something nobody had verified. It now compares the accounts
+  against `authorized_local_accounts` and fails naming any account not in it.
+
+  Members may be user names, numeric UIDs, or a mix, because a site may
+  authorize an account either way and both name the same account.
+
+  **On a fleet that has not declared the set, this rule moves from pass to
+  skipped.** That is a verdict change on shipped STIG and 800-53 surface, in the
+  honest direction: it stops counting as covered something that was never
+  checked.
+
+- **CI no longer runs the full suite twice per merge.** The workflow fired on
+  both the pull request and the push that follows the squash merge. Measured
+  across the last 100 runs, **39 of 40 push runs re-tested a tree a pull request
+  run had already tested byte for byte**. Comparing commit hashes hides this,
+  because squashing mints a new one; comparing trees shows it.
+
+  The push run is now a canary of two jobs rather than a second full suite. It
+  keeps unit tests and the static-link check, which are the cheapest pair that
+  would catch the two cases a pull request run genuinely cannot see: two changes
+  that each pass alone but break main together, and a squash of a branch that was
+  stale when it merged.
+
+- **Two checks moved to a daily schedule.** The vulnerability scan reads an
+  advisory database that changes without us, and the release snapshot only breaks
+  when packaging config or dependencies change. Asking either one on every pull
+  request runs them far more often than their answers can change, and it lets an
+  unrelated upstream advisory turn a docs-only change red.
+
+- **One in-flight run per branch.** Pushing three times to a pull request used to
+  run three full suites to completion. Superseded runs are now canceled. Runs on
+  main are never canceled, because they are the post-merge record.
+
+  Measured effect at the current merge rate: **187 to 75 job-hours per month**,
+  with the merge gate unchanged. Every one of the nine required checks still runs
+  on every pull request.
+
 - **Seven more policy thresholds are operator-declarable.** Password maximum and
   minimum age on existing accounts, the PAM SHA-512 rounds floor, the legacy
   pam_faillock lockout count, the pam_faildelay interval, root's umask, and the
@@ -611,7 +439,6 @@ any pair).
   declared umask is padded and compared digit by digit rather than against a
   literal 027.
 
-### Changed
 - **Session-inactivity rules now compare against a period the operator can declare,
   instead of a benchmark constant.** `gdm-idle-delay`, `gdm-screensaver-lock`,
   `logind-idle-session-timeout` and `shell-timeout` took their thresholds from CIS
@@ -670,6 +497,13 @@ any pair).
   sha256 with no residue.
 
 ### Removed
+
+- **The standalone secret-scan job**, which ran `detect-secrets` a second time.
+  The `detect-secrets` hook in `.pre-commit-config.yaml` is default stage, so the
+  required Pre-commit hygiene job already runs the same version against the same
+  baseline with the same excludes. Enforcement is unchanged and still sits on a
+  required check.
+
 - **`shell-timeout-600` and `shell-idle-timeout-tmout` are merged into
   `shell-timeout`.** They were the same control split by framework (DISA's 600
   seconds versus CIS's 900) and by operating system (the Ubuntu STIG). Both splits
@@ -689,6 +523,205 @@ any pair).
   than double-reported. Verified: with all three staged, the engine reports
   `skipping shell-timeout-600 (superseded by shell-timeout)` and evaluates one
   rule.
+
+### Fixed
+
+- **Eight audit and session rules did not run on RHEL 8.** They declared
+  `rhel >= 9`, so on RHEL 8 they reported "not applicable" and the host was
+  never checked: `logind-idle-session-timeout`, `auditd-write-logs`,
+  `auditd-immutable-rules`, and `audit-cmd-init`, `-poweroff`, `-reboot`,
+  `-shutdown` and `-sudoedit`.
+
+  Each floor matched the earliest release with a published benchmark for that
+  rule, not anything the check needs. The clearest evidence is the audit-cmd
+  family itself: 24 of its 29 rules already declared `rhel >= 8`, with the same
+  check method and the same remediation mechanism as the five that did not.
+
+  Measured on RHEL 8.10 before changing anything. `write_logs` is present in
+  `auditd.conf` with audit 3.1.2, `/etc/audit/rules.d/audit.rules` and `-e 2`
+  immutability are supported, `/usr/sbin/init` exists, and `StopIdleSessionSec`
+  ships as a commented default that logind accepts and applies when set.
+
+  Now `rhel >= 8`. Verified on RHEL, AlmaLinux, Rocky and Oracle Linux 8, all
+  four with identical results: six rules complete a full round-trip (fail,
+  remediate, pass, rollback, fail, with `/etc` byte-identical), `auditd-write-logs`
+  runs and already passes, and `logind-idle-session-timeout` runs and reports a
+  real verdict with remediation left manual as it was before.
+
+- **`no-unauthorized-accounts` did not run on RHEL 8 or RHEL 9.** The rule
+  declared `rhel >= 10`, so on any earlier release it reported "not applicable"
+  and the host was never checked for local accounts nobody authorized.
+
+  The floor came from the rule's source benchmark, which is published for
+  RHEL 10, rather than from anything the check needs. The check reads
+  `/etc/passwd` with awk and compares against the operator's
+  `authorized_local_accounts` set, which works the same on every supported
+  release. Its six sibling rules already declared `rhel >= 8` and
+  `ubuntu >= 22`.
+
+  Now declared `rhel >= 8` and `ubuntu >= 22`, matching the siblings. Verified
+  on RHEL, AlmaLinux, Rocky and Oracle Linux at 8, 9 and 10: with no set
+  declared the rule reports that it cannot assess the host, with the host's own
+  accounts declared it passes, and with a wrong set it fails and names the
+  account that is present but not authorized.
+
+- **`security-updates-installed` reported compliant on a host with 384 pending
+  updates.** The check ran `if dnf check-update; then ... fi` and then read `$?`
+  on the next line, expecting dnf's exit 100. After an `if` whose condition fails
+  and which has no `else`, the compound statement itself returns 0, so `$?` was
+  always 0, the pending-updates branch was unreachable, and the check fell
+  through to its OK path.
+
+  Measured on a live fleet host: `dnf check-update` exited 100 with 384 packages
+  pending, and the rule reported PASS. It now reports FAIL and names the count.
+
+  A dnf failure is also a failure now. The old version printed OK when the check
+  could not run at all, which meant no network or a broken repository read as
+  patched.
+
+- **Six remediation mechanisms could cut the SSH control channel without arming
+  the dead man timer.** The timer is what lets a host reverse a change on its own
+  when the controller never confirms, and the decision came from a static list
+  that six mechanisms, used by 124 rules, were missing from entirely. A missing
+  entry read as "cannot cut the channel", so each was silently unprotected.
+
+  `crypto_policy_set` is the measured case. Setting a host to FIPS regenerates
+  the SSH daemon's accepted key algorithms **without ed25519**, so an operator
+  using a modern default key is locked out the moment the change commits, by the
+  change Kensa just made, over the connection Kensa was using. Both crypto
+  mechanisms are also non-capturable, so there was no pre-state to return to
+  either.
+
+  `apt_absent` had the same gap as its already-classified counterpart
+  `package_absent`: removing the SSH server ends the session. `authselect_feature_enable`
+  and `pam_module_arg` both rewrite authentication stacks, like the
+  `pam_module_configure` that was already covered.
+
+  Verified as a before and after on a live container: a plan for a crypto policy
+  rule reported `ControlChannelSensitive: false` and now reports `true`, and the
+  same for a rule whose only mechanism is `apt_absent`.
+
+- **A rule skipped for an undeclared variable now appears in the results.**
+  `kensa check` warned on stderr and then dropped the rule, leaving no trace in
+  machine output. Anything counting coverage saw the objective quietly leave the
+  denominator, which is the failure this area exists to prevent. Such a rule is
+  now reported as `skipped`, carrying its severity and the name of the variable
+  to declare.
+
+  The rule's identity is recovered by reading its `id:` line rather than by
+  decoding the document. Once substitution has failed the file still holds
+  `{{ name }}`, and unquoted that is a YAML mapping rather than text, so the
+  document may not decode at all. The `id:` is a plain value on its own line and
+  is never templated.
+
+  `LoadRules` stays strict and keeps failing the whole load, deliberately. Both
+  halves of its stated contract are now honored, by different means: a caller
+  that receives rules has no other channel to learn some are missing, so an
+  error it must handle is the honest way to say so, while the command line now
+  reports the same fact as a visible result.
+
+- **The `--config-dir` help text described a state the code left long ago.** It
+  said only `defaults.yml` was read. Measured against a live host,
+  `hosts/<hostname>.yml` and `conf.d/*.yml` are read as well, and `groups/`
+  applies in inventory mode, where a host belongs to a group.
+
+- **Agent mode ignored `--port` and `--key`, and could reach a different host
+  than the one named.** The agent session built its own SSH invocation carrying
+  neither, so `-H 127.0.0.1 -P 2231` connected to 127.0.0.1 port 22. That
+  attempt failed only because authentication happened to fail there; with a
+  working key it would have applied the remediation to the wrong machine and
+  recorded it against the right one.
+
+  The session now multiplexes over the connection that already bootstrapped the
+  agent, so it inherits the port, identity file, host key policy and
+  authentication method instead of re-deriving them. Settings cannot drift,
+  because there is no second set to keep in step. It also gains SSH password
+  authentication, which the agent path could never do.
+
+  If that connection is unavailable, Kensa now **refuses** and names the
+  workaround rather than falling back to a bare connection that ignores your
+  settings.
+
+- **Two connections to one host shared a control socket.** The socket name is
+  built from user, host, port and process, which two connections to the same
+  host share, so closing one tore down the other. It was harmless while both
+  were short-lived, and it stopped being harmless once a long-lived agent
+  session rode one of them. The connection the agent uses is now private to it.
+
+- **A local-accounts host no longer fails for not running SSSD.**
+  `sssd-service-enabled-active` had no gate, so it demanded SSSD of every Ubuntu
+  host. A measured server with local accounts and no SSSD installed reported
+  FAIL, which reads as a broken host rather than a rule that does not apply. It
+  now skips there, and it covers RHEL as well.
+- **A host configured for certificate login no longer goes silent when its
+  daemon is dead.** An earlier version of this change gated the service check on
+  `directory_joined`, which made a certificate-auth host with a stopped SSSD
+  report `skipped`. That claims the control does not apply, when the truth was
+  that it did and the daemon was down. A skip removes an objective from the
+  coverage denominator, so it has to be true, not merely quieter than a wrong
+  failure. Gating on `sssd_configured` restores the finding: a hardened fleet
+  host carrying an SSSD certificate configuration with a failed daemon now
+  reports FAIL, where before this work it was never checked at all.
+- **The directory probe no longer reports a never-joined host as joined.**
+  Testing that `sssd.conf` exists fails in both directions: `/etc/sssd` is mode
+  0700, so an unprivileged caller always reads "no". The probe now looks for a
+  configured `[domain/...]` section, which survives a stopped daemon and is
+  absent on a host that never joined.
+
+- **Two rules reported compliance when the tool they inspect was absent.**
+  `selinux-user-mapping` guarded on `command -v semanage` and
+  `firewalld-loopback-source` on `command -v firewall-cmd`, each returning
+  success when the tool was missing. Both assert a requirement, so absence means
+  the control is not in place, not that the host is compliant. They are now gated
+  on the `selinux` and `firewalld` capabilities, which already existed, so such a
+  host is skipped with a reason.
+
+  Fixing the first one exposed a second false pass underneath it. With the guard
+  removed, a host where SELinux is enforcing but `semanage` is absent read an
+  empty login mapping and fell through to the OK path, printing
+  `OK: __default__ SELinux login is` with no value. An unreadable mapping is an
+  inability to verify, not evidence of confinement, and it now fails with that
+  reason.
+
+- **Four rules gated on a capability that was never probed, so their real check
+  could never run.** `nftables-default-deny`, `nftables-base-chains`,
+  `nftables-loopback` and `journald-to-rsyslog` gate on `nftables_active` or
+  `rsyslog_active`. Neither existed as a probe, so the gate never matched and
+  every host fell through to a default implementation that answered a different
+  question than the rule asks.
+
+  `nftables-default-deny` is the clearest case. Its default only checked whether
+  firewalld was running. On a fleet host it reported **pass** while
+  `nft list ruleset` showed `policy accept`, a pass for deny-by-default on a host
+  that does not have it. `journald-to-rsyslog` was worse: its default was an
+  unconditional `exit 0`, so the rule passed everywhere. With the gate working it
+  now fails on a host where rsyslog is active and journald forwarding is off,
+  which is a real finding it had been masking.
+
+  Both capabilities are now probed, and the permissive defaults are removed. With
+  every implementation capability-gated the engine reports `skipped` where the
+  rule does not apply, which is the honest verdict, instead of a pass that
+  answers a different question.
+
+- **`rule.KnownCapabilities` is now derived from the probe list instead of being
+  maintained by hand.** The two had drifted: `ufw`, `apt`, `apparmor`, `dpkg` and
+  three others were probed while absent from the known set, so a rule gating on
+  any of them would fail `--cap-check` for a capability the engine does detect.
+  A new test asserts every probed capability is known, which is what found it.
+
+- **A declared framework key with no value is now a validation error.** Twelve
+  rules carried one: eight with a bare `nist_800_53:` and four with a bare
+  `cis:`. An empty key is the worst of both readings. A human scanning the YAML
+  sees the rule mapped to that framework; the engine produces no FrameworkRef, so
+  a coverage query sees it unmapped. Neither reader is warned.
+
+  The twelve keys were removed rather than populated. Filling them in would have
+  meant inventing citations: the eight sysctl rules have siblings citing `CM-6`,
+  which is a plausible fit and not evidence, and a framework citation nobody
+  checks until an assessor does is worse missing than absent. Populating them
+  properly needs the benchmark text and is separate work.
+
+  `kensa-validate` now rejects the pattern, so it cannot come back.
 
 ## v0.9.0 (2026-08-03)
 
