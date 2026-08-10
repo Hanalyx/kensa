@@ -177,7 +177,10 @@ roundtrip: build ## round-trip every rule of one mechanism on a host (RT_HOST=ip
 # A single-host run writes RT_OUT; the sharded runner writes one report per
 # shard under bin/roundtrip/. Accept whichever exists, so the same target works
 # after either, rather than failing on a path the caller did not choose.
-RT_REPORTS = $(wildcard bin/roundtrip/shard-*.json) $(wildcard $(RT_OUT))
+# strip matters: with both wildcards empty the concatenation is a single
+# space, which `test -n` reads as non-empty, so the guards below would fall
+# through to a bare python invocation and its argparse usage error.
+RT_REPORTS = $(strip $(wildcard bin/roundtrip/shard-*.json) $(wildcard $(RT_OUT)))
 
 roundtrip-check: ## gate the last round-trip run against the recorded baseline
 	@test -n "$(RT_REPORTS)" || { echo "no round-trip report found; run 'make roundtrip' first"; exit 2; }
