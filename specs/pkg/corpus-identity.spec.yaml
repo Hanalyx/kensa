@@ -1,0 +1,229 @@
+spec:
+    id: pkg-corpus-identity
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: pkg-corpus-identity
+        description: |
+            A way for a consumer to record which rule corpus produced a
+            verdict.
+
+            A scan result carries `HostID`, `Transactions`, `Outcomes`,
+            `Capabilities` and `Platform`, and nothing that names the
+            corpus. `api.ScanResult.Capabilities` says it is surfaced so a
+            consumer records the exact host context the verdicts were
+            computed under. Capabilities record what the host was. The
+            corpus records what it was measured against. Recording one half
+            and not the other is the gap this closes.
+
+            The corpus decides verdicts and is shipped as its own package.
+            `kensa` and `kensa-rules` are separate rpm and deb packages, and
+            the `kensa-rules` description invites updating one without the
+            other, so the linked module version does not describe the
+            corpus.
+
+            Requested by openwatch-agent, who computes compliance drift by
+            comparing a host's score between scans and alerts an operator on
+            the delta. With no corpus identity stored, an engine upgrade is
+            indistinguishable from a fleet that degraded overnight. Kensa
+            v0.10.0 is the worked example: it deliberately changed verdicts
+            on unchanged hosts, and every change was a correction.
+
+            **Two facts, not one.** A declared version answers "which
+            release", which is what an operator or an assessor needs in a
+            support conversation. A digest answers "is this the corpus that
+            shipped", which a version cannot, because it detects local edits
+            and covers a source checkout that carries no version at all. The
+            consumer said they would build a digest themselves as a
+            backstop. Two implementations of one idea eventually disagree,
+            and the disagreement surfaces during an incident, so both come
+            from one place.
+
+    objective:
+        summary: |
+            Report the identity of the rule corpus at a directory: its
+            declared version when it has one, a content digest always, and
+            which of the two is being reported, so a consumer can store the
+            fact a verdict was measured against.
+        scope:
+            includes:
+                - A function on pkg/kensa returning corpus identity
+                - A version marker committed in the module source tree
+                - A gate keeping the marker equal to VERSION
+            excludes:
+                - Any field on api.ScanResult. That is a Red-class change
+                  needing founder approval and a failure-mode analysis, and
+                  this does not warrant it
+                - Storing corpus identity in scan output. The consumer calls
+                  LoadRules itself and can record what it loaded
+                - Versioning the corpus independently of the release tag
+
+    constraints:
+        - id: C-01
+          description: |
+              Corpus identity MUST be resolved through the same directory
+              resolution `LoadRules` uses (`internal/rules.Resolve`). A
+              second resolution path could describe a directory other than
+              the one loaded, which produces a confidently wrong version
+              string. That is worse than reporting none, and it is the
+              failure this feature exists to prevent.
+          type: technical
+          enforcement: error
+
+        - id: C-02
+          description: |
+              The digest MUST cover the relative path and the content of
+              each rule file. Content alone does not detect a rename:
+              measured over the 779-rule corpus, renaming one file left a
+              content-only digest byte-identical. A rule id must match its
+              filename stem, so a rename is a change of rule identity and
+              must move the digest.
+          type: technical
+          enforcement: error
+
+        - id: C-03
+          description: |
+              The digest MUST cover rule files only, and MUST NOT cover the
+              version marker or any other file in the directory. The marker
+              lives inside the corpus, so a digest over everything present
+              would be changed by the marker itself, and a packaged corpus
+              would digest differently from the identical corpus without
+              one.
+          type: technical
+          enforcement: error
+
+        - id: C-04
+          description: |
+              A computed digest MUST NOT be presentable as a declared
+              version. The result carries which of the two it holds, so a
+              consumer cannot mistake a fingerprint for a release. A single
+              string that might be either is the ambiguity this rejects.
+          type: security
+          enforcement: error
+
+        - id: C-05
+          description: |
+              A corpus carrying no marker MUST return an empty version and
+              a non-empty digest, and MUST NOT error and MUST NOT invent a
+              version. A source checkout is a normal state, not a fault.
+          type: technical
+          enforcement: error
+
+        - id: C-06
+          description: |
+              The marker MUST be committed in the module source tree at
+              `rules/`, not injected at package build time. A marker written
+              during one producer's build reaches only that producer's
+              artifact. Committed in the module, it travels through
+              `go mod download` to every downstream packager with no
+              coordination.
+          type: technical
+          enforcement: error
+
+        - id: C-07
+          description: |
+              The marker MUST NOT carry a `.yml` extension and MUST NOT be
+              loadable as a rule. A consumer counts `*.yml` under the corpus
+              to validate a build and walks the same tree for variables, so
+              a `.yml` marker would be counted as a rule in two places.
+          type: technical
+          enforcement: error
+
+        - id: C-08
+          description: |
+              The declared marker value MUST equal `VERSION`, enforced by a
+              gate rather than by convention. An unchecked second copy of a
+              version drifts, and a stale declared version is reported with
+              the same confidence as a correct one.
+          type: technical
+          enforcement: error
+
+        - id: C-09
+          description: |
+              `api/` MUST be untouched. Verified the same way the v0.10.0
+              claim was: filtering the diff for non-comment lines returns
+              zero.
+          type: business
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              On a packaged install the result reports the kensa-rules
+              package version and states that it is declared.
+          references_constraints: [C-01, C-06]
+          priority: critical
+
+        - id: AC-02
+          description: |
+              On a source checkout with no marker the result reports an
+              empty version, a non-empty digest, and states that the digest
+              is computed. It does not error.
+          references_constraints: [C-05, C-04]
+          priority: critical
+
+        - id: AC-03
+          description: |
+              When the caller passes positional rule paths and no directory,
+              resolution yields no corpus directory. The result says so
+              rather than reporting an empty digest as though the corpus
+              were empty.
+          references_constraints: [C-01]
+          priority: high
+
+        - id: AC-04
+          description: |
+              The digest is stable across repeated reads of an unchanged
+              corpus, and changes when any rule file's content changes.
+          references_constraints: [C-02]
+          priority: critical
+
+        - id: AC-05
+          description: |
+              The digest changes when a rule file is renamed or moved
+              between category directories, with its content unchanged.
+              This is the case a content-only digest misses.
+          references_constraints: [C-02]
+          priority: critical
+
+        - id: AC-06
+          description: |
+              The digest does not change when a non-rule file is added to
+              the corpus directory, including the version marker itself. A
+              corpus with a marker and the same corpus without one digest
+              identically.
+          references_constraints: [C-03]
+          priority: critical
+
+        - id: AC-07
+          description: |
+              A built rpm and a built deb both carry the marker at
+              /usr/share/kensa/rules. Checked against extracted artifacts,
+              not against the packaging config.
+          references_constraints: [C-06, C-07]
+          priority: high
+
+        - id: AC-08
+          description: |
+              The marker survives Go module packaging, so a consumer that
+              copies the corpus out of the module cache receives it.
+          references_constraints: [C-06]
+          priority: critical
+
+        - id: AC-09
+          description: |
+              A marker whose value differs from VERSION fails the
+              documentation gate, in both directions.
+          references_constraints: [C-08]
+          priority: high
+
+        - id: AC-10
+          description: |
+              The public api/ surface is unchanged by this feature.
+          references_constraints: [C-09]
+          priority: critical
+
+    tags: [pkg-kensa, corpus, openwatch, versioning, tier-2]
