@@ -16,6 +16,13 @@ any pair).
 
 ## Unreleased
 
+### Security
+
+- **Vulnerability reports now go through GitHub private vulnerability reporting.**
+  The release-verification key is not an encryption key, and ordinary email is
+  reserved for non-sensitive coordination. The security policy now also reflects
+  support for operator-supplied sudo passwords.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added

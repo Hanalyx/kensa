@@ -7,13 +7,14 @@ after you do, and what protections you have when you research in good faith.
 
 ## Report a vulnerability
 
-Report a vulnerability through either channel:
+Report a vulnerability through [GitHub private vulnerability
+reporting](https://github.com/Hanalyx/kensa/security/advisories/new) on this
+repository. Use it for anything sensitive. The report reaches the maintainers as
+a draft advisory, and we can work through it with you in private.
 
-- **Email** `security@hanalyx.com`. For a sensitive report, encrypt it with the
-  Hanalyx GNU Privacy Guard (GPG) public key in [`KEYS`](KEYS) (master
-  fingerprint `4CB7 0E1C 0942 6E43 CBBA D280 4AA0 538F E239 E50C`).
-- **GitHub**, through [private vulnerability reporting](https://github.com/Hanalyx/kensa/security/advisories/new)
-  on this repository.
+`security@hanalyx.com` is for non-sensitive coordination: a first contact, a
+question about scope, or a status check. Ordinary email is not confidential, so
+keep vulnerability details out of it until we have agreed on a secure channel.
 
 Don't open a public issue, pull request, or discussion for a security report.
 Public disclosure before a fix puts operators at risk.
@@ -82,9 +83,11 @@ Out of scope:
   vulnerability.
 - Findings that need an already-compromised host, or the root-equivalent access
   the trust model already assumes.
-- Deliberate design decisions, including the passwordless-`sudo`-only model and
-  the air-gap, no-network-fetch posture. If you think one of these has an
-  exploit path we didn't intend, report it and explain the path.
+- Deliberate design decisions, including the sudo privilege model and the
+  air-gap, no-network-fetch posture. Kensa supports both passwordless sudo and a
+  sudo password the operator supplies with `--sudo-password` or
+  `KENSA_SUDO_PASSWORD`. If you think one of these has an exploit path we didn't
+  intend, report it and explain the path.
 - Denial of service, social engineering, and physical attacks.
 - A vulnerability in a dependency with no Kensa-specific exploit path. Report
   those to the dependency's maintainers, and tell us if Kensa's use of it makes
@@ -107,4 +110,4 @@ a cosign-signed checksums file, both anchored to the keys in [`KEYS`](KEYS). The
 
 ---
 
-**Last reviewed:** 2026-06-15.
+**Last reviewed:** 2026-09-03.
