@@ -11,9 +11,10 @@ you expected, plus the relevant output (`--format json` where it helps). A
 minimal reproduction on a disposable host is worth more than a description.
 
 **Do not report a security vulnerability in a public issue.** Kensa makes
-privileged changes to production hosts; follow [`SECURITY.md`](SECURITY.md) for
-private disclosure (`security@hanalyx.com` or GitHub private vulnerability
-reporting) and the safe-harbor terms.
+privileged changes to production hosts. Report it through [GitHub private
+vulnerability reporting](https://github.com/Hanalyx/kensa/security/advisories/new),
+then see [`SECURITY.md`](SECURITY.md) for the response process and the
+safe-harbor terms.
 
 ## Building and testing
 
