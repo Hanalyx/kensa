@@ -38,6 +38,16 @@ spec:
             The invariant is that no valid shipped rule is lost to an
             undefined built-in variable.
 
+            One shape note, because it looks like a typo and is not.
+            Entries inside `framework_refs` serialize as `FrameworkID` and
+            `ControlID` while every other field in the same document is
+            snake_case. `api.FrameworkRef` carries no JSON tags, so its
+            members marshal under their Go field names. That is the shipped
+            public shape and `api/` is frozen, so AC-03 asserts the shape
+            the binary actually emits. Renaming those keys would be a
+            breaking change to a published document and is out of scope
+            here.
+
     objective:
         summary: |
             Make the corpus-wide introspection commands load the shipped rule
@@ -156,8 +166,8 @@ spec:
               stdout_json:
                   id: templated-rule
                   framework_refs_contains:
-                      framework_id: cis_rhel9
-                      control_id: "5.1.2"
+                      FrameworkID: cis_rhel9
+                      ControlID: "5.1.2"
               stderr_excludes:
                   - undefined variables
                   - rule not found

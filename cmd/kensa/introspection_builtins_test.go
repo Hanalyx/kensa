@@ -15,6 +15,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/Hanalyx/kensa/internal/mappings"
+	"github.com/Hanalyx/kensa/pkg/kensa"
 )
 
 // builtinFixtureVar is a variable the binary ships a default for. The fixture
@@ -267,31 +270,62 @@ func TestInfo_ResolvesBuiltInTemplatedRule(t *testing.T) {
 	if strings.Contains(stderr, "rule not found") {
 		t.Errorf("info must resolve the templated rule; stderr:\n%s", stderr)
 	}
-	// api.FrameworkRef carries no JSON tags, so its members serialize under
-	// their Go field names while the rest of the document is snake_case. That
-	// is the shipped shape at this base commit and this change must preserve
-	// it, so the assertion matches what the binary actually emits.
-	var got struct {
-		ID            string `json:"id"`
-		FrameworkRefs []struct {
-			FrameworkID string
-			ControlID   string
-		} `json:"framework_refs"`
+	// Decode the nested entries as raw objects rather than into a typed
+	// struct. encoding/json matches field names case-insensitively, so a
+	// typed decode would keep passing if the emitted keys silently changed
+	// case. Reading the literal keys is what makes this assertion able to
+	// fail on a rename.
+	//
+	// The expected keys are FrameworkID and ControlID, not snake_case:
+	// api.FrameworkRef carries no JSON tags, so its members marshal under
+	// their Go field names while the rest of the document is snake_case.
+	// That is the shipped public shape and api/ is frozen.
+	var doc struct {
+		ID            string            `json:"id"`
+		FrameworkRefs []json.RawMessage `json:"framework_refs"`
 	}
-	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+	if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
 		t.Fatalf("decode stdout: %v\n%s", err, stdout)
 	}
-	if got.ID != "templated-rule" {
-		t.Errorf("id = %q, want templated-rule", got.ID)
+	if doc.ID != "templated-rule" {
+		t.Errorf("id = %q, want templated-rule", doc.ID)
 	}
+	if len(doc.FrameworkRefs) == 0 {
+		t.Fatalf("framework_refs is empty:\n%s", stdout)
+	}
+
+	const wantFrameworkKey, wantControlKey = "FrameworkID", "ControlID"
 	var found bool
-	for _, r := range got.FrameworkRefs {
-		if r.FrameworkID == "cis_rhel9" && r.ControlID == "5.1.2" {
+	for i, raw := range doc.FrameworkRefs {
+		var entry map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			t.Fatalf("decode framework_refs[%d]: %v", i, err)
+		}
+		// Exact key set, so adding, dropping or re-casing a key fails here.
+		keys := make([]string, 0, len(entry))
+		for k := range entry {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		if strings.Join(keys, ",") != wantControlKey+","+wantFrameworkKey {
+			t.Errorf("framework_refs[%d] keys = %v; want exactly [%s %s]",
+				i, keys, wantControlKey, wantFrameworkKey)
+			continue
+		}
+		var fw, ctl string
+		if err := json.Unmarshal(entry[wantFrameworkKey], &fw); err != nil {
+			t.Fatalf("decode %s: %v", wantFrameworkKey, err)
+		}
+		if err := json.Unmarshal(entry[wantControlKey], &ctl); err != nil {
+			t.Fatalf("decode %s: %v", wantControlKey, err)
+		}
+		if fw == "cis_rhel9" && ctl == "5.1.2" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("framework_refs missing cis_rhel9/5.1.2; got %+v", got.FrameworkRefs)
+		t.Errorf("framework_refs has no %s=cis_rhel9 with %s=5.1.2:\n%s",
+			wantFrameworkKey, wantControlKey, stdout)
 	}
 	assertNoUndefinedVariableLoss(t, stderr)
 }
@@ -406,49 +440,115 @@ func TestIntrospection_IgnoresAmbientConfig(t *testing.T) {
 
 // TestIntrospection_ShippedCorpusHasNoUndefinedVariableLoss locks AC-05
 // against the real corpus rather than a fixture, because the defect was only
-// visible at that scale and the fixture cannot prove the shipped defaults
-// cover every shipped template.
+// visible at that scale and a fixture cannot prove the shipped defaults cover
+// every shipped template.
+//
+// The expected model is built independently of the three commands under test:
+// the corpus is enumerated from the filesystem, then loaded through
+// pkg/kensa.LoadRules, which is a separate loader from cmd/kensa's wrapper and
+// is strict — it returns an error on an undefined variable rather than
+// skipping the rule. If the embedded defaults did not cover the corpus, that
+// call fails and this test says so, independently of any CLI behavior.
+//
+// Framework references are derived with mappings.RefsFromReferences, the same
+// function the command uses. That sharing is deliberate: re-deriving framework
+// identity here would test a second implementation of the mapping rules rather
+// than the corpus, and any disagreement would be about my copy, not about the
+// defect under test. The independence that matters is the loader.
 // @spec cli-introspection-builtins
 // @ac AC-05
 func TestIntrospection_ShippedCorpusHasNoUndefinedVariableLoss(t *testing.T) {
 	t.Run("cli-introspection-builtins/AC-05", func(t *testing.T) {})
 	dir := repoRulesDir(t)
 
-	// Independently enumerate the corpus from the filesystem, so the assertion
-	// has a denominator the command under test did not produce.
+	// 1. Enumerate the corpus from the filesystem, so the denominator does not
+	//    come from the code being verified.
 	var onDisk []string
 	walk(t, dir, &onDisk)
 	if len(onDisk) == 0 {
 		t.Fatalf("no rule YAML found under %s", dir)
 	}
 
+	// 2. Load every one of them through the independent strict loader with the
+	//    embedded defaults. A single uncovered variable fails here.
+	loaded, err := kensa.LoadRules(dir, nil, nil)
+	if err != nil {
+		t.Fatalf("the shipped corpus does not load with embedded defaults: %v", err)
+	}
+	if len(loaded) != len(onDisk) {
+		t.Fatalf("independent load produced %d rules from %d files", len(loaded), len(onDisk))
+	}
+
+	// 3. Derive the expected framework model: per framework, the distinct rule
+	//    IDs and distinct control IDs referencing it.
+	type model struct{ rules, controls map[string]struct{} }
+	expected := map[string]*model{}
+	for _, r := range loaded {
+		for _, ref := range mappings.RefsFromReferences(r.References) {
+			m, ok := expected[ref.FrameworkID]
+			if !ok {
+				m = &model{rules: map[string]struct{}{}, controls: map[string]struct{}{}}
+				expected[ref.FrameworkID] = m
+			}
+			m.rules[r.ID] = struct{}{}
+			m.controls[ref.ControlID] = struct{}{}
+		}
+	}
+	if len(expected) == 0 {
+		t.Fatal("independent model derived no frameworks")
+	}
+
+	// 4. list frameworks must reproduce that model row for row.
 	code, stdout, stderr := runIntrospection(t,
 		"list", "frameworks", "--rules-dir", dir, "--format", "json")
 	if code != 0 {
-		t.Fatalf("exit = %d, want 0; stderr:\n%s", code, stderr)
+		t.Fatalf("list frameworks exit = %d; stderr:\n%s", code, stderr)
 	}
 	if strings.Contains(stderr, "undefined variables") {
-		t.Errorf("shipped corpus still loses rules to undefined variables:\n%s", stderr)
+		t.Errorf("list frameworks still loses rules to undefined variables:\n%s", stderr)
 	}
-
 	var lf struct {
 		Frameworks []struct {
 			FrameworkID string `json:"framework_id"`
+			Controls    int    `json:"controls"`
 			Rules       int    `json:"rules"`
 		} `json:"frameworks"`
 	}
 	if err := json.Unmarshal([]byte(stdout), &lf); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(lf.Frameworks) == 0 {
-		t.Fatal("no frameworks reported for the shipped corpus")
+		t.Fatalf("decode list frameworks: %v", err)
 	}
 
-	// coverage must scan every rule on disk.
+	got := map[string][2]int{}
+	for _, f := range lf.Frameworks {
+		if _, dup := got[f.FrameworkID]; dup {
+			t.Errorf("framework %s reported twice", f.FrameworkID)
+		}
+		got[f.FrameworkID] = [2]int{f.Controls, f.Rules}
+	}
+	for id, m := range expected {
+		g, ok := got[id]
+		if !ok {
+			t.Errorf("framework %s missing from list frameworks", id)
+			continue
+		}
+		if g[0] != len(m.controls) || g[1] != len(m.rules) {
+			t.Errorf("framework %s: got controls=%d rules=%d; want controls=%d rules=%d",
+				id, g[0], g[1], len(m.controls), len(m.rules))
+		}
+		delete(got, id)
+	}
+	for id := range got {
+		t.Errorf("list frameworks reported framework %s the corpus does not contain", id)
+	}
+
+	// 5. coverage must scan every enumerated rule.
 	code, stdout, stderr = runIntrospection(t,
 		"coverage", "--framework", "cis_rhel9", "--rules-dir", dir, "--format", "json")
 	if code != 0 {
 		t.Fatalf("coverage exit = %d; stderr:\n%s", code, stderr)
+	}
+	if strings.Contains(stderr, "undefined variables") {
+		t.Errorf("coverage still loses rules to undefined variables:\n%s", stderr)
 	}
 	var cov struct {
 		RulesScanned int `json:"rules_scanned"`
@@ -460,11 +560,27 @@ func TestIntrospection_ShippedCorpusHasNoUndefinedVariableLoss(t *testing.T) {
 		t.Errorf("coverage scanned %d rules; the corpus holds %d", cov.RulesScanned, len(onDisk))
 	}
 
-	// info must resolve a rule that only loads with an embedded default.
-	code, _, stderr = runIntrospection(t,
+	// 6. info must resolve a rule that only loads because of an embedded
+	//    default, and return that rule rather than merely exiting zero.
+	code, stdout, stderr = runIntrospection(t,
 		"info", "--rule", "pam-faillock-deny", "--rules-dir", dir, "--format", "json")
-	if code != 0 || strings.Contains(stderr, "rule not found") {
-		t.Errorf("info could not resolve pam-faillock-deny: exit=%d stderr=%s", code, stderr)
+	if code != 0 {
+		t.Fatalf("info exit = %d; stderr:\n%s", code, stderr)
+	}
+	if strings.Contains(stderr, "undefined variables") {
+		t.Errorf("info still loses rules to undefined variables:\n%s", stderr)
+	}
+	if strings.Contains(stderr, "rule not found") {
+		t.Fatalf("info could not resolve pam-faillock-deny:\n%s", stderr)
+	}
+	var infoDoc struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &infoDoc); err != nil {
+		t.Fatalf("decode info: %v\n%s", err, stdout)
+	}
+	if infoDoc.ID != "pam-faillock-deny" {
+		t.Errorf("info id = %q, want pam-faillock-deny", infoDoc.ID)
 	}
 }
 
