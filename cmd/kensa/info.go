@@ -160,7 +160,11 @@ func runInfo(ctx context.Context, args []string) error {
 		familyPrefix = strings.TrimSuffix(familyPrefix, "_") + fmt.Sprintf("_rhel%d", rhel)
 	}
 
-	rules, _, err := loadRulesFromDirOrFiles(rulesDir, nil, nil)
+	introVars, err := introspectionVars()
+	if err != nil {
+		return err
+	}
+	rules, _, err := loadRulesFromDirOrFiles(rulesDir, nil, introVars)
 	if err != nil {
 		return err
 	}

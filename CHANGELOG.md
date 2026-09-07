@@ -16,6 +16,18 @@ any pair).
 
 ## Unreleased
 
+### Fixed
+
+- **`kensa list frameworks`, `kensa coverage --framework` and `kensa info` now
+  read the whole corpus.** They loaded rules with no variables, so every rule
+  carrying a `{{ name }}` template was dropped before the count was taken and
+  each command reported fewer rules, controls and frameworks than the corpus
+  holds. `kensa info` reported such a rule as not found. They now resolve the
+  same built-in defaults the scan path uses. These commands describe the corpus
+  rather than a host, so they read the built-in defaults only and ignore
+  operator configuration: the same corpus answers the same on any machine.
+  `check` and `remediate` were never affected.
+
 ### Security
 
 - **Vulnerability reports now go through GitHub private vulnerability reporting.**

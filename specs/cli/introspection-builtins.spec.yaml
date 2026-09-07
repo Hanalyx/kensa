@@ -1,0 +1,283 @@
+spec:
+    id: cli-introspection-builtins
+    version: 0.1.0
+    status: approved
+    tier: 3
+
+    context:
+        system: kensa
+        feature: cli-introspection-builtins
+        description: |
+            The corpus-wide read models — `kensa list frameworks`, the
+            generic `kensa coverage --framework` path and `kensa info` —
+            must load the rule corpus with Kensa's embedded built-in
+            variable defaults.
+
+            These three commands describe the corpus rather than a host.
+            They accept no host, no --config-dir and no --var, so the only
+            variable tier that can apply is the built-in floor shipped
+            inside the binary.
+
+            Loading with no variables instead drops every rule carrying a
+            `{{ name }}` template, because the loader treats an undefined
+            template variable as a skipped rule. Measured on the corpus at
+            the time this spec was written, 50 of 779 rules used a template,
+            those rules referenced 43 distinct variables, and the embedded
+            defaults covered all 43. Every framework row was therefore
+            understated, and `kensa info` could not find those rules at all
+            while the scan path loaded them normally.
+
+            The resolution floor is embedded-only on purpose. Reading an
+            operator's configuration here would make a description of the
+            corpus depend on the machine that ran the command, so the same
+            corpus would answer differently to two people. The scan path
+            keeps the full tier chain, because there a host is known and
+            operator values are the point.
+
+            Corpus totals are volatile and are not frozen by this spec.
+            The invariant is that no valid shipped rule is lost to an
+            undefined built-in variable.
+
+            One shape note, because it looks like a typo and is not.
+            Entries inside `framework_refs` serialize as `FrameworkID` and
+            `ControlID` while every other field in the same document is
+            snake_case. `api.FrameworkRef` carries no JSON tags, so its
+            members marshal under their Go field names. That is the shipped
+            public shape and `api/` is frozen, so AC-03 asserts the shape
+            the binary actually emits. Renaming those keys would be a
+            breaking change to a published document and is out of scope
+            here.
+
+    objective:
+        summary: |
+            Make the corpus-wide introspection commands load the shipped rule
+            corpus with Kensa's embedded built-in variable defaults, so no
+            valid rule is lost to an undefined built-in variable and the
+            counts these commands publish match the corpus.
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa list frameworks`, the generic `kensa coverage
+              --framework` rule-loader path and `kensa info` MUST load the
+              corpus with the embedded built-in variable defaults, so a rule
+              whose only templates resolve from that floor participates in
+              the read model exactly as a non-templated rule does. A failure
+              to resolve those defaults MUST fail the command; falling back
+              to an unresolved variable set is forbidden, because it would
+              report a short corpus rather than stopping.
+          type: technical
+
+        - id: C-02
+          description: |
+              Those commands MUST resolve only the embedded floor. They MUST
+              NOT auto-detect an operator configuration directory, read
+              $KENSA_CONFIG_DIR, $XDG_CONFIG_HOME or $HOME, or infer a
+              hostname or group context. Output MUST be identical regardless
+              of ambient configuration on the machine.
+          type: technical
+
+        - id: C-03
+          description: |
+              The change MUST NOT add, remove or rename any public JSON field
+              emitted by the three commands. Only loaded rule membership, and
+              the counts derived from it, may change.
+          type: technical
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              List-frameworks counts a valid built-in-templated rule and a
+              plain rule from the same controlled corpus.
+          inputs:
+              fixture:
+                  rules_dir: two-rule-built-in-template
+                  rules:
+                      - id: plain-rule
+                        framework_id: cis_rhel9
+                        control_id: "5.1.1"
+                        templated_field: null
+                      - id: templated-rule
+                        framework_id: cis_rhel9
+                        control_id: "5.1.2"
+                        templated_field: implementations[0].check.expected
+                        template: "{{ pam_faillock_deny }}"
+                  built_in_variable: pam_faillock_deny
+              invocation:
+                  argv: [list, frameworks, --rules-dir,
+                         two-rule-built-in-template, --format, json]
+          expected_output:
+              exit_code: 0
+              stdout_json:
+                  frameworks:
+                      - framework_id: cis_rhel9
+                        controls: 2
+                        rules: 2
+              stderr_excludes:
+                  - undefined variables
+                  - templated-rule
+          references_constraints: [C-01]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+        - id: AC-02
+          description: |
+              Generic framework coverage includes both controlled rules and
+              their distinct control mappings.
+          inputs:
+              fixture: two-rule-built-in-template
+              invocation:
+                  argv: [coverage, --framework, cis_rhel9, --rules-dir,
+                         two-rule-built-in-template, --format, json]
+                  route: generic-rule-loader
+          expected_output:
+              exit_code: 0
+              stdout_json:
+                  framework: cis_rhel9
+                  rules_scanned: 2
+                  rules_matching: 2
+                  controls_mapped: 2
+                  controls:
+                      - control_id: "5.1.1"
+                        rule_count: 1
+                        rules: [plain-rule]
+                      - control_id: "5.1.2"
+                        rule_count: 1
+                        rules: [templated-rule]
+              stderr_excludes:
+                  - undefined variables
+                  - templated-rule
+          references_constraints: [C-01]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+        - id: AC-03
+          description: |
+              Info resolves and returns the controlled templated rule by ID.
+          inputs:
+              fixture: two-rule-built-in-template
+              invocation:
+                  argv: [info, --rule, templated-rule, --rules-dir,
+                         two-rule-built-in-template, --format, json]
+          expected_output:
+              exit_code: 0
+              stdout_json:
+                  id: templated-rule
+                  framework_refs_contains:
+                      FrameworkID: cis_rhel9
+                      ControlID: "5.1.2"
+              stderr_excludes:
+                  - undefined variables
+                  - rule not found
+          references_constraints: [C-01]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+        - id: AC-04
+          description: |
+              Ambient configuration candidates cannot affect or break any
+              corpus-wide introspection command.
+          inputs:
+              fixture: two-rule-built-in-template
+              command_matrix:
+                  - [list, frameworks, --rules-dir,
+                     two-rule-built-in-template, --format, json]
+                  - [coverage, --framework, cis_rhel9, --rules-dir,
+                     two-rule-built-in-template, --format, json]
+                  - [info, --rule, templated-rule, --rules-dir,
+                     two-rule-built-in-template, --format, json]
+              environment_cases:
+                  - set:
+                        KENSA_CONFIG_DIR: malformed-config-dir
+                    unset: [XDG_CONFIG_HOME, HOME]
+                  - set:
+                        XDG_CONFIG_HOME: xdg-root-containing-malformed-kensa-defaults
+                    unset: [KENSA_CONFIG_DIR, HOME]
+                  - set:
+                        HOME: home-containing-malformed-dot-config-kensa-defaults
+                    unset: [KENSA_CONFIG_DIR, XDG_CONFIG_HOME]
+              malformed_file: defaults.yml containing invalid YAML
+          expected_output:
+              runs: 9
+              every_exit_code: 0
+              each_stdout: byte-identical to the same command with all three variables unset
+              stderr_excludes:
+                  - malformed-config-dir
+                  - parse defaults.yml
+          references_constraints: [C-02]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+        - id: AC-05
+          description: |
+              The shipped corpus has no undefined-variable loss when loaded by
+              each introspection command with embedded defaults.
+          inputs:
+              rules_dir: rules
+              source_set: every tracked rule YAML below rules/
+              command_matrix:
+                  - [list, frameworks, --rules-dir, rules, --format, json]
+                  - [coverage, --framework, cis_rhel9,
+                     --rules-dir, rules, --format, json]
+                  - [info, --rule, pam-faillock-deny,
+                     --rules-dir, rules, --format, json]
+          expected_output:
+              every_exit_code: 0
+              undefined_variable_skip_count: 0
+              loaded_rule_count: equals the independently enumerated tracked rule YAML set
+              list_frameworks:
+                  framework_ids: equals the independently derived framework set
+                  each_rules_count: equals distinct loaded rule IDs referencing that framework
+                  each_controls_count: equals distinct control IDs referenced by that framework
+              info_rule_id: pam-faillock-deny
+          references_constraints: [C-01]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+        - id: AC-06
+          description: |
+              The fix does not add or remove public JSON fields.
+          inputs:
+              fixture: two-rule-built-in-template
+              invocations:
+                  list_frameworks: [list, frameworks, --rules-dir,
+                                    two-rule-built-in-template, --format, json]
+                  coverage: [coverage, --framework, cis_rhel9, --rules-dir,
+                             two-rule-built-in-template, --format, json]
+                  info: [info, --rule, templated-rule, --rules-dir,
+                         two-rule-built-in-template, --format, json]
+          expected_output:
+              exact_json_key_sets:
+                  list_frameworks_top: [frameworks]
+                  list_frameworks_item: [framework_id, controls, rules]
+                  coverage_top: [framework, rules_scanned, rules_matching,
+                                 controls_mapped, controls]
+                  coverage_control_item: [control_id, rule_count, rules]
+                  info_rule: [id, title, description, severity, category,
+                              tags, platforms, framework_refs]
+          references_constraints: [C-03]
+          priority: high
+          approval_gate: true
+          approval_date: "2026-09-04"
+
+    tags: [cli, introspection, corpus, variables, tier-3]
+
+    changelog:
+        - version: 0.1.0
+          date: "2026-09-04"
+          description: |
+              Initial specification. Records the founder-approved behavior
+              and acceptance criteria for embedded-default variable
+              resolution in the corpus-wide introspection commands.
+          changes:
+              - type: addition
+                section: acceptance_criteria
+                detail: |
+                    Six approved acceptance criteria covering the two-rule
+                    controlled fixture, ambient-configuration isolation,
+                    the shipped corpus, and public JSON key stability.
