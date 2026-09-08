@@ -1,6 +1,6 @@
 # 09 · Command reference
 
-_Applies to: Kensa v0.9.0. Last updated 2026-08-03._
+_Applies to: Kensa v0.10.0 plus Unreleased changes. Last updated 2026-09-08._
 
 This chapter documents every `kensa` command and flag. It is the
 exhaustive counterpart to the task-focused chapters: for *how* to scan
@@ -31,7 +31,7 @@ kensa [global flags] <command> [flags]
 | `plan` | Preview a rule transaction without executing |
 | `mechanisms` | List registered handler mechanisms |
 | `coverage` | Alias for `mechanisms` today; reports framework control coverage with `--framework` |
-| `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`) |
+| `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`, `kensa list variables`) |
 | `info` | Rule/control lookup: multi-criteria search over the corpus |
 | `diff` | Compare two stored sessions and emit per-rule drift |
 | `verify` | Validate the Ed25519 signature on an evidence-envelope JSON file |
@@ -437,6 +437,7 @@ kensa list <subject> [flags]
 |---|---|
 | `frameworks` | Per-framework control + rule counts (requires `--rules-dir DIR`) |
 | `sessions` | List recent sessions in the transaction store (with IDs for `kensa diff`) |
+| `variables` | Rule variables the corpus references, with type, default, default state, and the rules using each (requires `--rules-dir DIR`) |
 
 ### list frameworks
 
@@ -454,6 +455,49 @@ kensa list frameworks --rules-dir DIR [flags]
 | `-r` | `--rules-dir` | `string` | | Directory of rule YAMLs to scan (required) |
 | | `--format` | `string` | `text` | Output format: `text` or `json` |
 | `-q` | `--quiet` | | | Suppress default output |
+
+### list variables
+
+Lists every rule variable the loaded corpus references, with the type and
+default Kensa ships for it and the rules that use it. Use it to find what a
+site has to configure before a scan can assess those rules.
+
+```
+kensa list variables --rules-dir DIR [flags]
+```
+
+| Short | Long | Argument | Default | Meaning |
+|---|---|---|---|---|
+| `-h` | `--help` | | | Show help and exit |
+| `-r` | `--rules-dir` | `string` | | Directory of rule YAMLs to scan (required) |
+| | `--format` | `string` | `text` | Output format: `text` or `json` |
+| `-q` | `--quiet` | | | Suppress default output |
+
+Only variables the corpus references are listed. A variable Kensa ships a
+default for but no rule uses is omitted, and a variable your own rules
+introduce is listed with no type and no default.
+
+`default_state` says which of three situations a row is in:
+
+| State | Meaning |
+|---|---|
+| `value` | Kensa ships a non-empty default |
+| `empty` | Kensa ships an explicitly empty default. Several authorized-set variables are empty on purpose, because only your site can say what belongs in them, and the rules using them stay skipped until you declare one |
+| `absent` | Kensa ships no default. Your own rules introduced this name |
+
+In JSON the default keeps its declared shape: an integer is a number, a list
+is an array, and a string stays a string even when its value contains commas.
+The text form prints the same values as JSON literals, so the two cannot
+disagree about which is which.
+
+This command describes a corpus, not a host. It reads Kensa's built-in
+defaults only, takes no `--config-dir`, `--var` or host, and never prints a
+value resolved from your configuration, so the same corpus reports the same
+values on any machine. To record the values that actually applied to a host,
+write native evidence from a scan
+([`-o evidence:`](04-scan-and-remediate.md#-o-evidence-kensa-native-evidence));
+its `host.effective_variables` block carries them. No other output format
+reports them.
 
 ### list sessions
 

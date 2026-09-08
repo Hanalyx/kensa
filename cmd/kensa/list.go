@@ -8,7 +8,7 @@ import (
 )
 
 // runList is the C-046 sub-dispatcher for `kensa list <subject>`.
-// Today the only subject is `frameworks`. Future
+// Subjects are `frameworks`, `sessions` and `variables`. Future
 // follow-ups (e.g. `list controls`, `list rules`) compose
 // naturally without name collisions; the dispatcher stays
 // thin so adding a subject is one switch arm + one new
@@ -32,13 +32,15 @@ func runList(ctx context.Context, dbPath string, args []string) error {
 	}
 	if len(args) == 0 {
 		printListUsage(os.Stderr)
-		return NewUsageError("specify a subject; available: frameworks, sessions")
+		return NewUsageError("specify a subject; available: frameworks, sessions, variables")
 	}
 	subject := args[0]
 	if subject != "" && subject[0] == '-' {
+		// Several subjects take --rules-dir now, so guessing which one the
+		// operator meant would be a coin flip. Name them all instead.
 		return NewUsageError(fmt.Sprintf(
-			"missing 'list' subject (got flag %q first); did you mean 'kensa list frameworks %s'?",
-			subject, joinArgs(args)))
+			"missing 'list' subject (got flag %q first); available: frameworks, sessions, variables",
+			subject))
 	}
 	rest := args[1:]
 	switch subject {
@@ -46,23 +48,11 @@ func runList(ctx context.Context, dbPath string, args []string) error {
 		return runListFrameworks(ctx, rest)
 	case "sessions":
 		return runListSessions(ctx, dbPath, rest)
+	case "variables":
+		return runListVariables(rest)
 	default:
-		return NewUsageError(fmt.Sprintf("unknown 'list' subject %q; available: frameworks, sessions", subject))
+		return NewUsageError(fmt.Sprintf("unknown 'list' subject %q; available: frameworks, sessions, variables", subject))
 	}
-}
-
-// joinArgs returns args separated by a space, used in the
-// forgotten-subject usage hint so the suggested rewrite reads
-// like a copy-pastable command.
-func joinArgs(args []string) string {
-	out := ""
-	for i, a := range args {
-		if i > 0 {
-			out += " "
-		}
-		out += a
-	}
-	return out
 }
 
 func printListUsage(w io.Writer) {
@@ -73,6 +63,7 @@ Introspection commands for the rule corpus and the transaction store.
 Subjects:
   frameworks   Per-framework control + rule counts (requires --rules-dir DIR)
   sessions     List recent sessions in the transaction store (with IDs for `+"`kensa diff`"+`)
+  variables    Rule variables the corpus references, with type and default (requires --rules-dir DIR)
 
 Run "kensa list <subject> --help" for subject-specific flags.
 `)

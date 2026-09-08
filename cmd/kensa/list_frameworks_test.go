@@ -106,18 +106,27 @@ func TestRunList_NoArgsIsUsageError(t *testing.T) {
 
 // TestRunList_FlagBeforeSubjectHints locks the operator-confused-
 // intent guard: `kensa list --rules-dir DIR` (forgot subject)
-// produces a usage error containing "did you mean" and the
-// suggested rewrite.
+// produces a usage error naming the available subjects.
+//
+// It used to assert a guessed rewrite, "did you mean 'kensa list
+// frameworks ...'". More than one subject takes --rules-dir now, so the
+// guess would be a coin flip; the error names every subject instead. See
+// specs/cli/list-variables.spec.yaml AC-05, which supersedes this hint.
 // @spec cli-list-frameworks
 // @ac AC-06
 func TestRunList_FlagBeforeSubjectHints(t *testing.T) {
 	t.Run("cli-list-frameworks/AC-06", func(t *testing.T) {})
 	_, stderr := captureRunCLI([]string{"list", "--rules-dir", "/x"}, t)
-	if !strings.Contains(stderr, "did you mean") {
-		t.Errorf("flag-before-subject should hint 'did you mean'; got:\n%s", stderr)
+	if !strings.Contains(stderr, "missing 'list' subject") {
+		t.Errorf("flag-before-subject should say the subject is missing; got:\n%s", stderr)
 	}
-	if !strings.Contains(stderr, "frameworks") {
-		t.Errorf("hint should suggest 'frameworks'; got:\n%s", stderr)
+	for _, subject := range []string{"frameworks", "sessions", "variables"} {
+		if !strings.Contains(stderr, subject) {
+			t.Errorf("error should name subject %q; got:\n%s", subject, stderr)
+		}
+	}
+	if strings.Contains(stderr, "did you mean") {
+		t.Errorf("the error must not guess one subject; got:\n%s", stderr)
 	}
 	if exit := runCLI([]string{"list", "--rules-dir", "/x"}); exit != 2 {
 		t.Errorf("flag-before-subject should exit 2; got %d", exit)
