@@ -493,8 +493,11 @@ disagree about which is which.
 This command describes a corpus, not a host. It reads Kensa's built-in
 defaults only, takes no `--config-dir`, `--var` or host, and never prints a
 value resolved from your configuration, so the same corpus reports the same
-values on any machine. To see the values that would actually apply to a host,
-run a scan.
+values on any machine. To record the values that actually applied to a host,
+write native evidence from a scan
+([`-o evidence:`](04-scan-and-remediate.md#-o-evidence-kensa-native-evidence));
+its `host.effective_variables` block carries them. No other output format
+reports them.
 
 ### list sessions
 
