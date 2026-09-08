@@ -103,8 +103,11 @@ spec:
               Unknown subject (e.g. `kensa list
               widgets`) MUST also exit 2. A leading
               flag (e.g. `kensa list --rules-dir DIR`)
-              MUST exit 2 with a "did you mean 'kensa
-              list frameworks ...'?" hint. `--help` /
+              MUST exit 2 naming the available subjects.
+              (The former "did you mean 'kensa list
+              frameworks ...'?" guess is superseded by
+              cli-list-variables AC-05: more than one
+              subject takes --rules-dir.) `--help` /
               `-h` MUST exit 0.
           type: business
           enforcement: error
@@ -169,8 +172,7 @@ spec:
               `kensa list` (no subject) exits 2 with
               the same available-subjects message.
               `kensa list --rules-dir DIR` exits 2
-              with a "did you mean 'kensa list
-              frameworks ...'?" hint. Locked by
+              naming the available subjects. Locked by
               TestRunList_UnknownSubject,
               TestRunList_NoArgsIsUsageError, and
               TestRunList_FlagBeforeSubjectHints.

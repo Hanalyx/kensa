@@ -34,7 +34,7 @@ var completionSpecs = []completionSpec{
 	{"plan", "Preview a rule transaction without executing", []string{"format", "help", "host", "key", "no-strict-host-keys", "password", "port", "quiet", "strict-host-keys", "sudo", "sudo-password", "user"}},
 	{"mechanisms", "List registered handler mechanisms", []string{"help"}},
 	{"coverage", "Report framework coverage over the corpus", []string{"framework", "help", "rules-dir"}},
-	{"list", "Introspection commands (frameworks, sessions, ...)", []string{"help", "rules-dir"}},
+	{"list", "Introspection commands (frameworks, sessions, variables)", []string{"help", "rules-dir"}},
 	{"info", "Rule/control lookup over the corpus", []string{"cis", "control", "format", "help", "limit", "list-controls", "nist", "quiet", "rhel", "rule", "rules-dir", "stig"}},
 	{"diff", "Compare two stored sessions and emit per-rule drift", []string{"format", "help", "quiet", "show-unchanged"}},
 	{"agent", "Run kensa as a stdio agent on the target host", []string{"help", "stdio"}},

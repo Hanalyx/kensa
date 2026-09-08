@@ -1,6 +1,6 @@
 # 09 · Command reference
 
-_Applies to: Kensa v0.9.0. Last updated 2026-08-03._
+_Applies to: Kensa v0.10.0 plus Unreleased changes. Last updated 2026-09-08._
 
 This chapter documents every `kensa` command and flag. It is the
 exhaustive counterpart to the task-focused chapters: for *how* to scan
@@ -31,7 +31,7 @@ kensa [global flags] <command> [flags]
 | `plan` | Preview a rule transaction without executing |
 | `mechanisms` | List registered handler mechanisms |
 | `coverage` | Alias for `mechanisms` today; reports framework control coverage with `--framework` |
-| `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`) |
+| `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`, `kensa list variables`) |
 | `info` | Rule/control lookup: multi-criteria search over the corpus |
 | `diff` | Compare two stored sessions and emit per-rule drift |
 | `verify` | Validate the Ed25519 signature on an evidence-envelope JSON file |
@@ -437,6 +437,7 @@ kensa list <subject> [flags]
 |---|---|
 | `frameworks` | Per-framework control + rule counts (requires `--rules-dir DIR`) |
 | `sessions` | List recent sessions in the transaction store (with IDs for `kensa diff`) |
+| `variables` | Rule variables the corpus references, with type, default, default state, and the rules using each (requires `--rules-dir DIR`) |
 
 ### list frameworks
 

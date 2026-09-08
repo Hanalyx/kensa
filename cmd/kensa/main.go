@@ -17,7 +17,7 @@
 //	mechanisms  List registered handler mechanisms.
 //	coverage    Alias for `mechanisms` today; v0.2 will repurpose this name
 //	            for framework control coverage. Migrate to `mechanisms` now.
-//	list        Introspection commands (`kensa list frameworks`).
+//	list        Introspection commands (`kensa list frameworks`, `kensa list variables`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
 //	diff        Compare two stored sessions and emit per-rule drift.
 //	agent       Run kensa as a stdio agent on the target host; see `kensa agent --help`.
@@ -502,7 +502,7 @@ Commands:
   mechanisms  List registered handler mechanisms
   coverage    Alias for 'mechanisms' today; in v0.2 reports framework
               control coverage instead — migrate scripts to 'mechanisms'
-  list        Introspection commands ('kensa list frameworks', etc.)
+  list        Introspection commands ('kensa list frameworks', 'kensa list variables', etc.)
   info        Rule/control lookup (multi-criteria search over the corpus)
   diff        Compare two stored sessions and emit per-rule drift
   agent       Run kensa as a stdio agent on the target host; see 'kensa agent --help'

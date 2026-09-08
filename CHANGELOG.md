@@ -16,6 +16,18 @@ any pair).
 
 ## Unreleased
 
+### Added
+
+- **`kensa list variables --rules-dir DIR`** names every rule variable the
+  corpus references, with the type and default Kensa ships for it, whether that
+  default is a value, deliberately empty, or absent, and the rules that use it.
+  Some variables ship empty on purpose, because only a site can say what its own
+  authorized set contains, and nothing in the CLI said so before. Text and
+  `--format json` carry the same values; the JSON keeps declared shapes, so an
+  integer stays a number, a list stays an array, and a string keeps its bytes.
+  Like the other corpus commands it describes a corpus rather than a host: it
+  reads the built-in defaults only, never your own configuration.
+
 ### Fixed
 
 - **`kensa list frameworks`, `kensa coverage --framework` and `kensa info` now

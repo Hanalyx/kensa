@@ -1,0 +1,412 @@
+spec:
+    id: cli-list-variables
+    version: 0.1.0
+    status: approved
+    tier: 3
+
+    context:
+        system: kensa
+        feature: cli-list-variables
+        description: |
+            `kensa list variables --rules-dir DIR` reports every template
+            variable the selected corpus references, with the type and default
+            Kensa embeds for it, whether that default is a value, deliberately
+            empty, or absent, and the rules that use it.
+
+            Operators have to configure these variables and had no way to
+            discover them. Some ship empty on purpose, because only a site can
+            say what its own authorized set contains, and nothing in the CLI
+            said so.
+
+            Membership comes from the corpus, not from the embedded file. A
+            built-in no rule mentions is not operator work and would read as
+            though it were; a site variable Kensa has never heard of is
+            operator work and has to appear, even though Kensa can say nothing
+            about its type or default.
+
+            The command describes a corpus, not a host. It reads the embedded
+            defaults only. Reading an operator's tiers would make a description
+            of the corpus depend on the machine that ran it, and would print
+            values that belong to the operator rather than to Kensa.
+
+            Every default is stored as text, so the declared type is the only
+            thing that says what the text meant. Conversion is driven by that
+            declaration and never by the shape of the value: a declared string
+            whose value contains commas stays one string, because splitting it
+            would invent a list nobody wrote.
+
+            Counts in this spec's prose are measurements at the time of
+            writing, not frozen contract.
+
+    objective:
+        summary: |
+            Give an operator one command that names every variable the corpus
+            consumes, what Kensa ships for it, and which rules depend on it,
+            without disclosing or depending on local configuration.
+
+    constraints:
+        - id: C-01
+          description: |
+              Exactly the variables referenced by the selected corpus appear.
+              A referenced variable with no built-in is present with a null
+              type and default. A built-in no selected rule references is
+              absent. A rule with no template contributes no row.
+          type: technical
+
+        - id: C-02
+          description: |
+              Type and default come only from the embedded artifacts. An
+              integer renders as a JSON number, a list as an array of members
+              split solely on the declared separator, a string as a string with
+              its bytes intact. `default_state` is value, empty, or absent.
+              Metadata that disagrees with itself fails the command.
+          type: technical
+
+        - id: C-03
+          description: |
+              Rows sort by variable name and rule IDs are sorted and
+              deduplicated, so output does not depend on filesystem traversal.
+              The JSON document has exactly one top-level key and exactly the
+              five documented item keys.
+          type: technical
+
+        - id: C-04
+          description: |
+              No operator tier, environment-selected configuration directory,
+              host context, or resolved operator value is read or displayed.
+              Output is identical regardless of ambient configuration.
+          type: security
+
+        - id: C-05
+          description: |
+              Directory, format, help, quiet, and exit-code behavior follow the
+              documented contract, and the parent subject list names every
+              available subject rather than guessing one.
+          type: technical
+
+        - id: C-06
+          description: |
+              A filesystem or metadata failure fails the command with no
+              fallback and no partial document on stdout.
+          type: technical
+
+        - id: C-07
+          description: |
+              Existing list subjects, scan and remediation behavior, and the
+              frozen public API are unchanged.
+          type: technical
+
+    acceptance_criteria:
+    - id: AC-01
+      description: |
+          JSON joins corpus usage to typed built-in metadata and preserves
+          an unknown site variable.
+      inputs:
+          fixture:
+              rules_dir: typed-variable-corpus
+              rules:
+                  - id: accounts-rule
+                    templates:
+                        - {field: "implementations[0].check.authorized",
+                           value: "{{ authorized_local_accounts }}"}
+                  - id: a-rule
+                    templates:
+                        - {field: "implementations[0].check.expected",
+                           value: "{{ pam_faillock_deny }}"}
+                  - id: z-rule
+                    templates:
+                        - {field: "implementations[0].check.expected",
+                           value: "{{ pam_faillock_deny }}:{{ pam_faillock_deny }}"}
+                        - {field: "implementations[0].remediation.value",
+                           value: "{{ root_umask }}"}
+                  - id: custom-rule
+                    templates:
+                        - {field: "implementations[0].check.expected",
+                           value: "{{ site_custom_threshold }}"}
+                  - id: ciphers-rule
+                    templates:
+                        - {field: "implementations[0].check.expected",
+                           value: "{{ ssh_approved_ciphers }}"}
+              unreferenced_built_in: banner_text
+          invocation:
+              argv: [list, variables, --rules-dir,
+                     typed-variable-corpus, --format, json]
+      expected_output:
+          exit_code: 0
+          stdout_json:
+              variables:
+                  - {name: authorized_local_accounts, type: list,
+                     default: [], default_state: empty,
+                     rules: [accounts-rule]}
+                  - {name: pam_faillock_deny, type: integer,
+                     default: 3, default_state: value,
+                     rules: [a-rule, z-rule]}
+                  - {name: root_umask, type: string,
+                     default: "027", default_state: value,
+                     rules: [z-rule]}
+                  - {name: site_custom_threshold, type: null,
+                     default: null, default_state: absent,
+                     rules: [custom-rule]}
+                  - {name: ssh_approved_ciphers, type: string,
+                     default: "aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr",
+                     default_state: value, rules: [ciphers-rule]}
+          exact_json_key_sets:
+              top: [variables]
+              item: [default, default_state, name, rules, type]
+          omitted_variable_names: [banner_text]
+          stderr: ""
+      references_constraints: [C-01, C-02, C-03]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-02
+      description: |
+          Text exposes the same values without truncation or collapsing
+          empty, absent, numeric, and quoted-string defaults.
+      inputs:
+          fixture: typed-variable-corpus
+          invocation:
+              argv: [list, variables, --rules-dir, typed-variable-corpus]
+      expected_output:
+          exit_code: 0
+          heading: kensa list variables
+          count_line: 5 variable(s)
+          columns: [variable, type, default, state, rules]
+          rows_in_order:
+              - [authorized_local_accounts, list, "[]", empty, accounts-rule]
+              - [pam_faillock_deny, integer, "3", value, "a-rule,z-rule"]
+              - [root_umask, string, '"027"', value, z-rule]
+              - [site_custom_threshold, untyped, "null", absent, custom-rule]
+              - [ssh_approved_ciphers, string,
+                 '"aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"',
+                 value, ciphers-rule]
+          truncation_markers: absent
+          stderr: ""
+      references_constraints: [C-02, C-03]
+      priority: high
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-03
+      description: |
+          Membership and order depend only on distinct templates in the
+          selected corpus.
+      inputs:
+          fixture: typed-variable-corpus
+          corpus_file_orders:
+              - [accounts-rule, a-rule, z-rule, custom-rule, ciphers-rule]
+              - [ciphers-rule, custom-rule, z-rule, a-rule, accounts-rule]
+          duplicate_template:
+              {rule: z-rule, variable: pam_faillock_deny, occurrences: 2}
+          plain_rule: {id: no-template-rule, templates: []}
+          unreferenced_built_in: banner_text
+          invocation:
+              argv: [list, variables, --rules-dir, CORPUS, --format, json]
+      expected_output:
+          outputs_across_orders: byte-identical
+          variable_names_exactly:
+              [authorized_local_accounts, pam_faillock_deny,
+               root_umask, site_custom_threshold, ssh_approved_ciphers]
+          pam_faillock_deny_rules_exactly: [a-rule, z-rule]
+          omitted_rule_ids: [no-template-rule]
+          omitted_variable_names: [banner_text]
+      references_constraints: [C-01, C-03]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-04
+      description: |
+          Ambient operator configuration cannot affect output and no
+          operator value can be disclosed.
+      inputs:
+          fixture: typed-variable-corpus
+          invocation:
+              argv: [list, variables, --rules-dir,
+                     typed-variable-corpus, --format, json]
+          baseline_environment:
+              unset: [KENSA_CONFIG_DIR, XDG_CONFIG_HOME, HOME]
+          environment_cases:
+              - {set: {KENSA_CONFIG_DIR: config-with-secret-defaults},
+                 unset: [XDG_CONFIG_HOME, HOME]}
+              - {set: {XDG_CONFIG_HOME: xdg-with-secret-kensa-defaults},
+                 unset: [KENSA_CONFIG_DIR, HOME]}
+              - {set: {HOME: home-with-secret-dot-config-kensa-defaults},
+                 unset: [KENSA_CONFIG_DIR, XDG_CONFIG_HOME]}
+          operator_values:
+              pam_faillock_deny: FOUNDER_SECRET_MUST_NOT_APPEAR
+              site_custom_threshold: FOUNDER_SECRET_MUST_NOT_APPEAR
+      expected_output:
+          runs: 4
+          every_exit_code: 0
+          each_stdout: byte-identical to baseline
+          stdout_excludes: [FOUNDER_SECRET_MUST_NOT_APPEAR]
+          stderr_excludes: [FOUNDER_SECRET_MUST_NOT_APPEAR,
+                            parse defaults.yml]
+      references_constraints: [C-04]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-05
+      description: |
+          Dispatch, help, usage errors, forbidden host-specific flags, and
+          quiet output follow one explicit contract.
+      inputs:
+          rules_dir: typed-variable-corpus
+          cases:
+              parent_help: [list, --help]
+              subject_help: [list, variables, --help]
+              missing_rules_dir: [list, variables]
+              invalid_format: [list, variables, --rules-dir,
+                               typed-variable-corpus, --format, yaml]
+              forbidden_config: [list, variables, --rules-dir,
+                                 typed-variable-corpus, --config-dir, x]
+              forbidden_var: [list, variables, --rules-dir,
+                              typed-variable-corpus, --var, x=1]
+              quiet: [list, variables, --rules-dir,
+                      typed-variable-corpus, --quiet]
+              missing_subject: [list]
+              unknown_subject: [list, widgets]
+              flag_before_subject: [list, --rules-dir, typed-variable-corpus]
+      expected_output:
+          parent_help: {exit_code: 0,
+                        stdout_contains: [frameworks, sessions, variables]}
+          subject_help:
+              exit_code: 0
+              stdout_contains: [kensa list variables, --rules-dir,
+                                --format, --quiet]
+              stdout_excludes: [--config-dir, --var, --host]
+          missing_rules_dir: {exit_code: 2,
+                              stderr_contains: [--rules-dir]}
+          invalid_format: {exit_code: 2, stderr_contains: [text, json]}
+          forbidden_config: {exit_code: 2}
+          forbidden_var: {exit_code: 2}
+          quiet: {exit_code: 0, stdout: ""}
+          missing_subject: {exit_code: 2,
+                            stderr_contains: [frameworks, sessions, variables]}
+          unknown_subject: {exit_code: 2,
+                            stderr_contains: [frameworks, sessions, variables]}
+          flag_before_subject:
+              exit_code: 2
+              stderr_contains: [missing 'list' subject, frameworks,
+                                sessions, variables]
+              stderr_excludes: [did you mean 'kensa list frameworks]
+      references_constraints: [C-04, C-05, C-07]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-06
+      description: |
+          A corpus with no templates returns an empty collection, not all
+          embedded built-ins or a null JSON value.
+      inputs:
+          fixture:
+              rules_dir: plain-only-corpus
+              rules: [{id: no-template-rule, templates: []}]
+          invocations:
+              json: [list, variables, --rules-dir, plain-only-corpus,
+                     --format, json]
+              text: [list, variables, --rules-dir, plain-only-corpus]
+      expected_output:
+          json:
+              exit_code: 0
+              stdout_json: {variables: []}
+              exact_json_key_sets: {top: [variables]}
+          text:
+              exit_code: 0
+              stdout_contains: [kensa list variables,
+                                no variables referenced by the loaded corpus]
+          stderr: ""
+      references_constraints: [C-01, C-03]
+      priority: high
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-07
+      description: |
+          Shipped-corpus output agrees with an independently derived model
+          without freezing today's variable count.
+      inputs:
+          rules_dir: rules
+          source_set: every tracked rule YAML below rules/
+          expected_model:
+              variable_extraction: independently match the documented
+                  template vocabulary in raw YAML; do not call RuleVariables
+              rule_ids: independently decode each top-level id
+              defaults: pkg/kensa.BuiltInVars
+              types: internal/varsub.BuiltInTypes
+          invocation:
+              argv: [list, variables, --rules-dir, rules, --format, json]
+      expected_output:
+          exit_code: 0
+          variable_names: exactly the independent referenced set
+          each_rules: exactly the independent sorted distinct rule IDs
+          unreferenced_built_ins: absent
+          referenced_unknowns: present with null type/default and absent state
+          known_defaults: typed according to built-in type
+          explicit_empty_defaults: state empty
+          nonempty_defaults: state value
+          exact_json_key_sets:
+              top: [variables]
+              item: [default, default_state, name, rules, type]
+          stderr: ""
+      references_constraints: [C-01, C-02, C-03, C-04]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    - id: AC-08
+      description: |
+          Default conversion preserves all supported declarations and rejects
+          inconsistent metadata instead of guessing or emitting partial JSON.
+      inputs:
+          metadata_cases:
+              - [positive-int, integer, "3"]
+              - [negative-int, integer, "-1"]
+              - [leading-zero-string, string, "027"]
+              - [multiline-string, string, "line one\nline two\n"]
+              - [nonempty-list, list, "alice,bob"]
+              - [empty-list, list, ""]
+              - [empty-string, string, ""]
+              - [absent, null, null]
+          invalid_cases:
+              - [integer, not-an-integer]
+              - [null, unexpected-default]
+              - [list, "malformed, member"]
+      expected_output:
+          metadata_cases:
+              - [positive-int, 3, value]
+              - [negative-int, -1, value]
+              - [leading-zero-string, "027", value]
+              - [multiline-string, "line one\nline two\n", value]
+              - [nonempty-list, [alice, bob], value]
+              - [empty-list, [], empty]
+              - [empty-string, "", empty]
+              - [absent, null, absent]
+          every_invalid_case: error before output
+          partial_json_on_error: forbidden
+      references_constraints: [C-02, C-06]
+      priority: critical
+      approval_gate: true
+      approval_date: "2026-09-08"
+
+    tags: [cli, introspection, variables, corpus, tier-3]
+
+    changelog:
+        - version: 0.1.0
+          date: "2026-09-08"
+          description: |
+              Initial specification. Records the founder-approved behavior and
+              acceptance criteria for `kensa list variables`.
+          changes:
+              - type: addition
+                section: acceptance_criteria
+                detail: |
+                    Eight approved acceptance criteria covering the JSON and
+                    text documents, membership and ordering, configuration
+                    isolation, dispatch and usage, empty corpora, the shipped
+                    corpus against an independently derived model, and default
+                    conversion.

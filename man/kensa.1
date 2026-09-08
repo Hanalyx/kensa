@@ -129,7 +129,7 @@ Rule options:
   \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
       \-\-control stringArray      filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
   \-x, \-\-var stringArray          override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
-      \-\-config\-dir string        directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per\-host / per\-group / conf.d overrides land in Phase 3.6.
+      \-\-config\-dir string        directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. \-\-var wins over all of them.
 
 Output options:
       \-\-format string    output format: table, json, or jsonl (deprecated; use \-\-output) (default "table")
@@ -181,7 +181,8 @@ Rule options:
   \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
       \-\-control stringArray      filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
   \-x, \-\-var stringArray          override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
-      \-\-config\-dir string        directory holding defaults.yml (variable defaults source). Phase 3.5 minimum: only defaults.yml is read; per\-host / per\-group / conf.d overrides land in Phase 3.6.
+      \-\-config\-dir string        directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. \-\-var wins over all of them.
+      \-\-allow\-conflicts          apply even when the selected rules declare conflicts_with each other (default: refuse)
 
 Output options:
       \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
@@ -330,6 +331,7 @@ Introspection commands for the rule corpus and the transaction store.
 Subjects:
   frameworks   Per\-framework control + rule counts (requires \-\-rules\-dir DIR)
   sessions     List recent sessions in the transaction store (with IDs for `kensa diff`)
+  variables    Rule variables the corpus references, with type and default (requires \-\-rules\-dir DIR)
 
 Run "kensa list <subject> \-\-help" for subject\-specific flags.
 .fi
