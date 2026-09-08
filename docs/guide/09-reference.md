@@ -456,6 +456,46 @@ kensa list frameworks --rules-dir DIR [flags]
 | | `--format` | `string` | `text` | Output format: `text` or `json` |
 | `-q` | `--quiet` | | | Suppress default output |
 
+### list variables
+
+Lists every rule variable the loaded corpus references, with the type and
+default Kensa ships for it and the rules that use it. Use it to find what a
+site has to configure before a scan can assess those rules.
+
+```
+kensa list variables --rules-dir DIR [flags]
+```
+
+| Short | Long | Argument | Default | Meaning |
+|---|---|---|---|---|
+| `-h` | `--help` | | | Show help and exit |
+| `-r` | `--rules-dir` | `string` | | Directory of rule YAMLs to scan (required) |
+| | `--format` | `string` | `text` | Output format: `text` or `json` |
+| `-q` | `--quiet` | | | Suppress default output |
+
+Only variables the corpus references are listed. A variable Kensa ships a
+default for but no rule uses is omitted, and a variable your own rules
+introduce is listed with no type and no default.
+
+`default_state` says which of three situations a row is in:
+
+| State | Meaning |
+|---|---|
+| `value` | Kensa ships a non-empty default |
+| `empty` | Kensa ships an explicitly empty default. Several authorized-set variables are empty on purpose, because only your site can say what belongs in them, and the rules using them stay skipped until you declare one |
+| `absent` | Kensa ships no default. Your own rules introduced this name |
+
+In JSON the default keeps its declared shape: an integer is a number, a list
+is an array, and a string stays a string even when its value contains commas.
+The text form prints the same values as JSON literals, so the two cannot
+disagree about which is which.
+
+This command describes a corpus, not a host. It reads Kensa's built-in
+defaults only, takes no `--config-dir`, `--var` or host, and never prints a
+value resolved from your configuration, so the same corpus reports the same
+values on any machine. To see the values that would actually apply to a host,
+run a scan.
+
 ### list sessions
 
 Lists recent sessions in the transaction store. The `session_id` column

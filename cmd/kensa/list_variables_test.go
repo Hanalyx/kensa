@@ -8,22 +8,28 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/Hanalyx/kensa/internal/varsub"
 	"github.com/Hanalyx/kensa/pkg/kensa"
 )
 
-// ruleWithTemplates writes one valid rule whose check.expected carries the
-// given raw text, so a template reaches the corpus through a field the parser
-// accepts.
-func ruleWithTemplates(t *testing.T, dir, id, expected, extra string) {
+// writeFixtureRule writes one valid rule. The caller supplies the whole
+// implementations block, so a template can sit in the field the acceptance
+// criteria name rather than always in check.expected: a template reached
+// through remediation.value or check.authorized exercises a different part of
+// the parser than one in a check scalar.
+func writeFixtureRule(t *testing.T, dir, id, impl string) {
 	t.Helper()
 	body := "id: " + id + `
 title: Test rule
@@ -38,13 +44,7 @@ platforms:
     min_version: 8
 
 implementations:
-  - default: true
-    check:
-      method: command
-      run: "true"
-      expected_exit: 0
-      expected: ` + expected + extra + `
-
+` + impl + `
 references:
   cis:
     rhel9:
@@ -55,21 +55,76 @@ references:
 	}
 }
 
-// typedVariableCorpus is the shared fixture: one list variable that ships
-// empty, one integer, one string whose default has a leading zero, one site
-// variable Kensa knows nothing about, and one declared string whose value
-// contains commas.
+// commandCheckImpl is an ordinary command check whose expected scalar carries
+// the given raw text.
+func commandCheckImpl(expected string) string {
+	return `  - default: true
+    check:
+      method: command
+      run: "true"
+      expected_exit: 0
+      expected: ` + expected + `
+`
+}
+
+// typedVariableCorpus is the shared fixture. Each variable sits in the field
+// the approved criteria name:
+//
+//	authorized_local_accounts  check.authorized     (list, ships empty)
+//	pam_faillock_deny          check.expected       (integer, named twice in z-rule)
+//	root_umask                 remediation.value    (string with a leading zero)
+//	site_custom_threshold      check.expected       (no built-in at all)
+//	ssh_approved_ciphers       check.expected       (declared string holding commas)
 func typedVariableCorpus(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	ruleWithTemplates(t, dir, "accounts-rule", `"{{ authorized_local_accounts }}"`, "")
-	ruleWithTemplates(t, dir, "a-rule", `"{{ pam_faillock_deny }}"`, "")
-	// z-rule names pam_faillock_deny twice, so dedup is exercised, and adds a
-	// second distinct variable.
-	ruleWithTemplates(t, dir, "z-rule", `"{{ pam_faillock_deny }}:{{ pam_faillock_deny }}:{{ root_umask }}"`, "")
-	ruleWithTemplates(t, dir, "custom-rule", `"{{ site_custom_threshold }}"`, "")
-	ruleWithTemplates(t, dir, "ciphers-rule", `"{{ ssh_approved_ciphers }}"`, "")
+	writeFixtureRules(t, dir, false)
 	return dir
+}
+
+// writeFixtureRules writes the five fixture rules, optionally in reverse
+// filename order so membership and ordering can be shown independent of
+// traversal.
+func writeFixtureRules(t *testing.T, dir string, reverse bool) {
+	t.Helper()
+	type spec struct{ id, impl string }
+	rules := []spec{
+		{"accounts-rule", `  - default: true
+    check:
+      method: set_compare
+      observed_command: "true"
+      authorized: "{{ authorized_local_accounts }}"
+    remediation:
+      mechanism: manual
+      note: "declare the authorized set"
+`},
+		{"a-rule", commandCheckImpl(`"{{ pam_faillock_deny }}"`)},
+		// z-rule names pam_faillock_deny twice in one scalar, and reaches
+		// root_umask through remediation.value rather than a check field.
+		{"z-rule", `  - default: true
+    check:
+      method: command
+      run: "true"
+      expected_exit: 0
+      expected: "{{ pam_faillock_deny }}:{{ pam_faillock_deny }}"
+    remediation:
+      mechanism: config_set
+      path: "/etc/login.defs"
+      key: "UMASK"
+      value: "{{ root_umask }}"
+      separator: " "
+`},
+		{"custom-rule", commandCheckImpl(`"{{ site_custom_threshold }}"`)},
+		{"ciphers-rule", commandCheckImpl(`"{{ ssh_approved_ciphers }}"`)},
+	}
+	if reverse {
+		for i, j := 0, len(rules)-1; i < j; i, j = i+1, j-1 {
+			rules[i], rules[j] = rules[j], rules[i]
+		}
+	}
+	for _, r := range rules {
+		writeFixtureRule(t, dir, r.id, r.impl)
+	}
 }
 
 func runListVars(t *testing.T, argv ...string) (int, string, string) {
@@ -205,6 +260,10 @@ func sortedKeys(m map[string]json.RawMessage) []string {
 }
 
 // TestListVariables_TextShowsSameValues locks AC-02.
+//
+// Every row is compared whole, all five columns in order. Checking fragments
+// would let the state or rules column carry anything at all, which is exactly
+// what an earlier version of this test allowed.
 // @spec cli-list-variables
 // @ac AC-02
 func TestListVariables_TextShowsSameValues(t *testing.T) {
@@ -220,41 +279,55 @@ func TestListVariables_TextShowsSameValues(t *testing.T) {
 	if !strings.Contains(stdout, "5 variable(s)") {
 		t.Errorf("missing count line:\n%s", stdout)
 	}
-	for _, col := range []string{"variable", "type", "default", "state", "rules"} {
-		if !strings.Contains(stdout, col) {
-			t.Errorf("missing column %q", col)
+
+	// Collapse runs of spaces so the comparison is about values and order, not
+	// about column padding, which is presentation.
+	fields := func(l string) []string { return strings.Fields(strings.TrimSpace(l)) }
+
+	var header []string
+	var rows [][]string
+	for _, l := range strings.Split(stdout, "\n") {
+		f := fields(l)
+		if len(f) == 0 || strings.HasPrefix(f[0], "---") {
+			continue
+		}
+		switch {
+		case f[0] == "variable" && header == nil:
+			header = f
+		case header != nil && len(f) == 5:
+			rows = append(rows, f)
 		}
 	}
-	// Values render as JSON literals, so empty, absent, numeric and quoted
-	// string defaults stay distinguishable in the human output too.
-	for _, want := range []string{
-		`authorized_local_accounts  list     []`,
-		`pam_faillock_deny          integer  3`,
-		`root_umask                 string   "027"`,
-		`site_custom_threshold      untyped  null`,
-	} {
-		if !regexp.MustCompile(regexp.QuoteMeta(want)).MatchString(stdout) {
-			t.Errorf("missing row fragment %q in:\n%s", want, stdout)
+	if want := []string{"variable", "type", "default", "state", "rules"}; !reflect.DeepEqual(header, want) {
+		t.Fatalf("header = %v, want %v", header, want)
+	}
+
+	want := [][]string{
+		{"authorized_local_accounts", "list", "[]", "empty", "accounts-rule"},
+		{"pam_faillock_deny", "integer", "3", "value", "a-rule,z-rule"},
+		{"root_umask", "string", `"027"`, "value", "z-rule"},
+		{"site_custom_threshold", "untyped", "null", "absent", "custom-rule"},
+		{"ssh_approved_ciphers", "string",
+			`"aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"`,
+			"value", "ciphers-rule"},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("got %d rows, want %d:\n%s", len(rows), len(want), stdout)
+	}
+	for i := range want {
+		if !reflect.DeepEqual(rows[i], want[i]) {
+			t.Errorf("row %d = %v\n     want %v", i, rows[i], want[i])
 		}
 	}
+
 	// The long declared string is present whole, commas intact, unclipped.
 	if !strings.Contains(stdout, `"aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr"`) {
 		t.Errorf("cipher default truncated or split:\n%s", stdout)
 	}
-	for _, marker := range []string{"...", "…", "truncated"} {
+	for _, marker := range []string{"...", "\u2026", "truncated"} {
 		if strings.Contains(stdout, marker) {
 			t.Errorf("output contains truncation marker %q", marker)
 		}
-	}
-	// Order is by name.
-	order := []string{"authorized_local_accounts", "pam_faillock_deny", "root_umask", "site_custom_threshold", "ssh_approved_ciphers"}
-	last := -1
-	for _, n := range order {
-		i := strings.Index(stdout, n)
-		if i < last {
-			t.Errorf("rows not sorted by name: %s appears out of order", n)
-		}
-		last = i
 	}
 }
 
@@ -263,28 +336,13 @@ func TestListVariables_TextShowsSameValues(t *testing.T) {
 // @ac AC-03
 func TestListVariables_MembershipAndOrderIndependentOfFiles(t *testing.T) {
 	t.Run("cli-list-variables/AC-03", func(t *testing.T) {})
-	// Two corpora with the same rules written in opposite filename order,
-	// plus a rule with no template at all.
+	// The same five rules written in opposite filename order, plus a rule with
+	// no template at all.
 	build := func(t *testing.T, reverse bool) string {
 		t.Helper()
 		dir := t.TempDir()
-		type r struct{ id, expected string }
-		rules := []r{
-			{"accounts-rule", `"{{ authorized_local_accounts }}"`},
-			{"a-rule", `"{{ pam_faillock_deny }}"`},
-			{"z-rule", `"{{ pam_faillock_deny }}:{{ pam_faillock_deny }}:{{ root_umask }}"`},
-			{"custom-rule", `"{{ site_custom_threshold }}"`},
-			{"ciphers-rule", `"{{ ssh_approved_ciphers }}"`},
-		}
-		if reverse {
-			for i, j := 0, len(rules)-1; i < j; i, j = i+1, j-1 {
-				rules[i], rules[j] = rules[j], rules[i]
-			}
-		}
-		for _, x := range rules {
-			ruleWithTemplates(t, dir, x.id, x.expected, "")
-		}
-		ruleWithTemplates(t, dir, "no-template-rule", `"0"`, "")
+		writeFixtureRules(t, dir, reverse)
+		writeFixtureRule(t, dir, "no-template-rule", commandCheckImpl(`"0"`))
 		return dir
 	}
 
@@ -498,7 +556,7 @@ func TestListVariables_DispatchAndUsage(t *testing.T) {
 func TestListVariables_EmptyCorpus(t *testing.T) {
 	t.Run("cli-list-variables/AC-06", func(t *testing.T) {})
 	dir := t.TempDir()
-	ruleWithTemplates(t, dir, "no-template-rule", `"0"`, "")
+	writeFixtureRule(t, dir, "no-template-rule", commandCheckImpl(`"0"`))
 
 	code, stdout, stderr := runListVars(t, "list", "variables", "--rules-dir", dir, "--format", "json")
 	if code != 0 {
@@ -538,18 +596,22 @@ func TestListVariables_EmptyCorpus(t *testing.T) {
 
 // TestListVariables_ShippedCorpusMatchesIndependentModel locks AC-07.
 //
-// The expected model is derived without calling RuleVariables: the corpus is
-// walked here, templates are extracted with the documented syntax, and rule
-// IDs are decoded from the YAML. Reusing RuleVariables would compare the
-// command against itself.
+// The expected model is built here, not borrowed: the corpus is walked
+// directly, rule IDs are decoded with a YAML decoder rather than a regex, and
+// template names are extracted with the same grammar varsub documents. Every
+// emitted field is compared, including the typed default, because a test that
+// checked only membership and type would pass with every default nulled out.
 // @spec cli-list-variables
 // @ac AC-07
 func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 	t.Run("cli-list-variables/AC-07", func(t *testing.T) {})
 	dir := repoRulesDirForVars(t)
 
-	tmplRe := regexp.MustCompile(`\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)
-	idRe := regexp.MustCompile(`(?m)^id:[ \t]*["']?([A-Za-z0-9_.-]+)["']?[ \t]*$`)
+	// The grammar varsub uses for a template. Kept identical on purpose: a
+	// different one here would measure a different corpus and the comparison
+	// would be meaningless.
+	tmplRe := regexp.MustCompile(`\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\}\}`)
+
 	expected := map[string]map[string]struct{}{}
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -562,9 +624,14 @@ func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 		if rerr != nil {
 			return rerr
 		}
+		// Decode the id rather than pattern-matching it, so the expected model
+		// reads the document the way the loader does.
+		var doc struct {
+			ID string `yaml:"id"`
+		}
 		id := strings.TrimSuffix(filepath.Base(path), ".yml")
-		if m := idRe.FindSubmatch(raw); m != nil {
-			id = string(m[1])
+		if yerr := yaml.Unmarshal(raw, &doc); yerr == nil && doc.ID != "" {
+			id = doc.ID
 		}
 		for _, m := range tmplRe.FindAllSubmatch(raw, -1) {
 			name := string(m[1])
@@ -598,9 +665,31 @@ func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 	if stderr != "" {
 		t.Errorf("stderr must be empty; got:\n%s", stderr)
 	}
+
+	// Exact key sets, read literally so a rename fails here too.
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(stdout), &top); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got := sortedKeys(top); !reflect.DeepEqual(got, []string{"variables"}) {
+		t.Errorf("top-level keys = %v, want [variables]", got)
+	}
+	var itemDoc struct {
+		Variables []map[string]json.RawMessage `json:"variables"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &itemDoc); err != nil {
+		t.Fatalf("decode items: %v", err)
+	}
+	wantItemKeys := []string{"default", "default_state", "name", "rules", "type"}
+	for i, it := range itemDoc.Variables {
+		if got := sortedKeys(it); !reflect.DeepEqual(got, wantItemKeys) {
+			t.Fatalf("item %d keys = %v, want %v", i, got, wantItemKeys)
+		}
+	}
+
 	var doc varDoc
 	if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
-		t.Fatalf("decode: %v", err)
+		t.Fatalf("decode doc: %v", err)
 	}
 
 	got := map[string]bool{}
@@ -619,6 +708,7 @@ func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 		if !reflect.DeepEqual(v.Rules, wantRules) {
 			t.Errorf("%s rules = %v, want %v", v.Name, v.Rules, wantRules)
 		}
+
 		raw, hasDefault := defaults[v.Name]
 		if !hasDefault {
 			if v.Type != nil || string(v.Default) != "null" || v.DefaultState != "absent" {
@@ -629,10 +719,23 @@ func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 		}
 		if v.Type == nil || *v.Type != string(types[v.Name]) {
 			t.Errorf("%s type = %v, want %s", v.Name, v.Type, types[v.Name])
+			continue
 		}
-		wantState := "value"
-		if raw == "" {
-			wantState = "empty"
+
+		// Derive the typed default independently from the declaration, and
+		// compare the emitted JSON to it. This is what makes a nulled or
+		// stringified default fail.
+		wantVal, wantState, cerr := independentTypedDefault(types[v.Name], raw)
+		if cerr != nil {
+			t.Errorf("%s: independent conversion failed: %v", v.Name, cerr)
+			continue
+		}
+		wantJSON, merr := json.Marshal(wantVal)
+		if merr != nil {
+			t.Fatalf("marshal expected default for %s: %v", v.Name, merr)
+		}
+		if string(v.Default) != string(wantJSON) {
+			t.Errorf("%s default = %s, want %s", v.Name, v.Default, wantJSON)
 		}
 		if v.DefaultState != wantState {
 			t.Errorf("%s state = %s, want %s (raw %q)", v.Name, v.DefaultState, wantState, raw)
@@ -647,6 +750,32 @@ func TestListVariables_ShippedCorpusMatchesIndependentModel(t *testing.T) {
 		if _, referenced := expected[b]; !referenced && got[b] {
 			t.Errorf("unreferenced built-in %s must not appear", b)
 		}
+	}
+}
+
+// independentTypedDefault derives the expected JSON value and state from a
+// declaration, without calling the production converter, so AC-07 compares two
+// derivations rather than the implementation with itself.
+func independentTypedDefault(declared varsub.VarType, raw string) (any, string, error) {
+	switch declared {
+	case varsub.TypeInt:
+		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil {
+			return nil, "", err
+		}
+		return n, "value", nil
+	case varsub.TypeList:
+		if raw == "" {
+			return []string{}, "empty", nil
+		}
+		return strings.Split(raw, varsub.ListSeparator), "value", nil
+	case varsub.TypeString:
+		if raw == "" {
+			return "", "empty", nil
+		}
+		return raw, "value", nil
+	default:
+		return nil, "", fmt.Errorf("unsupported type %q", declared)
 	}
 }
 
@@ -725,13 +854,34 @@ func TestTypedDefault_ConversionContract(t *testing.T) {
 			t.Errorf("absent row = %+v", rows[0])
 		}
 	})
+	// Both directions of disagreement are rejected. Covering only one would
+	// leave a default with no declared type to be published as an untyped
+	// site variable, which is a different claim entirely.
 	t.Run("type-without-default-is-inconsistent", func(t *testing.T) {
-		_, err := buildVariableRows(
+		rows, err := buildVariableRows(
 			map[string][]string{"v": {"r"}},
 			map[string]string{},
 			map[string]varsub.VarType{"v": varsub.TypeInt})
 		if err == nil {
 			t.Error("want an error when a type exists with no default")
+		}
+		if rows != nil {
+			t.Errorf("want no rows on inconsistent metadata; got %d", len(rows))
+		}
+	})
+	t.Run("default-without-type-is-inconsistent", func(t *testing.T) {
+		rows, err := buildVariableRows(
+			map[string][]string{"v": {"r"}},
+			map[string]string{"v": "unexpected-default"},
+			map[string]varsub.VarType{})
+		if err == nil {
+			t.Fatal("want an error when a default exists with no declared type")
+		}
+		if rows != nil {
+			t.Errorf("want no rows on inconsistent metadata; got %d", len(rows))
+		}
+		if !strings.Contains(err.Error(), "v") {
+			t.Errorf("error should name the variable; got %v", err)
 		}
 	})
 }
