@@ -579,7 +579,7 @@ else
     PASS_COUNT=$((PASS_COUNT + 1))
     echo "  ${GREEN}PASS${RESET}  kensa coverage --help carries no expired alias prose"
 fi
-echoecho
+echo
 
 # ─── kensa history --format jsonl (C-051) ─────────────────────────────────
 echo "kensa history --format jsonl (C-051):"

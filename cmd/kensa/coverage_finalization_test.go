@@ -189,20 +189,24 @@ func TestCoverage_GenericReportUnchanged(t *testing.T) {
 		t.Errorf("got framework=%s scanned=%d matching=%d mapped=%d; want cis_rhel9 2 2 2",
 			doc.Framework, doc.RulesScanned, doc.RulesMatching, doc.ControlsMapped)
 	}
-	want := map[string][]string{"1.1": {"alpha-rule", "beta-rule"}, "1.2": {"alpha-rule"}}
-	for _, c := range doc.Controls {
-		w, ok := want[c.ControlID]
-		if !ok {
-			t.Errorf("unexpected control %q", c.ControlID)
-			continue
-		}
-		if c.RuleCount != len(w) || !reflect.DeepEqual(c.Rules, w) {
-			t.Errorf("control %s: count=%d rules=%v; want %d %v", c.ControlID, c.RuleCount, c.Rules, len(w), w)
-		}
-		delete(want, c.ControlID)
+	// The approved document is an ORDERED list. Comparing through a map would
+	// accept the two control rows in either order, which the determinism
+	// promise forbids.
+	type control struct {
+		ControlID string
+		RuleCount int
+		Rules     []string
 	}
-	for id := range want {
-		t.Errorf("control %s missing from the report", id)
+	wantControls := []control{
+		{"1.1", 2, []string{"alpha-rule", "beta-rule"}},
+		{"1.2", 1, []string{"alpha-rule"}},
+	}
+	gotControls := make([]control, 0, len(doc.Controls))
+	for _, c := range doc.Controls {
+		gotControls = append(gotControls, control{c.ControlID, c.RuleCount, c.Rules})
+	}
+	if !reflect.DeepEqual(gotControls, wantControls) {
+		t.Errorf("controls =\n  %+v\nwant\n  %+v", gotControls, wantControls)
 	}
 }
 
@@ -275,8 +279,11 @@ func TestCoverage_RulesDirAsymmetry(t *testing.T) {
 		if doc.Framework != "nist_800_171" || doc.Revision != "r2" {
 			t.Errorf("framework=%s revision=%s; want nist_800_171 r2", doc.Framework, doc.Revision)
 		}
-		if !regexp.MustCompile(`^[0-9a-f]+$`).MatchString(doc.SourceDigest) || doc.SourceDigest == "" {
-			t.Errorf("source_digest = %q; want non-empty lowercase hex", doc.SourceDigest)
+		if len(doc.SourceDigest) != 64 {
+			t.Errorf("source_digest length = %d; want 64", len(doc.SourceDigest))
+		}
+		if !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(doc.SourceDigest) {
+			t.Errorf("source_digest = %q; want 64 lowercase hex characters", doc.SourceDigest)
 		}
 	})
 }
@@ -364,11 +371,33 @@ func TestCoverage_ExpiredWarningControlIsInert(t *testing.T) {
 		code     int
 		out, err string
 	}
+	const knob = "KENSA_NO_REPURPOSE_WARNINGS"
+
+	// t.Setenv(name, "") leaves the variable PRESENT and empty, which code
+	// using LookupEnv can tell apart from absent. The spec's first input is
+	// genuinely unset, so unset it and restore whatever was there.
+	prev, had := os.LookupEnv(knob)
+	if err := os.Unsetenv(knob); err != nil {
+		t.Fatalf("unset %s: %v", knob, err)
+	}
+	t.Cleanup(func() {
+		if had {
+			_ = os.Setenv(knob, prev)
+		} else {
+			_ = os.Unsetenv(knob)
+		}
+	})
+	if _, present := os.LookupEnv(knob); present {
+		t.Fatalf("%s is still present; the unset baseline is not being exercised", knob)
+	}
+
 	var results []result
-	for _, v := range []string{"", "1", "true"} {
-		t.Setenv("KENSA_NO_REPURPOSE_WARNINGS", v)
-		code, so, se := runCLIAll(t, "coverage")
-		results = append(results, result{code, so, se})
+	code, so, se := runCLIAll(t, "coverage")
+	results = append(results, result{code, so, se})
+	for _, v := range []string{"1", "true"} {
+		t.Setenv(knob, v)
+		c2, o2, e2 := runCLIAll(t, "coverage")
+		results = append(results, result{c2, o2, e2})
 	}
 	first := results[0]
 	for i, r := range results {
@@ -402,11 +431,35 @@ func TestTopHelpAndCompletion_ExposeFinalSurface(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Errorf("top help exit=%d stderr=%q", code, stderr)
 	}
-	if !strings.Contains(stdout, "mechanisms") || !strings.Contains(stdout, "coverage") {
-		t.Errorf("top help missing a command row")
+	// Exact rows: a swapped or wrong description would pass a substring check.
+	wantRows := map[string]string{
+		"mechanisms": "List registered handler mechanisms",
+		"coverage":   "Report framework control coverage (requires --framework)",
 	}
-	for _, banned := range []string{"Alias for", "change meaning", "v0.2", "migrate scripts"} {
-		if strings.Contains(stdout, banned) {
+	gotRows := map[string]string{}
+	for _, line := range strings.Split(stdout, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		if _, want := wantRows[f[0]]; want {
+			gotRows[f[0]] = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), f[0]))
+		}
+	}
+	for cmd, want := range wantRows {
+		got, ok := gotRows[cmd]
+		if !ok {
+			t.Errorf("top help has no %s row", cmd)
+			continue
+		}
+		if got != want {
+			t.Errorf("top help %s row = %q, want %q", cmd, got, want)
+		}
+	}
+	// The spec expresses concepts, not capitalization.
+	lower := strings.ToLower(stdout)
+	for _, banned := range []string{"alias for", "change meaning", "v0.2", "migrate scripts"} {
+		if strings.Contains(lower, banned) {
 			t.Errorf("top help still carries %q; got:\n%s", banned, stdout)
 		}
 	}
@@ -485,6 +538,135 @@ func TestCoverage_QuietFollowsFinalParser(t *testing.T) {
 		for _, want := range []string{"Usage: kensa coverage", "--quiet"} {
 			if !strings.Contains(stdout, want) {
 				t.Errorf("help missing %q", want)
+			}
+		}
+	})
+}
+
+// TestActiveDocsAgreeWithFinalContract locks AC-08.
+//
+// The generated manpage, the operator guide, the changelog and the spec
+// lifecycle are part of the approved contract, so they are asserted here
+// rather than left to review. Each check reads the committed artifact.
+// @spec cli-coverage-command-finalization
+// @ac AC-08
+func TestActiveDocsAgreeWithFinalContract(t *testing.T) {
+	t.Run("cli-coverage-command-finalization/AC-08", func(t *testing.T) {})
+	read := func(rel string) string {
+		t.Helper()
+		p, err := filepath.Abs(filepath.Join("..", "..", rel))
+		if err != nil {
+			t.Fatalf("resolve %s: %v", rel, err)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Skipf("%s unavailable: %v", rel, err)
+		}
+		return string(b)
+	}
+
+	t.Run("generated_manpage", func(t *testing.T) {
+		man := read("man/kensa.1")
+		if n := strings.Count(man, "\n.SS COVERAGE\n"); n != 1 {
+			t.Errorf("manpage coverage sections = %d, want 1", n)
+		}
+		if n := strings.Count(man, "\n.SS MECHANISMS\n"); n != 1 {
+			t.Errorf("manpage mechanisms sections = %d, want 1", n)
+		}
+		if strings.Contains(man, "KENSA_NO_REPURPOSE_WARNINGS") {
+			t.Error("manpage still documents the removed suppression knob")
+		}
+		// Exactly the real coverage flags appear in the coverage section.
+		start := strings.Index(man, "\n.SS COVERAGE\n")
+		end := strings.Index(man[start+1:], "\n.SS ")
+		if start < 0 || end < 0 {
+			t.Fatal("could not isolate the coverage manpage section")
+		}
+		section := man[start : start+1+end]
+		// roff escapes a hyphen as \-, so undo that before matching.
+		plain := strings.ReplaceAll(section, `\-`, "-")
+		// Extract whole flag names and compare the set. A substring check
+		// would accept a renamed flag: "--fullx" contains "--full".
+		want := []string{"format", "framework", "from-scan", "full", "help", "quiet", "rules-dir"}
+		got := longFlagsIn(plain)
+		missing := make([]string, 0, len(want))
+		for _, f := range want {
+			var found bool
+			for _, g := range got {
+				if g == f {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missing = append(missing, f)
+			}
+		}
+		if len(missing) > 0 {
+			t.Errorf("manpage coverage section missing flags %v; it advertises %v", missing, got)
+		}
+		if !strings.Contains(plain, "objective catalog") {
+			t.Error("manpage coverage section does not state the conditional rules-dir case")
+		}
+	})
+
+	t.Run("guide", func(t *testing.T) {
+		g := read("docs/guide/09-reference.md")
+		for _, want := range []string{
+			"Report framework control coverage",
+			"nist_800_171",
+			"objective catalog",
+			"--from-scan",
+		} {
+			if !strings.Contains(g, want) {
+				t.Errorf("guide missing %q", want)
+			}
+		}
+		lower := strings.ToLower(g)
+		for _, banned := range []string{"alias for `mechanisms` today", "changes meaning in v0.2"} {
+			if strings.Contains(lower, banned) {
+				t.Errorf("guide still carries %q", banned)
+			}
+		}
+	})
+
+	t.Run("changelog_and_version", func(t *testing.T) {
+		c := read("CHANGELOG.md")
+		// Anchor on the heading at line start: the file's preamble mentions
+		// "## Unreleased" in prose, and matching that would slice the wrong
+		// region and pass or fail for the wrong reason.
+		const heading = "\n## Unreleased\n"
+		i := strings.Index(c, heading)
+		if i < 0 {
+			t.Fatal("CHANGELOG has no Unreleased heading")
+		}
+		unreleased := c[i+len(heading):]
+		if j := strings.Index(unreleased, "\n## "); j >= 0 {
+			unreleased = unreleased[:j]
+		}
+		if !strings.Contains(unreleased, "coverage") || !strings.Contains(unreleased, "--framework") {
+			t.Errorf("Unreleased does not record the finalization:\n%s", unreleased)
+		}
+		if v := strings.TrimSpace(read("VERSION")); v != "0.10.0" {
+			t.Errorf("VERSION = %q; this slice must not bump it", v)
+		}
+	})
+
+	t.Run("spec_lifecycle", func(t *testing.T) {
+		rename := read("specs/cli/coverage-mechanisms-rename.spec.yaml")
+		if !strings.Contains(rename, "status: deprecated") {
+			t.Error("the rename spec should be deprecated")
+		}
+		if !strings.Contains(rename, "cli-coverage-command-finalization") {
+			t.Error("the rename spec should point at its replacement")
+		}
+		for _, rel := range []string{
+			"specs/cli/framework-coverage.spec.yaml",
+			"specs/cli/quiet.spec.yaml",
+			"specs/cli/manpage.spec.yaml",
+		} {
+			if !strings.Contains(read(rel), "status: draft") {
+				t.Errorf("%s must stay draft; its result semantics are not approved here", rel)
 			}
 		}
 	})

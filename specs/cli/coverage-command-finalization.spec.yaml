@@ -215,7 +215,7 @@ spec:
                       [architecture, ceilings, framework, hosts_scanned,
                        no_rule, partial, revision, satisfied,
                        source_digest, unclassified_ids]
-                  source_digest: non-empty lowercase hex
+                  source_digest: non-empty lowercase 64-hex
                   stdout_excludes: [Registered mechanisms]
           references_constraints: [C-04]
           priority: critical
@@ -333,6 +333,8 @@ spec:
               generated_manpage:
                   coverage_sections: 1
                   mechanisms_sections: 1
+                  coverage_long_flags_exactly:
+                      [format, framework, from-scan, full, help, quiet, rules-dir]
                   KENSA_NO_REPURPOSE_WARNINGS_active_entry: absent
                   manpage_check: pass
               changelog:

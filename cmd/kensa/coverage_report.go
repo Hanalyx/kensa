@@ -13,17 +13,18 @@ import (
 	"github.com/Hanalyx/kensa/internal/output"
 )
 
-// runCoverageReport handles `kensa coverage --framework
-// FRAMEWORK --rules-dir DIR` (C-045). The new behavior shipped
-// today is gated on `--framework`; without it, dispatch falls
-// through to the C-044 deprecation alias path that runs the
-// mechanism listing.
+// runCoverageReport handles `kensa coverage`. Every coverage invocation
+// reaches here: the command no longer has an alias mode, so there is no
+// dispatch condition and no fall-through to the mechanism listing.
 //
-// --rules-dir is required (no default rule-dir bundled in the
-// binary; that's an M7 follow-up). --framework is required by
-// definition — aggregating across frameworks would mix CIS
-// decimal IDs, NIST AC-codes, and STIG V-IDs in one column,
-// rendering the output unreadable.
+// --framework is required. Aggregating across frameworks would mix control
+// vocabularies that measure different things, and no single framework is a
+// defensible default.
+//
+// --rules-dir is conditional. A framework whose controls kensa learns from the
+// corpus needs one. A framework shipping an embedded objective catalog does
+// not, because kensa can already enumerate its controls; today that is
+// nist_800_171. The check lives after catalog routing for that reason.
 func runCoverageReport(args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"framework": true, "rules-dir": true, "format": true,
@@ -43,7 +44,7 @@ func runCoverageReport(args []string) error {
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	registerFrameworkFlag(fs, &framework)
-	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory of rule YAMLs to scan (required)")
+	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory of rule YAMLs to scan (required unless the framework ships an objective catalog)")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVar(&full, "full", false, "in text output, show every rule ID per control (default: truncate to first 3)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")

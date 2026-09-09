@@ -2,6 +2,19 @@ spec:
     id: cli-coverage-mechanisms-rename
     version: 0.1.0
     status: deprecated
+    # The behavior this spec governs no longer ships, so most of its acceptance
+    # criteria cannot have live tests: the alias, the repurpose warning and the
+    # suppression knob were all removed on 2026-09-08. Annotating current tests
+    # against them would be false traceability, which is what the annotation
+    # gate exists to prevent. Two ACs describe behavior kensa still has (AC-01
+    # the mechanism listing, AC-04 mechanisms emitting no deprecation noise) and
+    # keep their real tests, so 2 of 8 is the honest figure rather than a
+    # waiver. cli-coverage-command-finalization carries the current contract.
+    #
+    # Note for a future editor: 0 here reads as unset, because the field is an
+    # integer and Specter cannot tell an explicit zero from an absent value. The
+    # threshold has to be the measured number.
+    coverage_threshold: 25
     tier: 3
 
     context:

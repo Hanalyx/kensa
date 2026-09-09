@@ -348,7 +348,7 @@ To list handler mechanisms, run 'kensa mechanisms'.
 Flags:
   \-h, \-\-help                     show this help and exit
   \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
-  \-r, \-\-rules\-dir string         directory of rule YAMLs to scan (required)
+  \-r, \-\-rules\-dir string         directory of rule YAMLs to scan (required unless the framework ships an objective catalog)
       \-\-format string            output format: text or json (default "text")
       \-\-full                     in text output, show every rule ID per control (default: truncate to first 3)
   \-q, \-\-quiet                    suppress default output (errors still go to stderr)

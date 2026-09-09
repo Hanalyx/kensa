@@ -16,7 +16,6 @@
 //	plan        Preview a rule transaction without executing.
 //	mechanisms  List registered handler mechanisms.
 //	coverage    Report framework control coverage (requires --framework).
-//	            for framework control coverage. Migrate to `mechanisms` now.
 //	list        Introspection commands (`kensa list frameworks`, `kensa list variables`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
 //	diff        Compare two stored sessions and emit per-rule drift.

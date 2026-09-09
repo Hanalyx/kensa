@@ -9,13 +9,31 @@ spec:
         feature: cli-framework-coverage
         description: |
 
-            PARTIALLY SUPERSEDED, 2026-09-08. The opt-in dispatch and
-            repurpose-warning clauses no longer describe the runtime:
-            `--framework` is required rather than a switch that selects this
-            report, and no warning is emitted on any path. Those clauses are
-            superseded by cli-coverage-command-finalization AC-01, AC-02 and
-            AC-06. The computation and output requirements below remain draft
-            and are NOT approved by that specification.
+            PARTIALLY SUPERSEDED, 2026-09-08, by the approved specification
+            cli-coverage-command-finalization. Exactly these clauses no longer
+            describe the runtime:
+
+              - scope bullet "cmd/kensa/main.go dispatch: hasFrameworkFlag
+                pre-check; routes to runCoverageReport when --framework is on
+                argv" — every coverage invocation now routes to the report.
+              - scope bullet "--rules-dir REQUIRED for the new path" —
+                --rules-dir is conditional; a framework with an embedded
+                objective catalog does not need it.
+              - scope bullet "Suppress C-044 repurpose warning when --framework
+                is on argv" — no warning exists on any path.
+              - C-01, insofar as it requires both flags unconditionally.
+              - C-02, the repurpose-warning rule.
+              - C-08 and C-09, the warning and alias-help rules.
+              - AC-03, whose missing-rules-dir statement is unqualified.
+              - AC-06, AC-11 and AC-12, the expired warning and alias behavior.
+
+            Their replacements are cli-coverage-command-finalization AC-01
+            (dispatch), AC-02 (one help surface), AC-04 (the conditional rules
+            directory, both directions) and AC-06 (the removed warning).
+
+            Everything else here — the computation, the report shape, the
+            determinism and output requirements — remains DRAFT and is NOT
+            approved by that specification.
 
             CLI Phase 4 deliverable C-045. Repurposes the
             `kensa coverage` name (whose previous mechanism-
@@ -231,9 +249,10 @@ spec:
           description: |
               C-044 repurpose warning suppressed when
               --framework is set; emitted otherwise.
-              Locked by
-              TestRunCoverage_FrameworkFlagSuppressesWarning
-              and existing C-044 tests.
+              SUPERSEDED 2026-09-08: no warning exists on
+              any path, so nothing suppresses one. Both
+              tests were removed with the behavior. See
+              cli-coverage-command-finalization AC-06.
           references_constraints: [C-02]
           priority: high
         - id: AC-07
@@ -275,22 +294,21 @@ spec:
               `kensa coverage --framework FOO --help`
               emits the C-044 repurpose warning to
               stderr; running the report (no --help)
-              suppresses it. Locked by
-              Its test was removed on 2026-09-08 with the
-              behavior it locked; see
-              cli-coverage-command-finalization.
-              and
-              TestRunCoverage_FrameworkFlagSuppressesWarning.
+              suppresses it. SUPERSEDED 2026-09-08: no
+              warning is emitted on any path. Both tests
+              were removed with the behavior. See
+              cli-coverage-command-finalization AC-02
+              and AC-06.
           references_constraints: [C-08]
           priority: high
         - id: AC-12
           description: |
               `kensa coverage --help` (no --framework)
               advertises the new --framework surface.
-              Locked by
-              Its test was removed on 2026-09-08 with the
-              behavior it locked; see
-              cli-coverage-command-finalization.
+              SUPERSEDED 2026-09-08: there is one help
+              surface and no alias to advertise past. Its
+              test was removed with the behavior. See
+              cli-coverage-command-finalization AC-02.
           references_constraints: [C-09]
           priority: medium
         - id: AC-13
