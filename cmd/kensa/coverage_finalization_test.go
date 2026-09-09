@@ -347,6 +347,15 @@ func TestMechanisms_RemainsSeparateAndNarrow(t *testing.T) {
 	})
 }
 
+// approvedCoverageFlags is the exact long-flag set the approved contract
+// allows for `kensa coverage` (AC-02, AC-07, AC-08). It is a literal, not
+// something derived from the binary: deriving the expectation from the thing
+// under test lets an added flag satisfy every check at once, which is how a
+// stray --rogue passed help, completion and the manpage together.
+var approvedCoverageFlags = []string{
+	"format", "framework", "from-scan", "full", "help", "quiet", "rules-dir",
+}
+
 // longFlagsIn extracts the sorted set of long flags a help body advertises.
 func longFlagsIn(help string) []string {
 	re := regexp.MustCompile(`--([a-z][a-z0-9-]*)`)
@@ -464,11 +473,12 @@ func TestTopHelpAndCompletion_ExposeFinalSurface(t *testing.T) {
 		}
 	}
 
-	// The authoritative set: what coverage --help actually advertises.
+	// Help must advertise exactly the approved set: no missing flag, and no
+	// extra one.
 	_, covHelp, _ := runCov(t, "coverage", "--help")
-	wantFlags := longFlagsIn(covHelp)
-	if len(wantFlags) == 0 {
-		t.Fatal("coverage help advertised no flags")
+	wantFlags := approvedCoverageFlags
+	if got := longFlagsIn(covHelp); !reflect.DeepEqual(got, wantFlags) {
+		t.Errorf("coverage --help advertises %v, want exactly %v", got, wantFlags)
 	}
 
 	var covEntry *completionSpec
@@ -587,23 +597,8 @@ func TestActiveDocsAgreeWithFinalContract(t *testing.T) {
 		plain := strings.ReplaceAll(section, `\-`, "-")
 		// Extract whole flag names and compare the set. A substring check
 		// would accept a renamed flag: "--fullx" contains "--full".
-		want := []string{"format", "framework", "from-scan", "full", "help", "quiet", "rules-dir"}
-		got := longFlagsIn(plain)
-		missing := make([]string, 0, len(want))
-		for _, f := range want {
-			var found bool
-			for _, g := range got {
-				if g == f {
-					found = true
-					break
-				}
-			}
-			if !found {
-				missing = append(missing, f)
-			}
-		}
-		if len(missing) > 0 {
-			t.Errorf("manpage coverage section missing flags %v; it advertises %v", missing, got)
+		if got := longFlagsIn(plain); !reflect.DeepEqual(got, approvedCoverageFlags) {
+			t.Errorf("manpage coverage section advertises %v, want exactly %v", got, approvedCoverageFlags)
 		}
 		if !strings.Contains(plain, "objective catalog") {
 			t.Error("manpage coverage section does not state the conditional rules-dir case")
