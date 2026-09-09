@@ -1,5 +1,8 @@
-// Tests for the C-044 `kensa mechanisms` rename + `kensa coverage`
-// deprecation alias.
+// Tests for `kensa mechanisms`.
+//
+// `coverage` was an alias for this command while the two were being
+// separated. It is not one now: it reports framework coverage, and its tests
+// live in coverage_report_test.go and coverage_finalization_test.go.
 package main
 
 import (
@@ -38,8 +41,12 @@ func TestRunMechanisms_NoWarning(t *testing.T) {
 	}
 }
 
-// TestRunMechanisms_HelpExitsZero locks AC-07 — both --help forms
-// exit 0 and print usage to stdout.
+// TestRunMechanisms_HelpExitsZero checks both --help forms exit 0 and print
+// usage to stdout.
+//
+// It carries no mapping: the historical AC-07 required BOTH subcommands to do
+// this, and this exercises one. Coverage's side is
+// cli-coverage-command-finalization AC-02. Kept as a unit regression.
 func TestRunMechanisms_HelpExitsZero(t *testing.T) {
 	for _, argv := range [][]string{
 		{"mechanisms", "--help"},

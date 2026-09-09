@@ -356,6 +356,17 @@ var approvedCoverageFlags = []string{
 	"format", "framework", "from-scan", "full", "help", "quiet", "rules-dir",
 }
 
+// assertApprovedCoverageFlags fails unless text advertises exactly the
+// approved long-flag set: no missing flag and no extra one. Shared so each
+// criterion that names the set enforces it, rather than trusting another
+// test to do it.
+func assertApprovedCoverageFlags(t *testing.T, what, text string) {
+	t.Helper()
+	if got := longFlagsIn(text); !reflect.DeepEqual(got, approvedCoverageFlags) {
+		t.Errorf("%s advertises %v, want exactly %v", what, got, approvedCoverageFlags)
+	}
+}
+
 // longFlagsIn extracts the sorted set of long flags a help body advertises.
 func longFlagsIn(help string) []string {
 	re := regexp.MustCompile(`--([a-z][a-z0-9-]*)`)
@@ -477,9 +488,7 @@ func TestTopHelpAndCompletion_ExposeFinalSurface(t *testing.T) {
 	// extra one.
 	_, covHelp, _ := runCov(t, "coverage", "--help")
 	wantFlags := approvedCoverageFlags
-	if got := longFlagsIn(covHelp); !reflect.DeepEqual(got, wantFlags) {
-		t.Errorf("coverage --help advertises %v, want exactly %v", got, wantFlags)
-	}
+	assertApprovedCoverageFlags(t, "coverage --help", covHelp)
 
 	var covEntry *completionSpec
 	for i := range completionSpecs {
@@ -597,9 +606,7 @@ func TestActiveDocsAgreeWithFinalContract(t *testing.T) {
 		plain := strings.ReplaceAll(section, `\-`, "-")
 		// Extract whole flag names and compare the set. A substring check
 		// would accept a renamed flag: "--fullx" contains "--full".
-		if got := longFlagsIn(plain); !reflect.DeepEqual(got, approvedCoverageFlags) {
-			t.Errorf("manpage coverage section advertises %v, want exactly %v", got, approvedCoverageFlags)
-		}
+		assertApprovedCoverageFlags(t, "manpage coverage section", plain)
 		if !strings.Contains(plain, "objective catalog") {
 			t.Error("manpage coverage section does not state the conditional rules-dir case")
 		}

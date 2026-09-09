@@ -111,10 +111,10 @@ func TestQuietFlag_NotInVersion(t *testing.T) {
 	}
 }
 
-// TestQuietFlag_NotInMechanisms: same reasoning as version.
-// Tests the canonical name (post-C-044). The deprecated `coverage`
-// alias is covered by TestQuietFlag_NotInCoverageAlias below so
-// the pair will outlive the v0.2 alias removal naturally.
+// TestQuietFlag_NotInMechanisms: same reasoning as version. `mechanisms` is a
+// listing the operator explicitly asked for, so it registers no --quiet.
+// Coverage is the opposite case and DOES have the flag; see
+// TestQuietFlag_InCoverageHelp below.
 func TestQuietFlag_NotInMechanisms(t *testing.T) {
 	stdout, _ := captureRunCLI([]string{"mechanisms", "--help"}, t)
 	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {

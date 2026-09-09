@@ -174,15 +174,13 @@ func TestRunCoverageReport_MissingRulesDir(t *testing.T) {
 	}
 }
 
-// @spec cli-coverage-command-finalization
-// @ac AC-01
+// TestRunCoverageReport_MissingFramework checks the handler itself rejects a
+// missing --framework at parse time.
+//
+// It carries no acceptance-criterion mapping on purpose: AC-01 is about public
+// dispatch, and TestCoverage_MissingFrameworkFailsThroughDispatch proves that
+// through runCLI. This is a unit regression on the handler underneath.
 func TestRunCoverageReport_MissingFramework(t *testing.T) {
-	t.Run("cli-coverage-command-finalization/AC-01", func(t *testing.T) {})
-	// --framework is what activates the new code path; without
-	// it dispatch falls through to the mechanism alias instead
-	// of erroring. So this test exercises the dispatch directly
-	// to verify that calling runCoverageReport with no framework
-	// errors at parse time.
 	err := runCoverageReport([]string{"--rules-dir", t.TempDir()})
 	if err == nil {
 		t.Fatal("missing --framework should error")
@@ -220,12 +218,13 @@ func TestRunCoverageReport_JSONShape(t *testing.T) {
 	}
 }
 
-// TestRunCoverage_FrameworkFlagSuppressesWarning locks AC-06 —
-// when --framework is on argv, the C-044 repurpose warning is
-// suppressed (operator already using the new behavior).
-
 // TestRunMechanisms_FrameworkRejected locks AC-07 / C-05 —
 // `kensa mechanisms --framework foo` is a usage error.
+// TestRunMechanisms_FrameworkRejected covers two criteria that say the same
+// thing from different sides: cli-framework-coverage AC-07, that
+// `kensa mechanisms --framework foo` exits 2 pointing at `kensa coverage`, and
+// cli-coverage-command-finalization AC-05, that mechanisms stays narrow and
+// rejects the flag now that coverage is the only framework surface.
 // @spec cli-framework-coverage
 // @ac AC-07
 // @spec cli-coverage-command-finalization
@@ -239,11 +238,11 @@ func TestRunMechanisms_FrameworkRejected(t *testing.T) {
 	}
 }
 
-// TestHasFrameworkFlag locks the dispatch-time scanner. Now
-// uses pflag itself so merged-short-bool forms (-qfX = -q + -f=X)
-// route correctly — the previous hand-rolled scanner missed
-// those, which would have routed `-qfcis_rhel9` to the alias
-// path with a misleading repurpose warning.
+// TestHasFrameworkFlag locks the permissive pre-parse. Coverage dispatch no
+// longer uses it; `mechanisms` does, to reject --framework in agreement with
+// what the coverage flagset would have accepted. It uses pflag itself so
+// merged-short-bool forms (-qfX = -q + -f=X) are classified the same way by
+// both, which a hand-rolled scanner got wrong.
 func TestHasFrameworkFlag(t *testing.T) {
 	cases := map[string][]string{
 		// Should detect:
@@ -323,6 +322,10 @@ func TestRunCoverage_HelpIsOneSurfaceOnStdout(t *testing.T) {
 			t.Errorf("coverage help still carries %q; got:\n%s", banned, long)
 		}
 	}
+	// AC-02's expected output names the exact seven-flag set, so this test
+	// must enforce it. Leaving that to the AC-07 test meant an extra flag
+	// passed here while only the completion criterion caught it.
+	assertApprovedCoverageFlags(t, "coverage --help", long)
 }
 
 // TestRunCoverageReport_HelpExitsZero locks the help path.
