@@ -26,14 +26,15 @@ import (
 )
 
 // subcommands enumerates every registered kensa subcommand whose
-// --help should be embedded in the manpage. The deprecated
-// `coverage` alias is excluded — it points at `mechanisms`, and
-// emitting both would duplicate the same flag table under different
-// .SS headings, which is exactly the operator-confused-intent
-// problem we caught in C-044 review.
+// --help is embedded in the manpage.
 //
-// Order is operator-facing flow: probe → check → fix → query.
-// Aligns with the subcommand list in printUsage at cmd/kensa/main.go.
+// `coverage` and `mechanisms` are both listed: they are separate commands with
+// different flags and different output. While `coverage` was an alias for
+// `mechanisms`, emitting both would have duplicated one flag table under two
+// headings, which is why only one appeared. That alias is gone.
+//
+// Known gap, tracked separately: `recover` and `completion` are registered but
+// absent here.
 var subcommands = []string{
 	"detect",
 	"check",
@@ -42,6 +43,7 @@ var subcommands = []string{
 	"history",
 	"plan",
 	"mechanisms",
+	"coverage",
 	"list",
 	"info",
 	"diff",

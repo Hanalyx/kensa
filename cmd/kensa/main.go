@@ -15,7 +15,7 @@
 //	history     Query the transaction log.
 //	plan        Preview a rule transaction without executing.
 //	mechanisms  List registered handler mechanisms.
-//	coverage    Alias for `mechanisms` today; v0.2 will repurpose this name
+//	coverage    Report framework control coverage (requires --framework).
 //	            for framework control coverage. Migrate to `mechanisms` now.
 //	list        Introspection commands (`kensa list frameworks`, `kensa list variables`).
 //	info        Rule/control lookup (multi-criteria search over the corpus).
@@ -188,37 +188,14 @@ func runCLI(argv []string) int {
 		if hasFrameworkFlag(args) {
 			err = NewUsageError("--framework is for 'kensa coverage' (the framework-coverage report); 'kensa mechanisms' lists registered handler mechanisms")
 		} else {
-			err = runMechanisms("mechanisms", args)
+			err = runMechanisms(args)
 		}
 	case "coverage":
-		if hasFrameworkFlag(args) {
-			// C-045 NEW behavior. The operator is using the
-			// framework-coverage report — they've embraced the
-			// v0.2 semantics today, so suppress the repurpose
-			// warning when actually running the report (it
-			// would be noise about a flip the operator already
-			// crossed). EXCEPTION: emit it on --help, because
-			// --help is the discoverability surface where
-			// operators read docs and the v0.2 flip is exactly
-			// what they're trying to learn.
-			if hasHelpFlag(args) {
-				warnRepurposedSubcommand(
-					"kensa coverage",
-					"kensa mechanisms",
-					"framework control coverage")
-			}
-			err = runCoverageReport(args)
-		} else {
-			// C-044 deprecation alias path. Without --framework,
-			// `kensa coverage` is still the mechanism listing.
-			// Warn so the operator migrates before v0.2 flips
-			// the no-flag case too.
-			warnRepurposedSubcommand(
-				"kensa coverage",
-				"kensa mechanisms",
-				"framework control coverage")
-			err = runMechanisms("coverage", args)
-		}
+		// `coverage` reports framework control coverage. It was an alias for
+		// `mechanisms` while the rename was in flight; that transition is
+		// finished, so the name selects one operation and flags only refine
+		// it. --framework is required, enforced by runCoverageReport.
+		err = runCoverageReport(args)
 	case "list":
 		// C-046: introspection namespace. C-046 wired
 		// `frameworks`; C-048 added `sessions` to surface
@@ -307,41 +284,6 @@ func warnDeprecatedFlag(fs *pflag.FlagSet, name, replacement string) {
 	fmt.Fprintf(os.Stderr,
 		"kensa: warning: --%s is deprecated; use %s (will be removed in v0.2)\n",
 		name, replacement)
-}
-
-// warnRepurposedSubcommand emits a stderr warning when an
-// operator invokes a subcommand whose NAME will be repurposed
-// in a future version. Distinct from warnDeprecatedFlag, where
-// the flag and its semantics both go away together: here the
-// name survives but its output changes. An operator's script
-// running `kensa <name>` continues to exit 0 in v0.2 — but
-// produces different rows. That silent semantic flip is what
-// this warning is paid to prevent.
-//
-// Two-knob suppression contract:
-//   - KENSA_NO_REPURPOSE_WARNINGS=1: silences ONLY repurpose
-//     warnings. Use this for CI scripts that have explicitly
-//     ack'd the upcoming semantic flip and migrated.
-//   - KENSA_NO_DEPRECATION_WARNINGS=1: silences flag-rename
-//     warnings (warnDeprecatedFlag) but does NOT silence this
-//     one. Operators who silenced flag warnings months ago
-//     deserve to still see the louder repurpose signal —
-//     coupling the two switches creates a documented
-//     foot-gun where a stale CI silence masks a real
-//     scripted-output break.
-//
-// Wording uses "repurposed," not "deprecated," to avoid the
-// "feature is going away" misread. The example in the spec is
-// `kensa coverage` (current: handler-mechanism listing; v0.2:
-// framework control coverage reporting).
-func warnRepurposedSubcommand(name, currentReplacement, futurePurpose string) {
-	if os.Getenv("KENSA_NO_REPURPOSE_WARNINGS") == "1" {
-		return
-	}
-	fmt.Fprintf(os.Stderr,
-		"kensa: warning: '%s' will change meaning in v0.2 (it will report %s).\n"+
-			"               For the current output, switch to '%s' before upgrading.\n",
-		name, futurePurpose, currentReplacement)
 }
 
 // routeFanOutError routes a FanOut return value through the right
@@ -500,8 +442,7 @@ Commands:
   history     Query the transaction log
   plan        Preview a rule transaction without executing
   mechanisms  List registered handler mechanisms
-  coverage    Alias for 'mechanisms' today; in v0.2 reports framework
-              control coverage instead — migrate scripts to 'mechanisms'
+  coverage    Report framework control coverage (requires --framework)
   list        Introspection commands ('kensa list frameworks', 'kensa list variables', etc.)
   info        Rule/control lookup (multi-criteria search over the corpus)
   diff        Compare two stored sessions and emit per-rule drift
@@ -2306,23 +2247,14 @@ Example:
 `, fs.FlagUsages())
 }
 
-// ─── mechanisms (formerly: coverage) ───────────────────────────────────────
+// ─── mechanisms ────────────────────────────────────────────────────────────
 
 // runMechanisms lists all registered handler mechanisms.
 //
-// C-044 renamed this from `coverage` → `mechanisms`. The
-// `coverage` name is preserved as a deprecated alias for one
-// minor version; the wrapper at the dispatch site (case
-// "coverage") emits a stderr warning before delegating here.
-// `coverage` will be repurposed in C-045 for framework control
-// coverage reporting (Python kensa's coverage semantics).
-//
-// The `name` argument is "mechanisms" or "coverage" depending
-// on which alias the operator typed; help text and parse-error
-// hints use it so they read coherently regardless of entry
-// point.
-func runMechanisms(name string, args []string) error {
-	fs := pflag.NewFlagSet(name, pflag.ContinueOnError)
+// This is the only name for the mechanism listing. `coverage` was an alias
+// during the rename and now reports framework coverage instead.
+func runMechanisms(args []string) error {
+	fs := pflag.NewFlagSet("mechanisms", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.SetOutput(io.Discard)
 
@@ -2331,13 +2263,13 @@ func runMechanisms(name string, args []string) error {
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
-			printMechanismsUsage(os.Stdout, fs, name)
+			printMechanismsUsage(os.Stdout, fs)
 			return nil
 		}
-		return WrapUsageError(fmt.Sprintf("try 'kensa %s --help'", name), err)
+		return WrapUsageError("try 'kensa mechanisms --help'", err)
 	}
 	if showHelp {
-		printMechanismsUsage(os.Stdout, fs, name)
+		printMechanismsUsage(os.Stdout, fs)
 		return nil
 	}
 
@@ -2397,26 +2329,9 @@ Flags:
 %s`, fs.FlagUsages())
 }
 
-// printMechanismsUsage writes the help text. The `name` parameter
-// is "mechanisms" (canonical) or "coverage" (alias under
-// repurpose); it's used in the Usage line, the example, and the
-// repurpose disclosure so help reads coherently regardless of
-// entry point. When invoked as `coverage`, the WARNING block
-// prints BEFORE the flag list — operators reading help to
-// write a script need to see the v0.2 semantic flip first.
-func printMechanismsUsage(w io.Writer, fs *pflag.FlagSet, name string) {
-	fmt.Fprintf(w, "Usage: kensa %s [flags]\n\n", name)
-	if name == "coverage" {
-		fmt.Fprint(w,
-			"WARNING: 'kensa coverage' will change meaning in v0.2.\n"+
-				"  Today: lists handler mechanisms (alias for 'kensa mechanisms').\n"+
-				"  v0.2:  reports framework control coverage.\n"+
-				"Migrate scripts to 'kensa mechanisms' to preserve current output.\n\n"+
-				"AVAILABLE TODAY: the v0.2 framework-coverage report is already\n"+
-				"reachable via:\n"+
-				"  kensa coverage --framework FRAMEWORK --rules-dir DIR\n"+
-				"  kensa coverage --framework cis_rhel9 --help    # full report help\n\n")
-	}
+// printMechanismsUsage writes the `kensa mechanisms` help text.
+func printMechanismsUsage(w io.Writer, fs *pflag.FlagSet) {
+	fmt.Fprint(w, "Usage: kensa mechanisms [flags]\n\n")
 	fmt.Fprintf(w, `List every handler mechanism registered with the kensa engine,
 marked capturable (participates in atomic transactions) or
 non-capturable (transactional: false escape hatch).
@@ -2424,8 +2339,8 @@ non-capturable (transactional: false escape hatch).
 Flags:
 %s
 Example:
-  kensa %s
-`, fs.FlagUsages(), name)
+  kensa mechanisms
+`, fs.FlagUsages())
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────

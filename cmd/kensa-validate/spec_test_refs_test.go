@@ -62,7 +62,6 @@ var knownStaleSpecTestRefs = map[string]bool{
 	// remaining cli + deadman (100% → renames)
 	"TestDeprecation_FormatFlag_ShortFormFires": true,
 	"TestEventLoop_Close":                       true,
-	"TestQuietFlag_NotInCoverage":               true,
 	"TestRunAgent_StdioExitsRuntime":            true,
 	"TestRunHistory_PruneNoForceNonTTY":         true,
 }

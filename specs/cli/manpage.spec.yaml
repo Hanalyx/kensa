@@ -85,10 +85,11 @@ spec:
               The generator MUST cover every
               registered subcommand (detect, check,
               remediate, rollback, history, plan,
-              mechanisms, list, info, diff, agent,
-              migrate, version). The deprecated
-              `coverage` alias is excluded — it
-              points at `mechanisms`.
+              mechanisms, coverage, list, info, diff,
+              agent, migrate, version). Corrected
+              2026-09-08: `coverage` was excluded as an
+              alias for `mechanisms`. It is its own
+              command now and has its own section.
           type: business
           enforcement: error
         - id: C-03
@@ -105,8 +106,9 @@ spec:
               The footer roff MUST include FILES
               (config dir search path), ENVIRONMENT
               VARIABLES (KENSA_NO_DEPRECATION_WARNINGS,
-              KENSA_NO_REPURPOSE_WARNINGS,
-              KENSA_CONFIG_DIR, KENSA_TEST_SSH_*),
+              KENSA_CONFIG_DIR, KENSA_TEST_SSH_*;
+              KENSA_NO_REPURPOSE_WARNINGS was removed
+              2026-09-08 with the transition it served),
               EXIT CODES (0/1/2 with the GNU/POSIX
               convention from C-008), SEE ALSO
               (kensa-rules(5) project URL placeholder

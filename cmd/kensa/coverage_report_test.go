@@ -314,46 +314,43 @@ func TestHasFrameworkFlag(t *testing.T) {
 	}
 }
 
-// TestRunCoverage_FrameworkHelpEmitsWarning locks R2's P1.3 fix:
-// `kensa coverage --framework FOO --help` MUST emit the C-044
-// repurpose warning to stderr. Operators reading docs to learn
-// the new surface need to see the upcoming v0.2 flip once.
-// @spec cli-framework-coverage
-// @ac AC-11
-func TestRunCoverage_FrameworkHelpEmitsWarning(t *testing.T) {
-	t.Run("cli-framework-coverage/AC-11", func(t *testing.T) {})
-	stdout, stderr := captureRunCLI(
-		[]string{"coverage", "--framework", "cis_rhel9", "--help"},
-		t,
-	)
-	if !strings.Contains(stderr, "v0.2") {
-		t.Errorf("--framework --help should emit repurpose warning to stderr; got:\n%s", stderr)
-	}
-	if !strings.Contains(stderr, "mechanisms") {
-		t.Errorf("warning should reference 'mechanisms'; got:\n%s", stderr)
-	}
-	// Help body itself reaches stdout; the warning is stderr-only
-	// (doesn't pollute parseable help capture).
-	if !strings.Contains(stdout, "framework-coverage report") &&
-		!strings.Contains(stdout, "Report which controls") {
-		t.Errorf("help body should reach stdout; got:\n%s", stdout)
-	}
-}
+// TestRunCoverage_HelpIsOneSurfaceOnStdout locks AC-02: every help invocation
+// reaches the same coverage help, on stdout, with nothing on stderr.
+//
+// This replaces two tests of the expired transition, which required a v0.2
+// repurpose warning on stderr and an "AVAILABLE TODAY" pointer in an alias
+// help body. Both described a surface that no longer exists.
+// @spec cli-coverage-command-finalization
+// @ac AC-02
+func TestRunCoverage_HelpIsOneSurfaceOnStdout(t *testing.T) {
+	t.Run("cli-coverage-command-finalization/AC-02", func(t *testing.T) {})
+	long, longErr := captureRunCLI([]string{"coverage", "--help"}, t)
+	short, shortErr := captureRunCLI([]string{"coverage", "-h"}, t)
+	withFw, withFwErr := captureRunCLI([]string{"coverage", "--framework", "cis_rhel9", "--help"}, t)
 
-// TestPrintMechanismsCoverageHelp_AdvertisesNewSurface locks
-// R2's P1.2 fix: `kensa coverage --help` (no --framework) must
-// point operators at the new --framework surface so they can
-// discover the C-045 report without already knowing about it.
-// @spec cli-framework-coverage
-// @ac AC-12
-func TestPrintMechanismsCoverageHelp_AdvertisesNewSurface(t *testing.T) {
-	t.Run("cli-framework-coverage/AC-12", func(t *testing.T) {})
-	stdout, _ := captureRunCLI([]string{"coverage", "--help"}, t)
-	if !strings.Contains(stdout, "AVAILABLE TODAY") {
-		t.Errorf("alias --help should advertise the new --framework surface; got:\n%s", stdout)
+	if long != short || long != withFw {
+		t.Errorf("coverage help differs across invocations:\n--- --help ---\n%s\n--- -h ---\n%s\n--- --framework --help ---\n%s",
+			long, short, withFw)
 	}
-	if !strings.Contains(stdout, "--framework") {
-		t.Errorf("alias --help should mention --framework; got:\n%s", stdout)
+	for name, e := range map[string]string{"--help": longErr, "-h": shortErr, "--framework --help": withFwErr} {
+		if e != "" {
+			t.Errorf("%s wrote to stderr: %s", name, e)
+		}
+	}
+	for _, want := range []string{
+		"Usage: kensa coverage", "--framework", "--rules-dir", "--format",
+		"--full", "--quiet", "--from-scan", "nist_800_171", "objective catalog",
+	} {
+		if !strings.Contains(long, want) {
+			t.Errorf("coverage help missing %q; got:\n%s", want, long)
+		}
+	}
+	for _, banned := range []string{
+		"Registered mechanisms", "alias for", "AVAILABLE TODAY", "change meaning", "v0.2",
+	} {
+		if strings.Contains(long, banned) {
+			t.Errorf("coverage help still carries %q; got:\n%s", banned, long)
+		}
 	}
 }
 

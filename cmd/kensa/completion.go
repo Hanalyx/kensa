@@ -33,7 +33,7 @@ var completionSpecs = []completionSpec{
 	{"history", "Query the transaction log", []string{"aggregate", "force", "format", "help", "host", "limit", "prune", "quiet", "rule", "since", "stats", "txn"}},
 	{"plan", "Preview a rule transaction without executing", []string{"format", "help", "host", "key", "no-strict-host-keys", "password", "port", "quiet", "strict-host-keys", "sudo", "sudo-password", "user"}},
 	{"mechanisms", "List registered handler mechanisms", []string{"help"}},
-	{"coverage", "Report framework coverage over the corpus", []string{"framework", "help", "rules-dir"}},
+	{"coverage", "Report framework control coverage", []string{"format", "framework", "from-scan", "full", "help", "quiet", "rules-dir"}},
 	{"list", "Introspection commands (frameworks, sessions, variables)", []string{"help", "rules-dir"}},
 	{"info", "Rule/control lookup over the corpus", []string{"cis", "control", "format", "help", "limit", "list-controls", "nist", "quiet", "rhel", "rule", "rules-dir", "stig"}},
 	{"diff", "Compare two stored sessions and emit per-rule drift", []string{"format", "help", "quiet", "show-unchanged"}},

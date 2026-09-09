@@ -8,6 +8,15 @@ spec:
         system: kensa
         feature: cli-framework-coverage
         description: |
+
+            PARTIALLY SUPERSEDED, 2026-09-08. The opt-in dispatch and
+            repurpose-warning clauses no longer describe the runtime:
+            `--framework` is required rather than a switch that selects this
+            report, and no warning is emitted on any path. Those clauses are
+            superseded by cli-coverage-command-finalization AC-01, AC-02 and
+            AC-06. The computation and output requirements below remain draft
+            and are NOT approved by that specification.
+
             CLI Phase 4 deliverable C-045. Repurposes the
             `kensa coverage` name (whose previous mechanism-
             listing semantics moved to `kensa mechanisms`
@@ -267,7 +276,9 @@ spec:
               emits the C-044 repurpose warning to
               stderr; running the report (no --help)
               suppresses it. Locked by
-              TestRunCoverage_FrameworkHelpEmitsWarning
+              Its test was removed on 2026-09-08 with the
+              behavior it locked; see
+              cli-coverage-command-finalization.
               and
               TestRunCoverage_FrameworkFlagSuppressesWarning.
           references_constraints: [C-08]
@@ -277,7 +288,9 @@ spec:
               `kensa coverage --help` (no --framework)
               advertises the new --framework surface.
               Locked by
-              TestPrintMechanismsCoverageHelp_AdvertisesNewSurface.
+              Its test was removed on 2026-09-08 with the
+              behavior it locked; see
+              cli-coverage-command-finalization.
           references_constraints: [C-09]
           priority: medium
         - id: AC-13

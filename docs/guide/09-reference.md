@@ -30,7 +30,7 @@ kensa [global flags] <command> [flags]
 | `history` | Query the transaction log |
 | `plan` | Preview a rule transaction without executing |
 | `mechanisms` | List registered handler mechanisms |
-| `coverage` | Alias for `mechanisms` today; reports framework control coverage with `--framework` |
+| `coverage` | Report framework control coverage (requires `--framework`) |
 | `list` | Introspection commands (`kensa list frameworks`, `kensa list sessions`, `kensa list variables`) |
 | `info` | Rule/control lookup: multi-criteria search over the corpus |
 | `diff` | Compare two stored sessions and emit per-rule drift |
@@ -391,39 +391,49 @@ kensa mechanisms [flags]
 
 ## coverage
 
-An alias for `mechanisms` today; printing a deprecation warning on
-stderr. With `--framework`, it reports which controls in the named
-framework are referenced by rules in the loaded corpus (the rule IDs per
-control). The report is **numerator-only** (controls with rules, not
-the framework's full control set) because kensa does not bundle an
-external control catalog yet.
+Reports which controls in a framework are covered by the rule corpus.
+
+`--framework` is required. There is no default framework: the frameworks
+measure different things, and aggregating them would produce a number that
+means nothing.
+
+`--rules-dir` is **conditional**, not optional:
+
+| Framework kind | `--rules-dir` | Why |
+|---|---|---|
+| Controls read from the corpus (`cis_rhel9`, `stig_rhel8`, `nist_800_53`, …) | required | kensa learns the controls from your rules |
+| Ships an embedded objective catalog (`nist_800_171` today) | not needed | kensa already knows the control set |
+
+For a corpus-read framework the report is **numerator-only**: it lists controls
+that have rules, not the framework's full control set, because kensa does not
+bundle an external control catalog for those. A framework with an embedded
+catalog does report a denominator.
 
 ```
-kensa coverage [flags]
-kensa coverage --framework FRAMEWORK --rules-dir DIR [flags]
+kensa coverage --framework FRAMEWORK [flags]
 ```
-
-**Without `--framework`** (alias mode): only `-h, --help`.
-
-**With `--framework`** (coverage report):
 
 | Short | Long | Argument | Default | Meaning |
 |---|---|---|---|---|
 | `-h` | `--help` | | | Show help and exit |
-| `-f` | `--framework` | `cis-rhel9` | | Filter rules to those mapping a control under FRAMEWORK; single value, hyphen/underscore interchangeable |
-| `-r` | `--rules-dir` | `string` | | Directory of rule YAMLs to scan (required) |
+| `-f` | `--framework` | `string` | | Framework to report on (required); hyphen and underscore are interchangeable |
+| `-r` | `--rules-dir` | `string` | | Directory of rule YAMLs to scan; required unless the framework ships an objective catalog |
 | | `--format` | `string` | `text` | Output format: `text` or `json` |
 | | `--full` | | | In text output, show every rule ID per control (default: truncate to first 3) |
+| | `--from-scan` | `string` | | Read a scan report so the objective report can use that fleet's identity architecture instead of showing both ceilings |
 | `-q` | `--quiet` | | | Suppress default output |
 
 ```bash
 kensa coverage --framework cis_rhel9 --rules-dir /path/to/rules
-kensa coverage -f nist_800_53 -r /path/to/rules --format json
+kensa coverage --framework nist_800_171                  # embedded catalog
+kensa coverage --framework nist_800_171 --from-scan scan.json
 kensa coverage -f cis_rhel9 -r /path/to/rules --full
 ```
 
-> Migrate scripts that rely on the mechanism listing to `kensa mechanisms`
-> before upgrading: `kensa coverage` changes meaning in v0.2.0.
+To list handler mechanisms, run [`kensa mechanisms`](#mechanisms). `coverage`
+was an alias for that command while the two were being separated; it is not one
+now, and running it without `--framework` is a usage error rather than a
+mechanism listing.
 
 ## list
 

@@ -1,0 +1,396 @@
+spec:
+    id: cli-coverage-command-finalization
+    version: 0.1.0
+    status: approved
+    tier: 3
+
+    context:
+        system: kensa
+        feature: cli-coverage-command-finalization
+        description: |
+            `kensa coverage` reports framework control coverage. `kensa
+            mechanisms` lists registered handler mechanisms. Each name selects
+            one operation, and flags refine that operation rather than choosing
+            an unrelated one.
+
+            The command used to mean two different things depending on whether
+            `--framework` was present: without it, a deprecated alias for the
+            mechanism listing; with it, the coverage report. It also printed a
+            warning saying the name would change meaning "in v0.2". That
+            version shipped on 2026-05-28 and the warning was still printed at
+            v0.10.0, so it named a version an operator could not act on and
+            described a flip that had partly already happened behind a flag.
+
+            The founder closed the transition on 2026-09-08. Bare `kensa
+            coverage` is now a usage error rather than a silent fallback,
+            because a fallback would return an unrelated document with exit 0
+            to a script that asked for coverage.
+
+            `--rules-dir` is conditional, not optional. A framework whose
+            controls kensa reads from the corpus needs it. A framework shipping
+            an embedded objective catalog does not, because kensa can
+            enumerate its controls without a corpus. Today that is
+            `nist_800_171`. The asymmetry is deliberate and is pinned in both
+            directions so a later tidying cannot remove the working path.
+
+    objective:
+        summary: |
+            Remove the context-sensitive meaning of `kensa coverage`, delete the
+            expired transition machinery, and make every active discovery
+            surface describe the final contract.
+
+    constraints:
+        - id: C-01
+          description: |
+              `kensa coverage` MUST always select the framework-coverage
+              report. `--framework` is required and there is no default. The
+              command MUST NOT fall back to the mechanism listing under any
+              flag combination.
+          type: technical
+
+        - id: C-02
+          description: |
+              `kensa coverage --help` and `-h` MUST reach one help surface on
+              stdout with an empty stderr, listing every real flag and stating
+              both the required framework and the conditional rules directory.
+          type: technical
+
+        - id: C-03
+          description: |
+              The coverage report document, its calculation, and its JSON key
+              sets MUST be unchanged by this slice.
+          type: technical
+
+        - id: C-04
+          description: |
+              A framework without an embedded objective catalog MUST require
+              `--rules-dir`; a framework with one MUST NOT. Both directions are
+              contract.
+          type: technical
+
+        - id: C-05
+          description: |
+              `kensa mechanisms` MUST remain the only mechanism listing, keep
+              its narrow flag set, and reject `--framework` with a usage error
+              naming `kensa coverage`.
+          type: technical
+
+        - id: C-06
+          description: |
+              The expired repurpose warning and its `KENSA_NO_REPURPOSE_WARNINGS`
+              suppression knob MUST be absent from runtime behavior and from
+              active operator guidance. Setting the variable MUST change
+              nothing. The separate `KENSA_NO_DEPRECATION_WARNINGS` knob is out
+              of scope and MUST be preserved.
+          type: technical
+
+        - id: C-07
+          description: |
+              Top-level help, shell completion, the operator guide, and the
+              generated manpage MUST describe the final contract, and the
+              completion flag set MUST match what the coverage help advertises.
+          type: technical
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Missing framework fails through public dispatch, never falling
+              back to the mechanism listing.
+          inputs:
+              cases:
+                  bare: [coverage]
+                  format_without_framework: [coverage, --format, json]
+                  quiet_without_framework: [coverage, --quiet]
+          expected_output:
+              every_exit_code: 2
+              every_stdout: ""
+              every_stderr_contains: [--framework, required]
+              every_stderr_excludes:
+                  - Registered mechanisms
+                  - change meaning
+                  - v0.2
+              mechanism_listing_fallback: forbidden
+          references_constraints: [C-01]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-02
+          description: |
+              One authoritative help surface for every help invocation.
+          inputs:
+              invocations:
+                  long_help: [coverage, --help]
+                  short_help: [coverage, -h]
+                  framework_then_help: [coverage, --framework, cis_rhel9, --help]
+          expected_output:
+              every_exit_code: 0
+              every_stderr: ""
+              stdout_across_invocations: byte-identical
+              stdout_contains:
+                  - "Usage: kensa coverage"
+                  - --framework
+                  - --rules-dir
+                  - --format
+                  - --full
+                  - --quiet
+                  - --from-scan
+                  - nist_800_171
+                  - objective catalog
+              exact_long_flag_set:
+                  [format, framework, from-scan, full, help, quiet, rules-dir]
+              stdout_excludes:
+                  - Registered mechanisms
+                  - alias for
+                  - AVAILABLE TODAY
+                  - change meaning
+                  - v0.2
+          references_constraints: [C-02, C-07]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-03
+          description: |
+              The existing generic coverage output is unchanged.
+          inputs:
+              fixture:
+                  rules_dir: two-control-corpus
+                  rules:
+                      - id: alpha-rule
+                        framework_refs:
+                            cis_rhel9: ["1.1", "1.2"]
+                      - id: beta-rule
+                        framework_refs:
+                            cis_rhel9: ["1.1"]
+              invocation:
+                  argv: [coverage, --framework, cis_rhel9,
+                         --rules-dir, two-control-corpus, --format, json]
+          expected_output:
+              exit_code: 0
+              stderr: ""
+              stdout_json:
+                  framework: cis_rhel9
+                  rules_scanned: 2
+                  rules_matching: 2
+                  controls_mapped: 2
+                  controls:
+                      - control_id: "1.1"
+                        rule_count: 2
+                        rules: [alpha-rule, beta-rule]
+                      - control_id: "1.2"
+                        rule_count: 1
+                        rules: [alpha-rule]
+              exact_json_key_sets:
+                  top: [controls, controls_mapped, framework,
+                        rules_matching, rules_scanned]
+                  control: [control_id, rule_count, rules]
+              stdout_excludes: [Registered mechanisms]
+          references_constraints: [C-03]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-04
+          description: |
+              Both sides of the rules-directory asymmetry are pinned.
+          inputs:
+              cases:
+                  generic_without_rules:
+                      [coverage, --framework, cis_rhel9, --format, json]
+                  embedded_catalog_without_rules:
+                      [coverage, --framework, nist_800_171, --format, json]
+          expected_output:
+              generic_without_rules:
+                  exit_code: 2
+                  stdout: ""
+                  stderr_contains: [--rules-dir, required]
+              embedded_catalog_without_rules:
+                  exit_code: 0
+                  stderr: ""
+                  stdout_json_contains:
+                      framework: nist_800_171
+                      revision: r2
+                  stdout_json_required_keys:
+                      [architecture, ceilings, framework, hosts_scanned,
+                       no_rule, partial, revision, satisfied,
+                       source_digest, unclassified_ids]
+                  source_digest: non-empty lowercase hex
+                  stdout_excludes: [Registered mechanisms]
+          references_constraints: [C-04]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-05
+          description: |
+              Mechanisms remains separate and narrow.
+          inputs:
+              cases:
+                  list: [mechanisms]
+                  help: [mechanisms, --help]
+                  short_help: [mechanisms, -h]
+                  forbidden_framework: [mechanisms, --framework, cis_rhel9]
+          expected_output:
+              list:
+                  exit_code: 0
+                  stdout_contains: [Registered mechanisms, file_permissions]
+                  stderr: ""
+              help:
+                  exit_code: 0
+                  stderr: ""
+                  exact_long_flag_set: [help]
+                  stdout_excludes: [framework coverage, v0.2, alias]
+              short_help:
+                  exit_code: 0
+                  stdout: byte-identical to help stdout
+                  stderr: ""
+              forbidden_framework:
+                  exit_code: 2
+                  stdout: ""
+                  stderr_contains: [--framework, kensa coverage]
+          references_constraints: [C-05]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-06
+          description: |
+              The expired warning control is behaviorally inert and inactive.
+          inputs:
+              invocation: [coverage]
+              environments:
+                  - {KENSA_NO_REPURPOSE_WARNINGS: unset}
+                  - {KENSA_NO_REPURPOSE_WARNINGS: "1"}
+                  - {KENSA_NO_REPURPOSE_WARNINGS: "true"}
+              active_source_search:
+                  include: [cmd/kensa, docs/guide, man]
+                  exclude: [test files, historical changelog sections,
+                            deprecated specification history]
+          expected_output:
+              invocation_results_across_environments: byte-identical
+              every_exit_code: 2
+              every_stdout: ""
+              every_stderr_contains: [--framework, required]
+              production_warnRepurposedSubcommand_definitions_or_calls: 0
+              active_KENSA_NO_REPURPOSE_WARNINGS_documentation_or_reads: 0
+              KENSA_NO_DEPRECATION_WARNINGS: preserved and out of scope
+          references_constraints: [C-06]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-07
+          description: |
+              Top-level help and completion expose the final surface, and the
+              completion table matches the real help.
+          inputs:
+              invocations:
+                  top_help: [--help]
+                  coverage_completion_sources: [bash, zsh, fish]
+          expected_output:
+              top_help:
+                  exit_code: 0
+                  stderr: ""
+                  command_rows:
+                      mechanisms: List registered handler mechanisms
+                      coverage: Report framework control coverage
+                  stdout_excludes: [alias, change meaning, v0.2, migrate scripts]
+              coverage_completion:
+                  exact_long_flag_set:
+                      [format, framework, from-scan, full, help, quiet, rules-dir]
+                  derived_from: the flags coverage --help advertises
+                  present_in_every_shell: true
+                  extra_or_missing_flags: forbidden
+          references_constraints: [C-07]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-08
+          description: |
+              Active documentation and the generated manpage agree with the
+              final contract.
+          inputs:
+              artifacts:
+                  - docs/guide/09-reference.md
+                  - man/gen-manpage.go
+                  - man/kensa.1.footer.roff
+                  - man/kensa.1
+                  - CHANGELOG.md
+                  - specs/cli/coverage-mechanisms-rename.spec.yaml
+                  - specs/cli/framework-coverage.spec.yaml
+                  - specs/cli/quiet.spec.yaml
+                  - specs/cli/manpage.spec.yaml
+          expected_output:
+              guide:
+                  coverage_purpose: framework coverage only
+                  mechanisms_purpose: mechanism listing only
+                  documents_conditional_rules_dir: true
+                  documents_nist_without_rules_dir: true
+                  documents_from_scan: true
+                  stale_alias_or_v0_2_guidance: absent
+              generated_manpage:
+                  coverage_sections: 1
+                  mechanisms_sections: 1
+                  KENSA_NO_REPURPOSE_WARNINGS_active_entry: absent
+                  manpage_check: pass
+              changelog:
+                  Unreleased_records_finalization: true
+                  historical_release_sections_changed: false
+                  VERSION_changed: false
+              specifications:
+                  old_rename_status: deprecated
+                  current_contract_points_to: cli-coverage-command-finalization
+                  framework_coverage_stale_clauses_marked_superseded: true
+                  quiet_and_manpage_drafts_match_active_surface: true
+          references_constraints: [C-07]
+          priority: high
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+        - id: AC-09
+          description: |
+              `--quiet` follows the final coverage parser. This records
+              behavior the flip exposed; it does not add a new implementation.
+          inputs:
+              fixture: two-control-corpus
+              cases:
+                  quiet_success:
+                      [coverage, --framework, cis_rhel9,
+                       --rules-dir, two-control-corpus, --quiet]
+                  quiet_missing_framework: [coverage, --quiet]
+                  quiet_help: [coverage, --quiet, --help]
+          expected_output:
+              quiet_success: {exit_code: 0, stdout: "", stderr: ""}
+              quiet_missing_framework:
+                  exit_code: 2
+                  stdout: ""
+                  stderr_contains: [--framework, required]
+              quiet_help:
+                  exit_code: 0
+                  stdout_contains: ["Usage: kensa coverage", --quiet]
+                  stderr: ""
+          references_constraints: [C-01, C-02]
+          priority: high
+          approval_gate: true
+          approval_date: "2026-09-08"
+
+    tags: [cli, coverage, mechanisms, deprecation, tier-3]
+
+    changelog:
+        - version: 0.1.0
+          date: "2026-09-08"
+          description: |
+              Initial specification. Records the founder-approved final
+              contract for `kensa coverage` and `kensa mechanisms`, closing the
+              rename transition that began before v0.2.
+          changes:
+              - type: addition
+                section: acceptance_criteria
+                detail: |
+                    Nine approved acceptance criteria covering dispatch, help,
+                    unchanged report output, the rules-directory asymmetry in
+                    both directions, mechanism separation, removal of the
+                    expired warning machinery, discovery surfaces, active
+                    documentation, and quiet behavior.
