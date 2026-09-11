@@ -118,9 +118,9 @@ jobs:
             tar -xzf "$archive" -C "$tmp_dir"
             sudo mv "$tmp_dir/specter" /usr/local/bin/specter
             sudo chmod +x /usr/local/bin/specter
-            installed=$(specter --version)
+            installed=$(/usr/local/bin/specter --version)
             if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
-              echo "::error::Installed Specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+              echo "::error::Installed Specter at /usr/local/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
               exit 1
             fi
             echo "installed=true" >> "$GITHUB_OUTPUT"
@@ -132,6 +132,12 @@ jobs:
           # not an integrity one, so the existing source fallback still applies.
 
           # Priority 2: go install fallback.
+          #
+          # A source build has to clear the same version bar as the archive.
+          # A build that succeeds while producing some other version is a
+          # contract violation rather than an availability problem, so it fails
+          # here instead of falling through to the next module path: another
+          # attempt would let the wrong version be masked by a later success.
           mkdir -p "$HOME/go/bin"
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
           for path in \
@@ -139,6 +145,15 @@ jobs:
               github.com/Hanalyx/specter@${SPECTER_VERSION}; do
             echo "Trying: go install $path"
             if go install "$path" 2>/dev/null; then
+              if [ ! -x "$HOME/go/bin/specter" ]; then
+                echo "::error::go install $path reported success but left no executable at $HOME/go/bin/specter."
+                exit 1
+              fi
+              installed=$("$HOME/go/bin/specter" --version)
+              if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+                echo "::error::Source-built Specter at $HOME/go/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'. Refusing to record a successful install."
+                exit 1
+              fi
               echo "installed=true" >> "$GITHUB_OUTPUT"
               echo "method=go-install" >> "$GITHUB_OUTPUT"
               exit 0
@@ -147,8 +162,20 @@ jobs:
 
           echo "::error::Specter ${SPECTER_VERSION} could not be installed via tarball OR go install. Check that the release exists at github.com/Hanalyx/specter/releases."
           exit 1
-      - name: specter --version
-        run: specter --version
+      - name: Verify the Specter on PATH
+        run: |
+          set -eo pipefail
+          # Every later step invokes `specter` through PATH, so the contract is
+          # asserted against what PATH actually resolves to. That is not
+          # necessarily the install location: the two install methods land the
+          # binary in different directories.
+          resolved=$(command -v specter)
+          echo "specter resolves to: $resolved"
+          installed=$("$resolved" --version)
+          if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+            echo "::error::Specter on PATH ($resolved) reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            exit 1
+          fi
       - name: specter doctor
         run: specter doctor
       - name: specter sync
@@ -214,12 +241,23 @@ jobs:
           tar -xzf "$archive" -C "$tmp_dir"
           sudo mv "$tmp_dir/specter" /usr/local/bin/specter
           sudo chmod +x /usr/local/bin/specter
-          installed=$(specter --version)
+          installed=$(/usr/local/bin/specter --version)
           if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
-            echo "::error::Installed Specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            echo "::error::Installed Specter at /usr/local/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
             exit 1
           fi
-          specter --version
+      - name: Verify the Specter on PATH
+        run: |
+          set -eo pipefail
+          # Same reason as the spec-sync job: assert the executable the
+          # remaining steps will actually run.
+          resolved=$(command -v specter)
+          echo "specter resolves to: $resolved"
+          installed=$("$resolved" --version)
+          if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+            echo "::error::Specter on PATH ($resolved) reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            exit 1
+          fi
       # protoc + protoc-gen-go required for the wire-protocol tests
       # that exercise compiled pb.go (same shape as the unit job).
       - name: Install protoc
