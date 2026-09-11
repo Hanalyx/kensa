@@ -26,6 +26,20 @@ on:
   # workflow run for hours. Without this there was no way to start CI at all.
   workflow_dispatch:
 
+# Every job here only checks out the repository and runs builds, tests and
+# linters. None calls the GitHub API, posts a comment or status, publishes a
+# package, or pushes a ref, so read access to the contents is the whole need.
+#
+# Naming any scope sets every scope not named to none, so this one line also
+# drops the sixteen write scopes the repository's permissive default would
+# otherwise hand every job. Artifact upload is unaffected: it authenticates
+# with the Actions runtime token rather than GITHUB_TOKEN.
+#
+# A job that later needs more must ask for it in its own permissions block,
+# which is the point: the grant becomes visible in review.
+permissions:
+  contents: read
+
 # One in-flight run per ref. Pushing three times to a pull request used to run
 # three full suites to completion; now the older two are canceled as soon as
 # they are superseded. Never cancel on main: those runs are the post-merge
