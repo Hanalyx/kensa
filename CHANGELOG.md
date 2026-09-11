@@ -96,6 +96,17 @@ any pair).
   CI job and the release build follow, and the scan reports zero called
   vulnerabilities.
 
+- **CI jobs now run with a read-only token.** `ci.yml` declared no
+  `permissions` block, so all sixteen jobs inherited the repository's
+  permissive default and were handed seventeen write scopes, among them
+  `contents`, `packages`, `security-events` and `actions`. None of those jobs
+  calls the GitHub API, posts a comment or status, publishes a package, or
+  pushes a ref; they check out the repository and run builds, tests and
+  linters. The workflow now declares `contents: read`, which also sets every
+  scope it does not name to `none`. The release workflow is unchanged: its
+  `contents: write` is required to publish a release and was already the only
+  scope it asked for.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added
