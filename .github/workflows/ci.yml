@@ -60,13 +60,20 @@ env:
   # annotation. spec-sync therefore runs `specter sync --strictness
   # annotation` (results-free structural check); spec-coverage-strict
   # remains the outcome gate that ingests `go test -json` results.
-  SPECTER_VERSION: 'v0.13.2'
+  SPECTER_VERSION: 'v0.15.0'
+  # SHA-256 of the linux/amd64 release archive for SPECTER_VERSION. Both
+  # installer blocks verify the downloaded archive against this before any
+  # extraction, so a mirror, a proxy or SPECTER_INSTALL_URL cannot substitute
+  # different bytes. Update it in the same commit as SPECTER_VERSION; a stale
+  # pair fails closed rather than installing something unverified.
+  # Not a secret: a published release digest, which is meant to be public.
+  SPECTER_SHA256: 'af4e7129158b1ab9de61ed1f4fceec26bfeca8b636cdcca0195f8f7c51faa0ac'  # pragma: allowlist secret
 
 jobs:
   spec-sync:
     # Specter runs before Go build — specs are the source of truth.
     # Hanalyx publishes Specter release tarballs at
-    # github.com/Hanalyx/specter/releases (pinned to v0.13.2 above);
+    # github.com/Hanalyx/specter/releases (pinned to v0.15.0 above);
     # the install step uses the tarball first, falling back to
     # go install only if the release URL is unreachable. This job is
     # REQUIRED (no continue-on-error) since the pinned install is
@@ -86,21 +93,51 @@ jobs:
         run: |
           set -eo pipefail
 
-          # Priority 1: GoReleaser tarball from the pinned release.
+          # Priority 1: the pinned GoReleaser release archive.
+          #
+          # The download and the integrity check are separate steps on purpose.
+          # Piping curl into tar extracts bytes that were never checked, and
+          # folding the digest test into the same condition as the download
+          # would send a MISMATCH into the go install fallback below — turning
+          # a possible tampering signal into a silent change of provenance.
+          # So: branch on availability first, verify inside the success branch,
+          # and exit non-zero on mismatch without reaching the fallback.
           tarball_url="${SPECTER_INSTALL_URL:-https://github.com/Hanalyx/specter/releases/download/${SPECTER_VERSION}/specter_${SPECTER_VERSION#v}_linux_amd64.tar.gz}"
           echo "Trying release tarball: $tarball_url"
           tmp_dir=$(mktemp -d)
-          if curl -fsSL "$tarball_url" | tar -xz -C "$tmp_dir"; then
+          trap 'rm -rf "$tmp_dir"' EXIT
+          archive="$tmp_dir/specter.tar.gz"
+
+          if curl -fsSL -o "$archive" "$tarball_url"; then
+            echo "Verifying archive against the pinned digest"
+            actual=$(sha256sum "$archive" | cut -d' ' -f1)
+            if [ "$actual" != "$SPECTER_SHA256" ]; then
+              echo "::error::Specter archive digest mismatch. Expected ${SPECTER_SHA256}, got ${actual}. Refusing to extract, and NOT falling back to a source build: a mismatch here is a supply-chain signal, not a download problem."
+              exit 1
+            fi
+            tar -xzf "$archive" -C "$tmp_dir"
             sudo mv "$tmp_dir/specter" /usr/local/bin/specter
             sudo chmod +x /usr/local/bin/specter
-            rm -rf "$tmp_dir"
+            installed=$(/usr/local/bin/specter --version)
+            if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+              echo "::error::Installed Specter at /usr/local/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+              exit 1
+            fi
             echo "installed=true" >> "$GITHUB_OUTPUT"
             echo "method=tarball" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          rm -rf "$tmp_dir"
+
+          # The archive URL was unreachable. That is an availability problem,
+          # not an integrity one, so the existing source fallback still applies.
 
           # Priority 2: go install fallback.
+          #
+          # A source build has to clear the same version bar as the archive.
+          # A build that succeeds while producing some other version is a
+          # contract violation rather than an availability problem, so it fails
+          # here instead of falling through to the next module path: another
+          # attempt would let the wrong version be masked by a later success.
           mkdir -p "$HOME/go/bin"
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
           for path in \
@@ -108,6 +145,15 @@ jobs:
               github.com/Hanalyx/specter@${SPECTER_VERSION}; do
             echo "Trying: go install $path"
             if go install "$path" 2>/dev/null; then
+              if [ ! -x "$HOME/go/bin/specter" ]; then
+                echo "::error::go install $path reported success but left no executable at $HOME/go/bin/specter."
+                exit 1
+              fi
+              installed=$("$HOME/go/bin/specter" --version)
+              if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+                echo "::error::Source-built Specter at $HOME/go/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'. Refusing to record a successful install."
+                exit 1
+              fi
               echo "installed=true" >> "$GITHUB_OUTPUT"
               echo "method=go-install" >> "$GITHUB_OUTPUT"
               exit 0
@@ -116,8 +162,20 @@ jobs:
 
           echo "::error::Specter ${SPECTER_VERSION} could not be installed via tarball OR go install. Check that the release exists at github.com/Hanalyx/specter/releases."
           exit 1
-      - name: specter --version
-        run: specter --version
+      - name: Verify the Specter on PATH
+        run: |
+          set -eo pipefail
+          # Every later step invokes `specter` through PATH, so the contract is
+          # asserted against what PATH actually resolves to. That is not
+          # necessarily the install location: the two install methods land the
+          # binary in different directories.
+          resolved=$(command -v specter)
+          echo "specter resolves to: $resolved"
+          installed=$("$resolved" --version)
+          if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+            echo "::error::Specter on PATH ($resolved) reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            exit 1
+          fi
       - name: specter doctor
         run: specter doctor
       - name: specter sync
@@ -163,13 +221,43 @@ jobs:
       - name: Install Specter
         run: |
           set -eo pipefail
+          # Same pinned version and digest as the spec-sync installer. This
+          # block has no source fallback and keeps it that way: an unreachable
+          # archive is already fatal here, and a digest mismatch must be too.
           tarball_url="${SPECTER_INSTALL_URL:-https://github.com/Hanalyx/specter/releases/download/${SPECTER_VERSION}/specter_${SPECTER_VERSION#v}_linux_amd64.tar.gz}"
           tmp_dir=$(mktemp -d)
-          curl -fsSL "$tarball_url" | tar -xz -C "$tmp_dir"
+          trap 'rm -rf "$tmp_dir"' EXIT
+          archive="$tmp_dir/specter.tar.gz"
+
+          # A download failure exits here under set -e, as it does today.
+          curl -fsSL -o "$archive" "$tarball_url"
+
+          actual=$(sha256sum "$archive" | cut -d' ' -f1)
+          if [ "$actual" != "$SPECTER_SHA256" ]; then
+            echo "::error::Specter archive digest mismatch. Expected ${SPECTER_SHA256}, got ${actual}. Refusing to extract."
+            exit 1
+          fi
+
+          tar -xzf "$archive" -C "$tmp_dir"
           sudo mv "$tmp_dir/specter" /usr/local/bin/specter
           sudo chmod +x /usr/local/bin/specter
-          rm -rf "$tmp_dir"
-          specter --version
+          installed=$(/usr/local/bin/specter --version)
+          if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+            echo "::error::Installed Specter at /usr/local/bin/specter reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            exit 1
+          fi
+      - name: Verify the Specter on PATH
+        run: |
+          set -eo pipefail
+          # Same reason as the spec-sync job: assert the executable the
+          # remaining steps will actually run.
+          resolved=$(command -v specter)
+          echo "specter resolves to: $resolved"
+          installed=$("$resolved" --version)
+          if [ "$installed" != "specter version ${SPECTER_VERSION#v}" ]; then
+            echo "::error::Specter on PATH ($resolved) reports '${installed}', expected 'specter version ${SPECTER_VERSION#v}'."
+            exit 1
+          fi
       # protoc + protoc-gen-go required for the wire-protocol tests
       # that exercise compiled pb.go (same shape as the unit job).
       - name: Install protoc

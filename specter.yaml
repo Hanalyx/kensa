@@ -3,11 +3,17 @@
 #
 # Kensa spec discipline is tiered by atomicity risk. Components that the
 # atomicity commitment depends on run at Tier 1 (100% AC-to-test coverage).
-# Everything else defaults to Tier 2.
+#
+# Every spec declares its own tier in its .spec.yaml. The domain tiers below
+# are assertions about what the members SHOULD be, not a source of tier
+# values, and nothing here supplies a default for a spec that omits one.
+#
+# There was a system.tier here. Specter v0.15.0 reports it as inert and
+# deprecated: it had no effect on any verdict, so removing it changes nothing
+# and stops the manifest claiming a default it never provided.
 
 system:
     name: kensa
-    tier: 2   # default for unclassified specs
 
 domains:
     core:
