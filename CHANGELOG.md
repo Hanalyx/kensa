@@ -18,6 +18,18 @@ any pair).
 
 ### Changed
 
+- **CI builds specs with Specter v0.15.0**, up from v0.13.2, and verifies the
+  release archive before it runs. Both installers now download the complete
+  archive, check it against a pinned SHA-256, and extract only on a match. A
+  mismatch fails the job and is never treated as a download problem, so it
+  cannot fall through to a source build and quietly change where the tool came
+  from. An unreachable archive keeps the behavior each job had before.
+
+- **`specter.yaml` no longer declares `system.tier`.** v0.15.0 reports it as
+  inert and deprecated. Every spec already declares its own tier, so the field
+  supplied no default and removing it changes no verdict. The manifest comment
+  said otherwise and now says what is true.
+
 - **`kensa coverage` always reports framework control coverage.** It required
   `--framework` to produce that report and otherwise listed handler mechanisms,
   so the command's meaning depended on whether a flag was present. Running it
