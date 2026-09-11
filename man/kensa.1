@@ -322,6 +322,45 @@ Example:
   kensa mechanisms
 .fi
 .PP
+.SS COVERAGE
+.nf
+Usage: kensa coverage \-\-framework FRAMEWORK [flags]
+
+Report which controls in the named framework are covered by the rule corpus.
+
+\-\-framework is required. There is no default framework, because the frameworks
+report different things and aggregating them would produce a number that means
+nothing.
+
+\-\-rules\-dir is required for a framework whose controls kensa reads from the
+corpus. It is NOT required for a framework that ships an embedded objective
+catalog: today that is nist_800_171, which reports against its own catalog and
+needs no corpus directory.
+
+NUMERATOR ONLY for corpus\-read frameworks: the report lists controls that have
+rules, not the framework's full control set. A "212 / 318 covered" reading
+would need an external control catalog kensa does not bundle. A framework with
+an embedded objective catalog does report a denominator, because kensa can
+enumerate its controls.
+
+To list handler mechanisms, run 'kensa mechanisms'.
+
+Flags:
+  \-h, \-\-help                     show this help and exit
+  \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
+  \-r, \-\-rules\-dir string         directory of rule YAMLs to scan (required unless the framework ships an objective catalog)
+      \-\-format string            output format: text or json (default "text")
+      \-\-full                     in text output, show every rule ID per control (default: truncate to first 3)
+  \-q, \-\-quiet                    suppress default output (errors still go to stderr)
+      \-\-from\-scan string         scan report JSON; computes the 800\-171 denominator for that fleet
+
+Examples:
+  kensa coverage \-\-framework cis_rhel9 \-\-rules\-dir /path/to/rules
+  kensa coverage \-\-framework nist_800_171                    # embedded catalog
+  kensa coverage \-\-framework nist_800_171 \-\-from\-scan scan.json
+  kensa coverage \-f cis_rhel9 \-r /path/to/rules \-\-full       # all rule IDs
+.fi
+.PP
 .SS LIST
 .nf
 Usage: kensa list <subject> [flags]
@@ -585,15 +624,6 @@ to silence flag-deprecation warnings (e.g.,
 slated for removal in v0.2). Exact-match on
 .B 1
 \(em other values do not silence.
-.TP
-.B KENSA_NO_REPURPOSE_WARNINGS
-Set to
-.B 1
-to silence the
-.B kensa coverage
-v1.1 repurpose warning. Distinct from KENSA_NO_DEPRECATION_WARNINGS:
-operators who silenced flag warnings months ago should still see the
-louder semantic-flip signal.
 .TP
 .B KENSA_TEST_SSH_HOST
 .TQ

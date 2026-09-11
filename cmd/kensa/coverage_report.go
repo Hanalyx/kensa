@@ -13,17 +13,18 @@ import (
 	"github.com/Hanalyx/kensa/internal/output"
 )
 
-// runCoverageReport handles `kensa coverage --framework
-// FRAMEWORK --rules-dir DIR` (C-045). The new behavior shipped
-// today is gated on `--framework`; without it, dispatch falls
-// through to the C-044 deprecation alias path that runs the
-// mechanism listing.
+// runCoverageReport handles `kensa coverage`. Every coverage invocation
+// reaches here: the command no longer has an alias mode, so there is no
+// dispatch condition and no fall-through to the mechanism listing.
 //
-// --rules-dir is required (no default rule-dir bundled in the
-// binary; that's an M7 follow-up). --framework is required by
-// definition — aggregating across frameworks would mix CIS
-// decimal IDs, NIST AC-codes, and STIG V-IDs in one column,
-// rendering the output unreadable.
+// --framework is required. Aggregating across frameworks would mix control
+// vocabularies that measure different things, and no single framework is a
+// defensible default.
+//
+// --rules-dir is conditional. A framework whose controls kensa learns from the
+// corpus needs one. A framework shipping an embedded objective catalog does
+// not, because kensa can already enumerate its controls; today that is
+// nist_800_171. The check lives after catalog routing for that reason.
 func runCoverageReport(args []string) error {
 	args = rewriteLegacyLongForm(args, map[string]bool{
 		"framework": true, "rules-dir": true, "format": true,
@@ -43,7 +44,7 @@ func runCoverageReport(args []string) error {
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	registerFrameworkFlag(fs, &framework)
-	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory of rule YAMLs to scan (required)")
+	fs.StringVarP(&rulesDir, "rules-dir", ShortRulesDir, "", "directory of rule YAMLs to scan (required unless the framework ships an objective catalog)")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVar(&full, "full", false, "in text output, show every rule ID per control (default: truncate to first 3)")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
@@ -171,39 +172,46 @@ func writeCoverageText(w io.Writer, r coverage.CoverageReport, full bool) {
 	}
 }
 
-// printCoverageReportUsage writes the C-045 help text. Distinct
-// from printMechanismsUsage because the surfaces have different
-// flags and different positional expectations.
+// printCoverageReportUsage writes the `kensa coverage` help text. This is the
+// only coverage help surface: the command no longer has an alias mode, so
+// there is nothing to disambiguate.
 func printCoverageReportUsage(w io.Writer, fs *pflag.FlagSet) {
-	fmt.Fprintf(w, `Usage: kensa coverage --framework FRAMEWORK --rules-dir DIR [flags]
+	fmt.Fprintf(w, `Usage: kensa coverage --framework FRAMEWORK [flags]
 
-Report which controls in the named framework are referenced by
-rules in the loaded corpus. The output lists every distinct
-control referenced by at least one rule, plus the rule IDs that
-map to it.
+Report which controls in the named framework are covered by the rule corpus.
 
-NUMERATOR ONLY: this report shows controls with rules, not the
-framework's full control set. A "212 / 318 covered (66.7%%)"
-reading would require an external control catalog kensa
-does not bundle today; that's a future deliverable.
+--framework is required. There is no default framework, because the frameworks
+report different things and aggregating them would produce a number that means
+nothing.
 
-Today this report is opt-in via --framework; without --framework
-'kensa coverage' remains the deprecated alias for 'kensa mechanisms'
-(see 'kensa coverage --help' without --framework for the alias).
+--rules-dir is required for a framework whose controls kensa reads from the
+corpus. It is NOT required for a framework that ships an embedded objective
+catalog: today that is nist_800_171, which reports against its own catalog and
+needs no corpus directory.
+
+NUMERATOR ONLY for corpus-read frameworks: the report lists controls that have
+rules, not the framework's full control set. A "212 / 318 covered" reading
+would need an external control catalog kensa does not bundle. A framework with
+an embedded objective catalog does report a denominator, because kensa can
+enumerate its controls.
+
+To list handler mechanisms, run 'kensa mechanisms'.
 
 Flags:
 %s
 Examples:
   kensa coverage --framework cis_rhel9 --rules-dir /path/to/rules
-  kensa coverage -f nist_800_53 -r /path/to/rules --format json
-  kensa coverage -f cis_rhel9 -r /path/to/rules --full         # all rule IDs per control
+  kensa coverage --framework nist_800_171                    # embedded catalog
+  kensa coverage --framework nist_800_171 --from-scan scan.json
+  kensa coverage -f cis_rhel9 -r /path/to/rules --full       # all rule IDs
 `, fs.FlagUsages())
 }
 
 // hasFrameworkFlag uses a permissive pflag pre-parse to detect
-// whether --framework / -f is on argv. Used at the dispatch
-// site to pick between the C-045 coverage-report path and the
-// C-044 mechanism-alias path.
+// whether --framework / -f is on argv. The coverage dispatch no longer needs
+// it, but `mechanisms` does: --framework there is a usage error pointing the
+// operator at `kensa coverage`, and that rejection has to agree with what the
+// coverage flagset would have accepted.
 //
 // Why pflag rather than a hand-rolled scanner: pflag accepts
 // merged-short-bool forms like `-qfcis_rhel9` (parses as
@@ -224,20 +232,4 @@ func hasFrameworkFlag(args []string) bool {
 	fs.StringVarP(&fw, "framework", ShortFramework, "", "")
 	_ = fs.Parse(args)
 	return fs.Changed("framework")
-}
-
-// hasHelpFlag uses the same permissive pre-parse to detect
-// `--help` / `-h`. Used at the dispatch site so we can emit
-// the C-044 repurpose warning even on the new path's --help —
-// operators reading docs to learn the surface need to see the
-// upcoming v0.2 semantic flip once.
-func hasHelpFlag(args []string) bool {
-	fs := pflag.NewFlagSet("help-detector", pflag.ContinueOnError)
-	fs.SortFlags = false
-	fs.SetOutput(io.Discard)
-	fs.ParseErrorsAllowlist.UnknownFlags = true
-	var help bool
-	fs.BoolVarP(&help, "help", ShortHelp, false, "")
-	_ = fs.Parse(args)
-	return fs.Changed("help")
 }

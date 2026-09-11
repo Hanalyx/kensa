@@ -111,10 +111,10 @@ func TestQuietFlag_NotInVersion(t *testing.T) {
 	}
 }
 
-// TestQuietFlag_NotInMechanisms: same reasoning as version.
-// Tests the canonical name (post-C-044). The deprecated `coverage`
-// alias is covered by TestQuietFlag_NotInCoverageAlias below so
-// the pair will outlive the v0.2 alias removal naturally.
+// TestQuietFlag_NotInMechanisms: same reasoning as version. `mechanisms` is a
+// listing the operator explicitly asked for, so it registers no --quiet.
+// Coverage is the opposite case and DOES have the flag; see
+// TestQuietFlag_InCoverageHelp below.
 func TestQuietFlag_NotInMechanisms(t *testing.T) {
 	stdout, _ := captureRunCLI([]string{"mechanisms", "--help"}, t)
 	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {
@@ -122,13 +122,19 @@ func TestQuietFlag_NotInMechanisms(t *testing.T) {
 	}
 }
 
-// TestQuietFlag_NotInCoverageAlias keeps the deprecated alias
-// under test for the duration of the deprecation window. Removed
-// in v0.2 alongside the alias itself.
-func TestQuietFlag_NotInCoverageAlias(t *testing.T) {
+// TestQuietFlag_InCoverageHelp locks that coverage advertises --quiet.
+//
+// This test previously asserted the opposite. That conclusion came from the
+// alias help surface, which listed only the mechanism flags; the coverage
+// report itself has always accepted --quiet. With the alias gone there is one
+// help surface and it shows the real flag set.
+// @spec cli-coverage-command-finalization
+// @ac AC-09
+func TestQuietFlag_InCoverageHelp(t *testing.T) {
+	t.Run("cli-coverage-command-finalization/AC-09", func(t *testing.T) {})
 	stdout, _ := captureRunCLI([]string{"coverage", "--help"}, t)
-	if strings.Contains(stdout, "--quiet") || strings.Contains(stdout, "-q ") {
-		t.Errorf("kensa coverage --help should not advertise --quiet; got:\n%s", stdout)
+	if !strings.Contains(stdout, "--quiet") {
+		t.Errorf("kensa coverage --help should advertise --quiet; got:\n%s", stdout)
 	}
 }
 

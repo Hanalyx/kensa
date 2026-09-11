@@ -43,12 +43,12 @@ func TestEscapeRoffLine(t *testing.T) {
 // dispatch ALSO updates the manpage generator. Drift would mean
 // the new subcommand silently misses the manpage.
 //
-// The list intentionally EXCLUDES the deprecated `coverage`
-// alias (per C-02 in the spec).
+// `coverage` is included: it is its own command reporting framework
+// coverage, not an alias for `mechanisms`.
 func TestSubcommandList(t *testing.T) {
 	expected := []string{
 		"detect", "check", "remediate", "rollback", "history",
-		"plan", "mechanisms", "list", "info", "diff",
+		"plan", "mechanisms", "coverage", "list", "info", "diff",
 		"agent", "verify", "migrate", "version",
 	}
 	if len(subcommands) != len(expected) {
@@ -59,11 +59,16 @@ func TestSubcommandList(t *testing.T) {
 			t.Errorf("subcommands[%d]: got %q want %q", i, subcommands[i], want)
 		}
 	}
-	// `coverage` MUST NOT appear (deprecated alias).
+	// `coverage` MUST appear exactly once: it is its own command, and a
+	// duplicate would emit two sections under one heading.
+	var covCount int
 	for _, s := range subcommands {
 		if s == "coverage" {
-			t.Errorf("'coverage' should not appear in subcommands list (deprecated alias for 'mechanisms')")
+			covCount++
 		}
+	}
+	if covCount != 1 {
+		t.Errorf("'coverage' appears %d times in subcommands; want exactly 1", covCount)
 	}
 }
 

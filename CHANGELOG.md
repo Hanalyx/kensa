@@ -16,6 +16,31 @@ any pair).
 
 ## Unreleased
 
+### Changed
+
+- **`kensa coverage` always reports framework control coverage.** It required
+  `--framework` to produce that report and otherwise listed handler mechanisms,
+  so the command's meaning depended on whether a flag was present. Running it
+  without `--framework` is now a usage error naming the required flag, and
+  never falls back to the mechanism listing. `kensa mechanisms` is the only
+  name for that listing.
+
+  `--rules-dir` stays conditional: required for a framework whose controls
+  kensa reads from your corpus, not required for one that ships an embedded
+  objective catalog, which today means `nist_800_171`.
+
+  A script calling bare `kensa coverage` for the mechanism list must call
+  `kensa mechanisms` instead. It previously exited 0 with a warning; it now
+  exits 2.
+
+### Removed
+
+- **The `kensa coverage` repurpose warning and `KENSA_NO_REPURPOSE_WARNINGS`.**
+  The warning said the command would change meaning "in v0.2", which shipped
+  2026-05-28, so it named a version an operator could no longer act on. The
+  change it announced is the one above. Setting the variable now does nothing.
+  `KENSA_NO_DEPRECATION_WARNINGS` is unaffected.
+
 ### Added
 
 - **`kensa list variables --rules-dir DIR`** names every rule variable the

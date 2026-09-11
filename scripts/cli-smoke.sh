@@ -184,7 +184,7 @@ echo
 
 # ─── kensa: --quiet flag advertised in --help (C-018) ─────────────────────
 echo "kensa subcommand --quiet flag in --help:"
-for cmd in detect check remediate rollback history plan; do
+for cmd in detect check remediate rollback history plan coverage; do
     out=$(bin/kensa "${cmd}" --help 2>&1)
     if echo "${out}" | grep -qE -- "--quiet"; then
         PASS_COUNT=$((PASS_COUNT + 1))
@@ -195,8 +195,9 @@ for cmd in detect check remediate rollback history plan; do
         echo "  ${RED}FAIL${RESET}  kensa ${cmd} --help missing --quiet"
     fi
 done
-# Negative case: version and coverage do NOT advertise --quiet.
-for cmd in version coverage; do
+# Negative case: version does NOT advertise --quiet. coverage does: its report
+# has always had the flag, and the alias help was what hid it.
+for cmd in version; do
     out=$(bin/kensa "${cmd}" --help 2>&1)
     if echo "${out}" | grep -qE -- "--quiet"; then
         FAIL_COUNT=$((FAIL_COUNT + 1))
@@ -280,31 +281,41 @@ assert_exit "kensa check --control no-colon"        2 stderr-nonempty bin/kensa 
 assert_exit "kensa check --framework bogus"         2 stderr-nonempty bin/kensa check -H foo -f bogus --rules-dir ${SMOKE_RULES_DIR}
 echo
 
-# ─── kensa mechanisms / coverage deprecation (C-044) ──────────────────────
-echo "kensa mechanisms (C-044 rename) + coverage deprecation:"
+# ─── kensa mechanisms / coverage ──────────────────────────────────────────
+echo "kensa mechanisms + coverage:"
 assert_exit "kensa mechanisms --help"        0 stdout-nonempty bin/kensa mechanisms --help
 assert_exit "kensa mechanisms -h"            0 stdout-nonempty bin/kensa mechanisms -h
 assert_exit "kensa mechanisms"               0 stdout-nonempty bin/kensa mechanisms
-assert_exit "kensa coverage (deprecated)"    0 stdout-nonempty bin/kensa coverage
-# coverage MUST emit a v0.2 repurpose warning to stderr; mechanisms MUST NOT.
-# Warning may span multiple lines, so check for both substrings independently.
-covStderr=$(bin/kensa coverage 2>&1 >/dev/null)
-if echo "${covStderr}" | grep -qE "v0\\.2" && echo "${covStderr}" | grep -qE "mechanisms"; then
+# coverage always means framework coverage. Bare coverage is a usage error;
+# it must never fall back to the mechanism listing.
+assert_exit "kensa coverage (no framework)"  2 stderr-nonempty bin/kensa coverage
+assert_exit "kensa coverage --help"          0 stdout-nonempty bin/kensa coverage --help
+covStdout=$(bin/kensa coverage 2>/dev/null)
+if [ -z "${covStdout}" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  kensa coverage emits v0.2 repurpose warning to stderr"
+    echo "  ${GREEN}PASS${RESET}  kensa coverage without --framework writes no stdout"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("kensa coverage missing v0.2 repurpose warning")
-    echo "  ${RED}FAIL${RESET}  kensa coverage missing v0.2 repurpose warning"
+    FAILURES+=("kensa coverage without --framework wrote stdout")
+    echo "  ${RED}FAIL${RESET}  kensa coverage without --framework wrote stdout"
 fi
-# Warning MUST NOT say "removed" — that's the misread we're preventing.
-if echo "${covStderr}" | grep -q "removed"; then
+covStderr=$(bin/kensa coverage 2>&1 >/dev/null)
+if echo "${covStderr}" | grep -qE "\-\-framework"; then
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage names the required --framework flag"
+else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("kensa coverage warning misuses 'removed' (name is being repurposed)")
-    echo "  ${RED}FAIL${RESET}  kensa coverage warning misuses 'removed'"
+    FAILURES+=("kensa coverage error does not name --framework")
+    echo "  ${RED}FAIL${RESET}  kensa coverage error does not name --framework"
+fi
+# The expired repurpose transition must be gone from the runtime entirely.
+if echo "${covStderr}" | grep -qE "v0\\.2|change meaning|Registered mechanisms"; then
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage still emits expired repurpose text")
+    echo "  ${RED}FAIL${RESET}  kensa coverage still emits expired repurpose text"
 else
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  kensa coverage warning correctly avoids 'removed'"
+    echo "  ${GREEN}PASS${RESET}  kensa coverage emits no expired repurpose text"
 fi
 mechStderr=$(bin/kensa mechanisms 2>&1 >/dev/null)
 if [ -z "${mechStderr}" ]; then
@@ -315,28 +326,15 @@ else
     FAILURES+=("kensa mechanisms emitted unexpected stderr: ${mechStderr}")
     echo "  ${RED}FAIL${RESET}  kensa mechanisms emitted unexpected stderr"
 fi
-# KENSA_NO_REPURPOSE_WARNINGS=1 silences the warning. Note: this is a
-# SEPARATE knob from KENSA_NO_DEPRECATION_WARNINGS=1 — see
-# warnRepurposedSubcommand for the rationale.
-covStderrSilent=$(KENSA_NO_REPURPOSE_WARNINGS=1 bin/kensa coverage 2>&1 >/dev/null)
-if [ -z "${covStderrSilent}" ]; then
+# The suppression knob is gone; setting it must change nothing.
+covStderrEnv=$(KENSA_NO_REPURPOSE_WARNINGS=1 bin/kensa coverage 2>&1 >/dev/null)
+if [ "${covStderrEnv}" = "${covStderr}" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  KENSA_NO_REPURPOSE_WARNINGS=1 silences coverage warning"
+    echo "  ${GREEN}PASS${RESET}  KENSA_NO_REPURPOSE_WARNINGS is inert"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("KENSA_NO_REPURPOSE_WARNINGS=1 did not silence coverage warning")
-    echo "  ${RED}FAIL${RESET}  KENSA_NO_REPURPOSE_WARNINGS=1 did not silence"
-fi
-# KENSA_NO_DEPRECATION_WARNINGS=1 (the OLD knob) MUST NOT silence —
-# semantic-flip warnings are categorically louder than flag renames.
-covStderrDepEnv=$(KENSA_NO_DEPRECATION_WARNINGS=1 bin/kensa coverage 2>&1 >/dev/null)
-if echo "${covStderrDepEnv}" | grep -qE "v0\\.2" && echo "${covStderrDepEnv}" | grep -qE "mechanisms"; then
-    PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  KENSA_NO_DEPRECATION_WARNINGS=1 does NOT silence repurpose warning"
-else
-    FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("KENSA_NO_DEPRECATION_WARNINGS=1 incorrectly silenced repurpose warning")
-    echo "  ${RED}FAIL${RESET}  KENSA_NO_DEPRECATION_WARNINGS=1 incorrectly silenced repurpose warning"
+    FAILURES+=("KENSA_NO_REPURPOSE_WARNINGS still changes behavior")
+    echo "  ${RED}FAIL${RESET}  KENSA_NO_REPURPOSE_WARNINGS still changes behavior"
 fi
 echo
 
@@ -550,26 +548,36 @@ else
     FAILURES+=("kensa coverage --help: --framework missing")
     echo "  ${RED}FAIL${RESET}  kensa coverage --help missing --framework"
 fi
-# --framework --help MUST emit the C-044 repurpose warning to stderr
-# (operators reading docs need the v0.2 flip signal).
-covHelpStderr=$(bin/kensa coverage --framework cis_rhel9 --help 2>&1 >/dev/null)
-if echo "${covHelpStderr}" | grep -qE "v0\\.2" && echo "${covHelpStderr}" | grep -qE "mechanisms"; then
+# Every help invocation reaches ONE coverage help surface, on stdout only.
+covHelpA=$(bin/kensa coverage --help 2>/dev/null)
+covHelpB=$(bin/kensa coverage -h 2>/dev/null)
+covHelpC=$(bin/kensa coverage --framework cis_rhel9 --help 2>/dev/null)
+covHelpErr=$(bin/kensa coverage --framework cis_rhel9 --help 2>&1 >/dev/null)
+if [ "${covHelpA}" = "${covHelpB}" ] && [ "${covHelpA}" = "${covHelpC}" ] && [ -z "${covHelpErr}" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  kensa coverage --framework FOO --help emits repurpose warning"
+    echo "  ${GREEN}PASS${RESET}  kensa coverage help is one surface on stdout"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("kensa coverage --framework FOO --help missing repurpose warning")
-    echo "  ${RED}FAIL${RESET}  kensa coverage --framework FOO --help missing repurpose warning"
+    FAILURES+=("kensa coverage help differs across invocations or writes stderr")
+    echo "  ${RED}FAIL${RESET}  kensa coverage help differs across invocations"
 fi
-# kensa coverage --help (alias) MUST advertise the new --framework surface.
-aliasHelp=$(bin/kensa coverage --help 2>/dev/null)
-if echo "${aliasHelp}" | grep -qE "AVAILABLE TODAY"; then
+# Coverage help documents the conditional rules directory and the embedded
+# objective catalog, and carries no expired transition prose.
+if echo "${covHelpA}" | grep -qE "nist_800_171" && echo "${covHelpA}" | grep -qE "objective catalog"; then
     PASS_COUNT=$((PASS_COUNT + 1))
-    echo "  ${GREEN}PASS${RESET}  kensa coverage --help (alias) advertises new --framework surface"
+    echo "  ${GREEN}PASS${RESET}  kensa coverage --help documents the embedded catalog case"
 else
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    FAILURES+=("kensa coverage --help (alias) missing AVAILABLE TODAY pointer")
-    echo "  ${RED}FAIL${RESET}  kensa coverage --help (alias) missing AVAILABLE TODAY pointer"
+    FAILURES+=("kensa coverage --help omits the embedded objective catalog case")
+    echo "  ${RED}FAIL${RESET}  kensa coverage --help omits the embedded catalog case"
+fi
+if echo "${covHelpA}" | grep -qE "AVAILABLE TODAY|alias for|change meaning|Registered mechanisms"; then
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILURES+=("kensa coverage --help still carries expired alias prose")
+    echo "  ${RED}FAIL${RESET}  kensa coverage --help still carries expired alias prose"
+else
+    PASS_COUNT=$((PASS_COUNT + 1))
+    echo "  ${GREEN}PASS${RESET}  kensa coverage --help carries no expired alias prose"
 fi
 echo
 

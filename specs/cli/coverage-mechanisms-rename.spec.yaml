@@ -1,13 +1,37 @@
 spec:
     id: cli-coverage-mechanisms-rename
     version: 0.1.0
-    status: draft
+    status: deprecated
+    # The behavior this spec governs no longer ships, so most of its acceptance
+    # criteria cannot have live tests: the alias, the repurpose warning and the
+    # suppression knob were all removed on 2026-09-08. Annotating current tests
+    # against them would be false traceability, which is what the annotation
+    # gate exists to prevent. Two ACs describe behavior kensa still has (AC-01
+    # the mechanism listing, AC-04 mechanisms emitting no deprecation noise) and
+    # keep their real tests, so 2 of 8 is the honest figure rather than a
+    # waiver. cli-coverage-command-finalization carries the current contract.
+    #
+    # Note for a future editor: 0 here reads as unset, because the field is an
+    # integer and Specter cannot tell an explicit zero from an absent value. The
+    # threshold has to be the measured number.
+    coverage_threshold: 25
     tier: 3
 
     context:
         system: kensa
         feature: cli-coverage-mechanisms-rename
         description: |
+
+            SUPERSEDED, 2026-09-08. The rename transition this specification
+            governs is finished. `kensa coverage` now always reports framework
+            coverage and `kensa mechanisms` is the only mechanism listing; the
+            alias, the repurpose warning, and KENSA_NO_REPURPOSE_WARNINGS are
+            gone from the runtime. The current contract is
+            cli-coverage-command-finalization. The deprecation-window
+            acceptance criteria below describe behavior that no longer ships
+            and are kept as the record of what was promised during the
+            transition.
+
             CLI Phase 4 deliverable C-044. Renames `kensa
             coverage` to `kensa mechanisms` and starts a
             deprecation cycle on the old name. Both
@@ -130,8 +154,10 @@ spec:
         - id: AC-02
           description: |
               `kensa coverage` exits 0 and writes the
-              same mechanism listing to stdout. Locked by
-              TestRunCoverageDeprecated_StillWorks.
+              same mechanism listing to stdout. SUPERSEDED 2026-09-08:
+              its test was removed with the behavior it
+              locked; see
+              cli-coverage-command-finalization.
           references_constraints: [C-01]
           priority: critical
         - id: AC-03
@@ -140,8 +166,10 @@ spec:
               containing "v0.2", "mechanisms", and a
               semantic-flip phrase ("change meaning" or
               "repurpose"). The warning MUST NOT contain
-              "removed". Locked by
-              TestRunCoverageDeprecated_EmitsWarning.
+              "removed". SUPERSEDED 2026-09-08:
+              its test was removed with the behavior it
+              locked; see
+              cli-coverage-command-finalization.
           references_constraints: [C-02]
           priority: critical
         - id: AC-04
@@ -157,18 +185,20 @@ spec:
               repurpose warning;
               KENSA_NO_DEPRECATION_WARNINGS=1 does NOT
               silence it (the two knobs are decoupled).
-              Locked by
-              TestRunCoverageDeprecated_EnvSuppresses
-              and
-              TestRunCoverageDeprecated_DeprecationEnvDoesNotSilence.
+              SUPERSEDED 2026-09-08: no repurpose warning
+              exists, so nothing suppresses one. Both tests
+              were removed with the behavior. See
+              cli-coverage-command-finalization AC-06.
           references_constraints: [C-02]
           priority: high
         - id: AC-06
           description: |
               `kensa --help` lists `mechanisms` as
               canonical and `coverage` as (deprecated).
-              Locked by
-              TestPrintUsage_AdvertisesMechanisms.
+              SUPERSEDED 2026-09-08:
+              its test was removed with the behavior it
+              locked; see
+              cli-coverage-command-finalization.
           references_constraints: [C-05]
           priority: medium
         - id: AC-07

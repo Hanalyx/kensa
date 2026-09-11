@@ -29,10 +29,17 @@ spec:
 
             --quiet is registered on subcommands that produce a
             default body (detect, check, remediate, rollback,
-            history, plan). It is NOT registered on `version` or
-            `coverage` because those subcommands exist specifically
-            to emit information the operator asked for; suppressing
-            their output would be surprising.
+            history, plan). It is NOT registered on `version`,
+            because that subcommand exists specifically to emit
+            information the operator asked for; suppressing its
+            output would be surprising.
+
+            Corrected 2026-09-08: this specification also excluded
+            `coverage`. That was an observation of the alias help
+            surface, which listed only the mechanism flags. The
+            coverage report itself has always accepted --quiet, and
+            with the alias gone its help shows the real flag set.
+            See cli-coverage-command-finalization AC-09.
 
     objective:
         summary: |
@@ -88,8 +95,9 @@ spec:
           enforcement: error
         - id: C-05
           description: |
-              --quiet MUST NOT be registered on `version` or
-              `coverage`, nor on the top-level `--version` flag.
+              --quiet MUST NOT be registered on `version`, nor on
+              the top-level `--version` flag. (`coverage` was listed
+              here in error; see the context note.)
               Those surfaces exist specifically to produce output
               the operator explicitly asked for; suppressing them
               is contradictory to the request. The flag's absence
@@ -150,9 +158,9 @@ spec:
         - id: AC-05
           description: |
               `kensa version --help` does NOT mention --quiet or -q.
-              Same for coverage. Verified by
-              TestQuietFlag_NotInVersion and
-              TestQuietFlag_NotInCoverage.
+              Verified by TestQuietFlag_NotInVersion. Coverage DOES
+              advertise --quiet; see
+              cli-coverage-command-finalization AC-09.
           references_constraints: [C-05]
           priority: high
         - id: AC-06

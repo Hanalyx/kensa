@@ -9,11 +9,12 @@
 // auditable proof of "which controls do my rules cover" — input
 // to compliance dashboards without database round-trips.
 //
-// Denominator-based percentage ("212 / 318 = 66.7%") would
-// require an external control catalog (CIS publishes RHEL9
-// benchmarks; NIST 800-53 has a defined set; STIG has STIG-IDs).
-// kensa has no such catalog at v1.0; this package ships
-// numerator-only. JSON shape is forward-compatible: adding
+// Denominator-based percentage ("212 / 318 = 66.7%") requires an external
+// control catalog (CIS publishes RHEL9 benchmarks; NIST 800-53 has a defined
+// set; STIG has STIG-IDs). kensa bundles no catalog for those, so this package
+// ships numerator-only for them. A framework that DOES ship an embedded
+// objective catalog reports a denominator through its own path, not this one;
+// today that is nist_800_171. JSON shape is forward-compatible: adding
 // ControlsTotal later is additive.
 package coverage
 

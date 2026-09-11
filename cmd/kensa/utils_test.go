@@ -240,17 +240,20 @@ func TestSubcommandHelpHitsPrintHelpers(t *testing.T) {
 	}
 }
 
-// ─── runCoverage / runVersion happy-path coverage ────────────────────────
+// ─── runMechanisms / runVersion happy-path coverage ──────────────────────
 
-// `kensa coverage` (no flags) prints the registered handler list. Exercises
-// runCoverage's print path beyond the --help arm.
-func TestRunCoverage_HappyPath(t *testing.T) {
+// `kensa mechanisms` (no flags) prints the registered handler list.
+//
+// This used to invoke `coverage`, which was an alias. It is not one now:
+// coverage without --framework is a usage error, so the mechanism listing is
+// exercised through its only name.
+func TestRunMechanisms_HappyPath(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	if got := runCLI([]string{"coverage"}); got != 0 {
-		t.Errorf("runCLI(coverage) = %d, want 0", got)
+	if got := runCLI([]string{"mechanisms"}); got != 0 {
+		t.Errorf("runCLI(mechanisms) = %d, want 0", got)
 	}
 
 	w.Close()
