@@ -139,16 +139,6 @@ linters:
           - revive
         path: _test\.go
         text: exported
-      # SA5011 (possible nil deref) false-positives in tests: the
-      # `if x == nil { t.Fatal(...) }` guard terminates, but the staticcheck
-      # bundled with golangci-lint v2.12.2 built under go1.26.5 no longer
-      # recognises testing.T.Fatal as no-return, so it flags the subsequent
-      # deref. A real nil deref in a test still panics loudly, so scoping the
-      # suppression to test files keeps production SA5011 enforcement intact.
-      - linters:
-          - staticcheck
-        path: _test\.go
-        text: "SA5011"
       - linters:
           - godot
         path: internal/
