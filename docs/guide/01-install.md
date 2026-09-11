@@ -131,7 +131,7 @@ cron, packages, PAM) works as-is.
 
 ## Build from source
 
-For contributors and for customising the build. Requires Go 1.26.5+ (the
+For contributors and for customising the build. Requires Go 1.26.8+ (the
 version pinned in `go.mod`), GNU make, git:
 
 ```bash

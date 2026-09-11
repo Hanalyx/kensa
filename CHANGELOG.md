@@ -84,6 +84,18 @@ any pair).
   reserved for non-sensitive coordination. The security policy now also reflects
   support for operator-supplied sudo passwords.
 
+- **Go 1.26.8 closes five standard-library vulnerabilities Kensa calls.**
+  `govulncheck` reported the build as affected by GO-2026-6218 (`net/url`),
+  GO-2026-6090 (`crypto/tls`), GO-2026-5026 (`net/http`), GO-2026-6088
+  (`encoding/xml`) and GO-2026-5972 (`encoding/asn1`). Go 1.26.6 shipped the
+  standard-library repairs that clear all five, and Go 1.26.8 carries them
+  along with the later Go 1.26 patch fixes: `net/http` in 1.26.7, and cgo, the
+  compiler, the runtime, `debug/elf` and `os` in 1.26.8. Those later fixes are
+  taken because they come with the release, not because Kensa was shown to
+  exercise them. The `go` directive in `go.mod` now reads 1.26.8, which every
+  CI job and the release build follow, and the scan reports zero called
+  vulnerabilities.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added
