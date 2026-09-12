@@ -1,0 +1,184 @@
+spec:
+    id: system-immutable-action-pins
+    version: 0.1.0
+    status: approved
+    tier: 1
+
+    context:
+        system: kensa
+        feature: immutable-action-pins
+        description: |
+            Every workflow step that runs a third-party action executes code
+            Kensa does not own. Referenced by tag, that code is mutable: the
+            owner, or anyone who takes the account, can move the tag to a
+            different commit and the next run executes something else. The
+            release job runs such actions in the same job that holds the GPG
+            and cosign signing secrets and a contents: write token, so the
+            consequence there is a signed artifact built by code nobody
+            reviewed.
+
+            A full commit SHA is the only immutable way to name an action.
+            This spec fixes the exact SHA for each action Kensa uses, keeps
+            the release tag beside it as a readable comment, and requires the
+            reference counts to match so a new unpinned action cannot be added
+            unnoticed.
+
+    objective:
+        summary: |
+            Every external action reference is pinned to a full 40-character
+            commit SHA carrying its release tag as a same-line comment.
+        scope:
+            includes:
+                - .github/workflows/ci.yml
+                - .github/workflows/release.yml
+                - The approved SHA and tag for each action
+                - The expected count of references per action
+            excludes:
+                - Local actions (./...), which are repository-owned
+                - Action inputs, triggers, permissions and job conditions
+                - Repository-level SHA-pinning policy settings
+                - Checkout credential persistence
+
+    constraints:
+        - id: C-01
+          description: |
+              Every external action reference MUST use a full 40-character
+              lowercase hexadecimal commit SHA. A tag, branch, short SHA or
+              docker:// reference is a violation.
+
+              A local reference of the form ./path is exempt from pinning,
+              because the action is repository-owned and moves only through a
+              reviewed commit. The exemption covers the reference itself and
+              nothing else: an external action called from inside a local
+              composite action is still third-party code and is governed by
+              this constraint. GitHub allows a local action to live in any
+              directory of the checked-out repository, so the rule follows the
+              path wherever it points rather than assuming .github/actions.
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Each pinned reference MUST carry its release tag in a same-line
+              comment. The comment is what makes the pin readable, and it is
+              the form Dependabot rewrites when it bumps a pin, so omitting it
+              would leave the pins unmaintainable.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              The SHA and tag MUST equal the approved mapping in this spec.
+              Verification against upstream is a documented two-source review
+              step performed when a pin changes; the committed gate is offline
+              and compares against this mapping so CI never depends on network
+              reachability.
+          type: security
+          enforcement: error
+        - id: C-04
+          description: |
+              The number of references per action MUST equal the counts in
+              this spec, so an added external action fails the gate until it
+              is pinned and the count is updated deliberately.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              Pinning MUST NOT change any workflow trigger, permissions block,
+              job condition, job name, action input, or required-check name.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Discovery MUST follow the execution graph rather than a fixed
+              list of paths. Workflow definitions are the only entry points,
+              and every ./path reference encountered is resolved to its
+              action.yml or action.yaml and scanned in turn, recursively, with
+              a visited set to bound cycles.
+
+              An action definition that nothing references is not governed,
+              because nothing executes it. That holds wherever it sits,
+              including under .github/actions: seeding any directory directly
+              would govern unreferenced actions there and not elsewhere. It
+              comes under the rule as soon as something calls it.
+
+              A local reference that resolves to no action definition is a
+              violation, and so is one that leaves the workspace. GitHub
+              defines a local path relative to the checked-out repository, so
+              a reference such as ./../x MUST be rejected lexically, before any
+              filesystem call, and a path whose resolved target lies outside
+              the repository MUST be rejected before the file is read.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: |
+              Every external action in both workflows is pinned to its
+              approved 40-character SHA with its approved release tag in a
+              same-line comment, at the approved reference count. Local
+              actions are exempt. A restored tag, a shortened SHA, a
+              mismatched comment, or a newly added unpinned action fails.
+          inputs:
+              workflows:
+                  - .github/workflows/ci.yml
+                  - .github/workflows/release.yml
+              approved_pins:
+                  actions/checkout:
+                      sha: 3d3c42e5aac5ba805825da76410c181273ba90b1  # pragma: allowlist secret
+                      tag: v7.0.1
+                      count: 17
+                  actions/setup-go:
+                      sha: 924ae3a1cded613372ab5595356fb5720e22ba16  # pragma: allowlist secret
+                      tag: v6.5.0
+                      count: 14
+                  actions/setup-python:
+                      sha: ece7cb06caefa5fff74198d8649806c4678c61a1  # pragma: allowlist secret
+                      tag: v6.3.0
+                      count: 1
+                  actions/upload-artifact:
+                      sha: 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # pragma: allowlist secret
+                      tag: v7.0.1
+                      count: 2
+                  golangci/golangci-lint-action:
+                      sha: ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a  # pragma: allowlist secret
+                      tag: v9.3.0
+                      count: 1
+                  sigstore/cosign-installer:
+                      sha: 398d4b0eeef1380460a10c8013a76f728fb906ac  # pragma: allowlist secret
+                      tag: v3.9.1
+                      count: 1
+              total_external_references: 36
+              exempt: the ./ reference itself, not the external actions inside it
+              mutations:
+                  restored_tag: a reference reverted to actions/checkout@v7
+                  shortened_sha: a 12-character SHA in place of the full one
+                  mismatched_comment: approved SHA with the wrong release tag
+                  unpinned_addition: a new external action reference with no SHA
+                  docker_reference: a reference using the docker protocol prefix
+                  composite_outside_github: a referenced composite action under tools/ that calls an external action by tag
+                  dangling_local_reference: a ./ reference resolving to no action definition
+                  unreferenced_under_github_actions: an action under .github/actions that nothing calls
+                  escaping_reference: a ./../ reference pointing outside the repository
+                  symlink_escape: a local action whose definition is a symlink to a file outside the repository
+          expected_output:
+              every_external_reference:
+                  sha_length: 40
+                  sha_charset: lowercase hexadecimal
+                  comment: the approved release tag, same line
+              per_action_counts: exactly as approved_pins
+              total_external_references: 36
+              local_reference: exempt from pinning
+              external_actions_inside_local_actions: governed
+              unreferenced_action_definitions: not governed until referenced, wherever they sit
+              escaping_references: rejected before any file outside the repository is read
+              unchanged:
+                  - triggers
+                  - permissions
+                  - job conditions
+                  - job names
+                  - action inputs
+                  - required-check names
+              every_mutation: gate fails
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
+          priority: critical
+          approval_gate: true
+          approval_date: "2026-09-12"

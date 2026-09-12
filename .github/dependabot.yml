@@ -30,11 +30,22 @@ updates:
           - minor
           - patch
 
-  # GitHub Actions — actions/checkout, actions/setup-go, golangci/golangci-lint-action,
-  # sigstore/cosign-installer, etc. The Node.js 20 deprecation warning we
-  # already see in CI logs (actions/checkout@v4 + actions/setup-go@v5 ship
-  # Node.js 20 wrappers) is exactly the kind of thing Dependabot would
-  # surface a fix PR for.
+  # GitHub Actions — actions/checkout, actions/setup-go, actions/setup-python,
+  # actions/upload-artifact, golangci/golangci-lint-action and
+  # sigstore/cosign-installer.
+  #
+  # Every one of those is pinned to a full commit SHA with the release tag in
+  # a same-line comment. Dependabot maintains that form: it bumps the SHA and
+  # rewrites the comment, so the pins do not go stale.
+  #
+  # The trade-off is accepted deliberately. GitHub does not raise Dependabot
+  # security alerts for actions pinned to a SHA, only for ones using semantic
+  # versioning, so a published advisory against one of these actions will not
+  # open an alert here. Version-update pull requests still arrive weekly, and
+  # whoever bumps a pin reviews upstream advisories for that action at the
+  # same time. A full SHA is the only immutable way to reference an action,
+  # and the release job runs third-party actions beside the signing secrets,
+  # so immutability is worth more here than the alert.
   - package-ecosystem: github-actions
     directory: /
     schedule:
