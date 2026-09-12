@@ -106,8 +106,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Install Specter
@@ -210,7 +210,7 @@ jobs:
       - name: specter resolve --mermaid
         run: specter resolve --mermaid > spec-graph.mmd
       - name: Upload spec graph
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: spec-graph
           path: spec-graph.mmd
@@ -236,8 +236,8 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     needs: [spec-sync, unit]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Install Specter
@@ -312,7 +312,7 @@ jobs:
         run: make spec-coverage-strict
       - name: Upload .specter-results.json on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: specter-results
           path: .specter-results.json
@@ -329,8 +329,8 @@ jobs:
     # pair that catches that, so the push run keeps them and drops the rest.
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       # protoc + protoc-gen-go installed BEFORE `go test ./...` so
@@ -370,11 +370,11 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v9
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         # GOTOOLCHAIN=local forces `goinstall` to build the linter with the
         # setup-go toolchain above (the go.mod `go` version) instead of letting
         # Go auto-switch DOWN to golangci-lint's own go.mod toolchain. Without
@@ -413,10 +413,10 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Ensure base ref is present
@@ -437,7 +437,7 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: docs-check
         run: make docs-check
 
@@ -455,7 +455,7 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: doc-style selftest
@@ -482,8 +482,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
       - name: Install pre-commit
@@ -513,8 +513,8 @@ jobs:
     # pair that catches that, so the push run keeps them and drops the rest.
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Build all binaries
@@ -566,8 +566,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Build static binary
@@ -606,8 +606,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Build all binaries
@@ -632,8 +632,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Build static binary
@@ -665,10 +665,10 @@ jobs:
     # On a clock, not on our diff. See the `schedule` trigger above.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # goreleaser needs full history for version templating
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Install goreleaser
@@ -796,8 +796,8 @@ jobs:
     # On a clock, not on our diff. See the `schedule` trigger above.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: govulncheck
@@ -821,8 +821,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: go mod tidy + diff
@@ -844,8 +844,8 @@ jobs:
     # post-merge push, which would re-test an identical tree.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: make catalog-check

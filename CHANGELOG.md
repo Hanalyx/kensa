@@ -118,6 +118,19 @@ any pair).
   the pin both before and after installation. Download, digest, content and
   version failures are all fatal, with no fallback.
 
+- **Every third-party action is pinned to a commit SHA.** All 36 external
+  action references in the two workflows used moving tags, so the owner of any
+  of those repositories, or anyone who took the account, could move a tag and
+  have the next run execute different code. The release job runs two of them
+  beside the GPG and cosign signing secrets. Each reference now names a full
+  40-character commit SHA with its release tag in a same-line comment, which
+  is both the readable form and the form Dependabot rewrites when it bumps a
+  pin. One trade-off is accepted deliberately: GitHub raises Dependabot
+  security alerts only for actions referenced by semantic version, so an
+  advisory against a pinned action will no longer open an alert here. Weekly
+  version-update pull requests still arrive, and whoever bumps a pin reviews
+  upstream advisories for that action at the same time.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added
