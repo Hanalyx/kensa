@@ -1,10 +1,13 @@
 package supplychain
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Third-party actions run code Kensa does not own, and a tag is mutable: the
@@ -40,9 +43,45 @@ var approvedPins = map[string]actionPin{
 
 const totalExternalRefs = 36
 
-var pinnedWorkflows = []string{
-	".github/workflows/ci.yml",
-	".github/workflows/release.yml",
+// discoverWorkflowFiles finds every workflow and every local composite
+// action definition under .github, rather than naming files. A hard-coded
+// list silently exempts anything added later: a new workflow carrying an
+// unpinned action would never be looked at.
+func discoverWorkflowFiles(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot(t)
+	var out []string
+	for _, dir := range []string{
+		filepath.Join(root, ".github", "workflows"),
+		filepath.Join(root, ".github", "actions"),
+	} {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil // .github/actions need not exist
+				}
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
+				rel, rerr := filepath.Rel(root, path)
+				if rerr != nil {
+					return rerr
+				}
+				out = append(out, rel)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walking %s: %v", dir, err)
+		}
+	}
+	if len(out) == 0 {
+		t.Fatal("discovered no workflow files; the walk is broken")
+	}
+	return out
 }
 
 // usesLine captures the reference and any trailing comment on the same line.
@@ -57,7 +96,7 @@ type reference struct {
 func collectReferences(t *testing.T) []reference {
 	t.Helper()
 	var refs []reference
-	for _, wf := range pinnedWorkflows {
+	for _, wf := range discoverWorkflowFiles(t) {
 		body := readRepoFile(t, wf)
 		for _, m := range usesLine.FindAllStringSubmatch(body, -1) {
 			refs = append(refs, reference{file: wf, raw: m[1], comment: strings.TrimSpace(m[2])})
@@ -160,8 +199,13 @@ func TestActionPins_NoMutableReferenceForms(t *testing.T) {
 	}
 }
 
-// TestActionPins_SpecMatchesTest keeps the committed mapping and the approved
-// spec from drifting apart: a pin bumped in one place only must fail.
+// TestActionPins_SpecMatchesTest deep-compares the committed mapping against
+// the approved spec, entry by entry.
+//
+// Searching the spec text for each value separately is not enough: every value
+// would still be "present" after two actions had their SHA, tag and count
+// blocks swapped with each other, because nothing ties a value to the action
+// it belongs to. The spec is therefore parsed and compared as a structure.
 //
 // @spec system-immutable-action-pins
 // @ac AC-01
@@ -169,20 +213,77 @@ func TestActionPins_SpecMatchesTest(t *testing.T) {
 	t.Log("// @spec system-immutable-action-pins")
 	t.Log("// @ac AC-01")
 
-	spec := readRepoFile(t, "specs/system/immutable-action-pins.spec.yaml")
-	for action, want := range approvedPins {
-		for _, fragment := range []string{action + ":", "sha: " + want.sha, "tag: " + want.tag} {
-			if !strings.Contains(spec, fragment) {
-				t.Errorf("spec does not carry %q for %s", fragment, action)
-			}
+	var doc struct {
+		Spec struct {
+			AcceptanceCriteria []struct {
+				ID     string `yaml:"id"`
+				Inputs struct {
+					ApprovedPins map[string]struct {
+						SHA   string `yaml:"sha"`
+						Tag   string `yaml:"tag"`
+						Count int    `yaml:"count"`
+					} `yaml:"approved_pins"`
+					TotalExternalReferences int `yaml:"total_external_references"`
+				} `yaml:"inputs"`
+			} `yaml:"acceptance_criteria"`
+		} `yaml:"spec"`
+	}
+	raw := readRepoFile(t, "specs/system/immutable-action-pins.spec.yaml")
+	if err := yaml.Unmarshal([]byte(raw), &doc); err != nil {
+		t.Fatalf("parsing the pin spec: %v", err)
+	}
+
+	var pins map[string]struct {
+		SHA   string `yaml:"sha"`
+		Tag   string `yaml:"tag"`
+		Count int    `yaml:"count"`
+	}
+	total := 0
+	for _, ac := range doc.Spec.AcceptanceCriteria {
+		if ac.ID == "AC-01" {
+			pins = ac.Inputs.ApprovedPins
+			total = ac.Inputs.TotalExternalReferences
 		}
 	}
-	if !strings.Contains(spec, fmt.Sprintf("total_external_references: %d", totalExternalRefs)) {
-		t.Errorf("spec does not declare total_external_references: %d", totalExternalRefs)
+	if pins == nil {
+		t.Fatal("spec AC-01 declares no approved_pins")
 	}
+
+	if len(pins) != len(approvedPins) {
+		t.Errorf("spec approves %d actions, the test holds %d", len(pins), len(approvedPins))
+	}
+	// Every action in the test must match its OWN entry in the spec.
 	for action, want := range approvedPins {
-		if !strings.Contains(spec, fmt.Sprintf("count: %d", want.count)) {
-			t.Errorf("spec does not declare count %d for %s", want.count, action)
+		got, ok := pins[action]
+		if !ok {
+			t.Errorf("spec has no entry for %s", action)
+			continue
 		}
+		if got.SHA != want.sha {
+			t.Errorf("%s: spec sha %s, test sha %s", action, got.SHA, want.sha)
+		}
+		if got.Tag != want.tag {
+			t.Errorf("%s: spec tag %s, test tag %s", action, got.Tag, want.tag)
+		}
+		if got.Count != want.count {
+			t.Errorf("%s: spec count %d, test count %d", action, got.Count, want.count)
+		}
+	}
+	// And nothing extra may live in the spec.
+	for action := range pins {
+		if _, ok := approvedPins[action]; !ok {
+			t.Errorf("spec approves %s, which the test does not hold", action)
+		}
+	}
+
+	if total != totalExternalRefs {
+		t.Errorf("spec total_external_references is %d, test holds %d", total, totalExternalRefs)
+	}
+	sum := 0
+	for _, p := range pins {
+		sum += p.Count
+	}
+	if sum != total {
+		t.Errorf("spec per-action counts sum to %d but total_external_references is %d", sum, total)
 	}
 }
