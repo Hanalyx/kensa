@@ -180,3 +180,5 @@ spec:
               every_mutation: gate fails
           references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
           priority: critical
+          approval_gate: true
+          approval_date: "2026-09-12"
