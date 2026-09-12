@@ -93,10 +93,20 @@ jobs:
 
       # syft generates the CycloneDX SBOM via goreleaser's sboms block.
       # Pinned to match the version verified locally so the release SBOM
-      # is reproducible. Installed to /usr/local/bin (on PATH for
-      # goreleaser's sbom cmd).
+      # is reproducible.
       - name: Install syft
-        run: sudo --preserve-env=SYFT_VERSION,SYFT_SHA256 ./scripts/install-syft.sh /usr/local/bin
+        # Shared with the CI snapshot job through scripts/install-syft.sh, which
+        # verifies the pinned digest before extraction and the reported
+        # version before use. One script so the two cannot drift apart.
+        #
+        # Unprivileged on purpose: the archive is third-party, so nothing in
+        # it is unpacked or executed as root. It lands in a directory under
+        # RUNNER_TEMP that is added to PATH for the later goreleaser steps.
+        run: |
+          syft_dir="$RUNNER_TEMP/syft-bin"
+          mkdir -p "$syft_dir"
+          ./scripts/install-syft.sh "$syft_dir"
+          echo "$syft_dir" >> "$GITHUB_PATH"
 
       # nfpm signs rpm + deb at package-build time by reading the GPG key
       # from a file path (signature.key_file in .goreleaser.yaml). We

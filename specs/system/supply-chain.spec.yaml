@@ -147,10 +147,14 @@ spec:
           references_constraints: [C-06]
           priority: high
         - id: AC-07
+          # This spec is status: draft, so AC-07 is draft evidence rather than
+          # an approved contract. Promoting it, or splitting the syft-integrity
+          # guarantee into its own approved spec, is a separate founder call.
           description: |
               scripts/install-syft.sh is the only syft install path in the
               repository, and it fails closed on every corruption of its
-              inputs. No workflow pipes a downloaded script into a shell.
+              inputs. No workflow pipes a downloaded script into a shell, and
+              no workflow runs the installer as root.
           inputs:
               installer: scripts/install-syft.sh
               pinned:

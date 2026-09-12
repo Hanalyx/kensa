@@ -262,6 +262,20 @@ func TestSupplyChain_SyftInstallerPinned(t *testing.T) {
 		} else {
 			callSites++
 		}
+		// The installer must not be run as root. The archive is third-party,
+		// so unpacking and executing it under sudo would run those bytes with
+		// privilege for no benefit, and would tie CI to passwordless sudo.
+		for _, line := range strings.Split(body, "\n") {
+			if strings.Contains(line, "install-syft.sh") && strings.Contains(line, "sudo") {
+				t.Errorf("%s runs the syft installer under sudo: %s", wf, strings.TrimSpace(line))
+			}
+		}
+		// It installs under RUNNER_TEMP and joins PATH via GITHUB_PATH.
+		for _, key := range []string{"RUNNER_TEMP", "GITHUB_PATH"} {
+			if !strings.Contains(body, key) {
+				t.Errorf("%s does not use %s for the syft install dir", wf, key)
+			}
+		}
 		// Each workflow must carry both pins, so the script cannot run unpinned.
 		for _, key := range []string{"SYFT_VERSION:", "SYFT_SHA256:"} {
 			if !strings.Contains(body, key) {
