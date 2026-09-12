@@ -33,6 +33,11 @@ env:
   NFPM_VERSION: 'v2.41.0'
   COSIGN_VERSION: 'v2.4.1'
   SYFT_VERSION: 'v1.46.0'
+  # SHA-256 of syft_1.46.0_linux_amd64.tar.gz, from the published checksums
+  # file and confirmed by hashing the downloaded archive. Verified before
+  # extraction by scripts/install-syft.sh.
+  # Not a secret: a published release digest, which is meant to be public.
+  SYFT_SHA256: 'd654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca'  # pragma: allowlist secret
 
 jobs:
   release:
@@ -88,13 +93,20 @@ jobs:
 
       # syft generates the CycloneDX SBOM via goreleaser's sboms block.
       # Pinned to match the version verified locally so the release SBOM
-      # is reproducible. Installed to /usr/local/bin (on PATH for
-      # goreleaser's sbom cmd).
+      # is reproducible.
       - name: Install syft
+        # Shared with the CI snapshot job through scripts/install-syft.sh, which
+        # verifies the pinned digest before extraction and the reported
+        # version before use. One script so the two cannot drift apart.
+        #
+        # Unprivileged on purpose: the archive is third-party, so nothing in
+        # it is unpacked or executed as root. It lands in a directory under
+        # RUNNER_TEMP that is added to PATH for the later goreleaser steps.
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
-          syft version
+          syft_dir="$RUNNER_TEMP/syft-bin"
+          mkdir -p "$syft_dir"
+          ./scripts/install-syft.sh "$syft_dir"
+          echo "$syft_dir" >> "$GITHUB_PATH"
 
       # nfpm signs rpm + deb at package-build time by reading the GPG key
       # from a file path (signature.key_file in .goreleaser.yaml). We

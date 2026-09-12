@@ -82,6 +82,14 @@ env:
   # pair fails closed rather than installing something unverified.
   # Not a secret: a published release digest, which is meant to be public.
   SPECTER_SHA256: 'af4e7129158b1ab9de61ed1f4fceec26bfeca8b636cdcca0195f8f7c51faa0ac'  # pragma: allowlist secret
+  # syft builds the SBOM in the release-snapshot job. Kept in lockstep with
+  # SYFT_VERSION in .github/workflows/release.yml so the snapshot exercises the
+  # same generator the release uses; scripts/install-syft.sh verifies both.
+  SYFT_VERSION: 'v1.46.0'
+  # SHA-256 of syft_1.46.0_linux_amd64.tar.gz, from the published checksums
+  # file and confirmed by hashing the downloaded archive.
+  # Not a secret: a published release digest, which is meant to be public.
+  SYFT_SHA256: 'd654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca'  # pragma: allowlist secret
 
 jobs:
   spec-sync:
@@ -673,13 +681,18 @@ jobs:
           go install github.com/goreleaser/goreleaser/v2@v2.15.4
           goreleaser --version
       - name: Install syft
-        # syft backs goreleaser's sboms block. Keep pinned in lockstep
-        # with SYFT_VERSION in .github/workflows/release.yml so the
-        # snapshot exercises the same SBOM generator the release uses.
+        # Shared with the release job through scripts/install-syft.sh, which
+        # verifies the pinned digest before extraction and the reported
+        # version before use. One script so the two cannot drift apart.
+        #
+        # Unprivileged on purpose: the archive is third-party, so nothing in
+        # it is unpacked or executed as root. It lands in a directory under
+        # RUNNER_TEMP that is added to PATH for the later goreleaser steps.
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-            | sh -s -- -b /usr/local/bin v1.46.0
-          syft version
+          syft_dir="$RUNNER_TEMP/syft-bin"
+          mkdir -p "$syft_dir"
+          ./scripts/install-syft.sh "$syft_dir"
+          echo "$syft_dir" >> "$GITHUB_PATH"
       - name: goreleaser check
         run: goreleaser check
       - name: goreleaser release --snapshot --skip=publish,sign

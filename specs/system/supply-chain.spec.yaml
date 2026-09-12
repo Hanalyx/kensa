@@ -97,6 +97,16 @@ spec:
               cosign signature over the checksums anchors it transitively.
           type: security
           enforcement: error
+        - id: C-07
+          description: |
+              The SBOM generator MUST be installed from a pinned release
+              archive whose SHA-256 is verified before extraction, and whose
+              reported version is verified before it is placed on PATH. Both
+              workflows MUST use one repository-owned installer so they cannot
+              drift. Download, digest, archive-content and version failures
+              are all fatal, and there is no fallback path.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -136,3 +146,39 @@ spec:
               checksums file.
           references_constraints: [C-06]
           priority: high
+        - id: AC-07
+          # This spec is status: draft, so AC-07 is draft evidence rather than
+          # an approved contract. Promoting it, or splitting the syft-integrity
+          # guarantee into its own approved spec, is a separate founder call.
+          description: |
+              scripts/install-syft.sh is the only syft install path in the
+              repository, and it fails closed on every corruption of its
+              inputs. No workflow pipes a downloaded script into a shell, and
+              no workflow runs the installer as root.
+          inputs:
+              installer: scripts/install-syft.sh
+              pinned:
+                  SYFT_VERSION: v1.46.0
+                  # Not a secret: a published release digest.
+                  SYFT_SHA256: d654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca  # pragma: allowlist secret
+              cases:
+                  good: pinned version with the matching digest
+                  digest_mismatch: one hex digit of SYFT_SHA256 changed
+                  download_failure: a version tag that does not exist upstream
+                  archive_without_binary: archive carrying no syft at its root
+                  version_mismatch: archive whose syft reports 1.45.9
+                  missing_env: SYFT_VERSION or SYFT_SHA256 unset
+          expected_output:
+              good:
+                  exit_code: 0
+                  installed_version: syft 1.46.0
+              every_failure_case:
+                  exit_code: 1
+                  binary_on_path: absent
+                  fallback_used: never
+              workflow_call_sites:
+                  count: 2
+                  command: scripts/install-syft.sh
+              curl_piped_to_shell: forbidden
+          references_constraints: [C-07]
+          priority: critical

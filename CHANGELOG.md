@@ -107,6 +107,17 @@ any pair).
   `contents: write` is required to publish a release and was already the only
   scope it asked for.
 
+- **The SBOM generator is installed from a pinned, verified archive.** Both the
+  CI snapshot job and the release job piped an installer script straight from
+  the `anchore/syft` `main` branch into a shell, so the bytes they executed
+  were unpinned and unchecked. In the release job that ran beside the GPG and
+  cosign signing secrets, and the SBOM it produces is anchored in the signed
+  checksums file. Both call sites now run `scripts/install-syft.sh`, which
+  verifies the archive against a pinned SHA-256 before extraction, requires a
+  `syft` binary at the archive root, and requires the reported version to match
+  the pin both before and after installation. Download, digest, content and
+  version failures are all fatal, with no fallback.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added
