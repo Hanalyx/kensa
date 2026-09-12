@@ -43,22 +43,46 @@ var approvedPins = map[string]actionPin{
 
 const totalExternalRefs = 36
 
-// discoverWorkflowFiles finds every workflow and every local composite
-// action definition under .github, rather than naming files. A hard-coded
-// list silently exempts anything added later: a new workflow carrying an
-// unpinned action would never be looked at.
-func discoverWorkflowFiles(t *testing.T) []string {
+// usesLine captures a uses: reference and any trailing comment on the same
+// line. It is applied to workflow definitions and to composite action
+// definitions alike, since both carry uses: entries.
+var usesLine = regexp.MustCompile(`(?m)^\s*-?\s*uses:\s*(\S+)\s*(#.*)?$`)
+
+// localActionFile resolves a "./path/to/action" reference to the action
+// definition inside the repository. GitHub allows a local action to live in any
+// directory of the checked-out repository, not only under .github/actions, so
+// the path is honored wherever it points.
+func localActionFile(t *testing.T, ref string) (string, bool) {
 	t.Helper()
 	root := repoRoot(t)
-	var out []string
-	for _, dir := range []string{
-		filepath.Join(root, ".github", "workflows"),
-		filepath.Join(root, ".github", "actions"),
-	} {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	dir := filepath.Clean(strings.TrimPrefix(ref, "./"))
+	for _, name := range []string{"action.yml", "action.yaml"} {
+		candidate := filepath.Join(dir, name)
+		if _, err := os.Stat(filepath.Join(root, candidate)); err == nil {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+// discoverActionFiles returns every file whose action references are governed.
+//
+// It seeds with all workflow definitions, then follows local "./..." references
+// transitively into the composite actions they name and scans those too. A
+// local reference is repository-owned and exempt from pinning, but an external
+// action called from inside one is still third-party code and is held to the
+// same rule, so stopping at the workflow layer would leave a bypass. Composite
+// actions may reference each other, so a visited set bounds the walk.
+func discoverActionFiles(t *testing.T) []string {
+	t.Helper()
+	root := repoRoot(t)
+
+	var queue []string
+	seed := func(dir string) {
+		err := filepath.Walk(filepath.Join(root, dir), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				if os.IsNotExist(err) {
-					return nil // .github/actions need not exist
+					return nil
 				}
 				return err
 			}
@@ -70,7 +94,7 @@ func discoverWorkflowFiles(t *testing.T) []string {
 				if rerr != nil {
 					return rerr
 				}
-				out = append(out, rel)
+				queue = append(queue, rel)
 			}
 			return nil
 		})
@@ -78,14 +102,46 @@ func discoverWorkflowFiles(t *testing.T) []string {
 			t.Fatalf("walking %s: %v", dir, err)
 		}
 	}
-	if len(out) == 0 {
-		t.Fatal("discovered no workflow files; the walk is broken")
-	}
-	return out
-}
+	// Workflows are the entry points; .github/actions is seeded as well so a
+	// composite action there is covered even before anything references it.
+	seed(filepath.Join(".github", "workflows"))
+	seed(filepath.Join(".github", "actions"))
 
-// usesLine captures the reference and any trailing comment on the same line.
-var usesLine = regexp.MustCompile(`(?m)^\s*-?\s*uses:\s*(\S+)\s*(#.*)?$`)
+	visited := map[string]bool{}
+	var files []string
+	for len(queue) > 0 {
+		f := queue[0]
+		queue = queue[1:]
+		if visited[f] {
+			continue
+		}
+		visited[f] = true
+		files = append(files, f)
+
+		body, err := os.ReadFile(filepath.Join(root, f))
+		if err != nil {
+			t.Fatalf("reading %s: %v", f, err)
+		}
+		for _, m := range usesLine.FindAllStringSubmatch(string(body), -1) {
+			ref := m[1]
+			if !strings.HasPrefix(ref, "./") {
+				continue
+			}
+			target, ok := localActionFile(t, ref)
+			if !ok {
+				t.Errorf("%s references local action %q, but no action.yml or action.yaml exists there", f, ref)
+				continue
+			}
+			if !visited[target] {
+				queue = append(queue, target)
+			}
+		}
+	}
+	if len(files) == 0 {
+		t.Fatal("discovered no action-bearing files; the walk is broken")
+	}
+	return files
+}
 
 type reference struct {
 	file    string
@@ -96,7 +152,7 @@ type reference struct {
 func collectReferences(t *testing.T) []reference {
 	t.Helper()
 	var refs []reference
-	for _, wf := range discoverWorkflowFiles(t) {
+	for _, wf := range discoverActionFiles(t) {
 		body := readRepoFile(t, wf)
 		for _, m := range usesLine.FindAllStringSubmatch(body, -1) {
 			refs = append(refs, reference{file: wf, raw: m[1], comment: strings.TrimSpace(m[2])})

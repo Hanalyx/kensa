@@ -45,6 +45,15 @@ spec:
               Every external action reference MUST use a full 40-character
               lowercase hexadecimal commit SHA. A tag, branch, short SHA or
               docker:// reference is a violation.
+
+              A local reference of the form ./path is exempt from pinning,
+              because the action is repository-owned and moves only through a
+              reviewed commit. The exemption covers the reference itself and
+              nothing else: an external action called from inside a local
+              composite action is still third-party code and is governed by
+              this constraint. GitHub allows a local action to live in any
+              directory of the checked-out repository, so the rule follows the
+              path wherever it points rather than assuming .github/actions.
           type: security
           enforcement: error
         - id: C-02
@@ -76,6 +85,18 @@ spec:
               Pinning MUST NOT change any workflow trigger, permissions block,
               job condition, job name, action input, or required-check name.
           type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Discovery MUST follow the execution graph rather than a fixed
+              list of paths. Every workflow definition is an entry point, and
+              every ./path reference encountered is resolved to its action.yml
+              or action.yaml and scanned in turn, recursively, with a visited
+              set to bound cycles. A local reference that resolves to no action
+              definition is a violation. An action definition that nothing
+              references is not governed, because nothing executes it; it comes
+              under the rule as soon as something calls it.
+          type: security
           enforcement: error
 
     acceptance_criteria:
@@ -116,13 +137,15 @@ spec:
                       tag: v3.9.1
                       count: 1
               total_external_references: 36
-              exempt: local actions beginning with ./
+              exempt: the ./ reference itself, not the external actions inside it
               mutations:
                   restored_tag: a reference reverted to actions/checkout@v7
                   shortened_sha: a 12-character SHA in place of the full one
                   mismatched_comment: approved SHA with the wrong release tag
                   unpinned_addition: a new external action reference with no SHA
                   docker_reference: a reference using the docker protocol prefix
+                  composite_outside_github: a referenced composite action under tools/ that calls an external action by tag
+                  dangling_local_reference: a ./ reference resolving to no action definition
           expected_output:
               every_external_reference:
                   sha_length: 40
@@ -130,7 +153,9 @@ spec:
                   comment: the approved release tag, same line
               per_action_counts: exactly as approved_pins
               total_external_references: 36
-              local_actions: exempt
+              local_reference: exempt from pinning
+              external_actions_inside_local_actions: governed
+              unreferenced_action_definitions: not governed until referenced
               unchanged:
                   - triggers
                   - permissions
@@ -139,5 +164,5 @@ spec:
                   - action inputs
                   - required-check names
               every_mutation: gate fails
-          references_constraints: [C-01, C-02, C-03, C-04, C-05]
+          references_constraints: [C-01, C-02, C-03, C-04, C-05, C-06]
           priority: critical
