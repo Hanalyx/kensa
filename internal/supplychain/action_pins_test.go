@@ -1,6 +1,7 @@
 package supplychain
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -50,62 +51,88 @@ var usesLine = regexp.MustCompile(`(?m)^\s*-?\s*uses:\s*(\S+)\s*(#.*)?$`)
 
 // localActionFile resolves a "./path/to/action" reference to the action
 // definition inside the repository. GitHub allows a local action to live in any
-// directory of the checked-out repository, not only under .github/actions, so
-// the path is honored wherever it points.
-func localActionFile(t *testing.T, ref string) (string, bool) {
+// directory of the checked-out repository, so the path is honored wherever it
+// points, but it is defined relative to the workspace and may not leave it.
+//
+// Containment is checked twice, and the lexical check runs before any
+// filesystem call so a reference such as ./../../etc never causes a file
+// outside the checkout to be stat'd or read. The second check resolves
+// symlinks, because a link inside the repository can still point out of it.
+func localActionFile(t *testing.T, ref string) (string, error) {
 	t.Helper()
 	root := repoRoot(t)
-	dir := filepath.Clean(strings.TrimPrefix(ref, "./"))
-	for _, name := range []string{"action.yml", "action.yaml"} {
-		candidate := filepath.Join(dir, name)
-		if _, err := os.Stat(filepath.Join(root, candidate)); err == nil {
-			return candidate, true
-		}
+
+	rel := strings.TrimPrefix(ref, "./")
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("local reference %q is absolute; it must be relative to the workspace", ref)
 	}
-	return "", false
+	clean := filepath.Clean(rel)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("local reference %q escapes the repository", ref)
+	}
+
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolving repository root: %w", err)
+	}
+	for _, name := range []string{"action.yml", "action.yaml"} {
+		candidate := filepath.Join(clean, name)
+		abs := filepath.Join(root, candidate)
+		if _, statErr := os.Stat(abs); statErr != nil {
+			continue
+		}
+		// The file exists; make sure what it resolves to is still inside the
+		// repository before anything reads it.
+		real, evalErr := filepath.EvalSymlinks(abs)
+		if evalErr != nil {
+			return "", fmt.Errorf("resolving %q: %w", candidate, evalErr)
+		}
+		within, relErr := filepath.Rel(realRoot, real)
+		if relErr != nil || within == ".." || strings.HasPrefix(within, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("local reference %q resolves outside the repository", ref)
+		}
+		return candidate, nil
+	}
+	return "", fmt.Errorf("local reference %q names no action.yml or action.yaml", ref)
 }
 
 // discoverActionFiles returns every file whose action references are governed.
 //
-// It seeds with all workflow definitions, then follows local "./..." references
-// transitively into the composite actions they name and scans those too. A
-// local reference is repository-owned and exempt from pinning, but an external
-// action called from inside one is still third-party code and is held to the
-// same rule, so stopping at the workflow layer would leave a bypass. Composite
-// actions may reference each other, so a visited set bounds the walk.
+// Workflow definitions are the only entry points. Everything else is reached by
+// following a local "./..." reference, which is what makes governance track the
+// execution graph: an action definition that nothing calls executes nothing and
+// is not governed, wherever it sits, including under .github/actions. Seeding
+// that directory directly would govern unreferenced actions there and not
+// elsewhere, which is a rule the contract does not state.
+//
+// A local reference is exempt from pinning because the action is
+// repository-owned, but an external action called from inside one is still
+// third-party code, so the walk descends into it. Composite actions may
+// reference each other, so a visited set bounds the walk.
 func discoverActionFiles(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot(t)
 
 	var queue []string
-	seed := func(dir string) {
-		err := filepath.Walk(filepath.Join(root, dir), func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
-				rel, rerr := filepath.Rel(root, path)
-				if rerr != nil {
-					return rerr
-				}
-				queue = append(queue, rel)
-			}
-			return nil
-		})
+	err := filepath.Walk(filepath.Join(root, ".github", "workflows"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			t.Fatalf("walking %s: %v", dir, err)
+			return err
 		}
+		if info.IsDir() {
+			return nil
+		}
+		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" {
+			rel, rerr := filepath.Rel(root, path)
+			if rerr != nil {
+				return rerr
+			}
+			queue = append(queue, rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking .github/workflows: %v", err)
 	}
-	// Workflows are the entry points; .github/actions is seeded as well so a
-	// composite action there is covered even before anything references it.
-	seed(filepath.Join(".github", "workflows"))
-	seed(filepath.Join(".github", "actions"))
 
 	visited := map[string]bool{}
 	var files []string
@@ -118,18 +145,18 @@ func discoverActionFiles(t *testing.T) []string {
 		visited[f] = true
 		files = append(files, f)
 
-		body, err := os.ReadFile(filepath.Join(root, f))
-		if err != nil {
-			t.Fatalf("reading %s: %v", f, err)
+		body, readErr := os.ReadFile(filepath.Join(root, f))
+		if readErr != nil {
+			t.Fatalf("reading %s: %v", f, readErr)
 		}
 		for _, m := range usesLine.FindAllStringSubmatch(string(body), -1) {
 			ref := m[1]
 			if !strings.HasPrefix(ref, "./") {
 				continue
 			}
-			target, ok := localActionFile(t, ref)
-			if !ok {
-				t.Errorf("%s references local action %q, but no action.yml or action.yaml exists there", f, ref)
+			target, refErr := localActionFile(t, ref)
+			if refErr != nil {
+				t.Errorf("%s: %v", f, refErr)
 				continue
 			}
 			if !visited[target] {
@@ -138,7 +165,7 @@ func discoverActionFiles(t *testing.T) []string {
 		}
 	}
 	if len(files) == 0 {
-		t.Fatal("discovered no action-bearing files; the walk is broken")
+		t.Fatal("discovered no workflow files; the walk is broken")
 	}
 	return files
 }

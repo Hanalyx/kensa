@@ -89,13 +89,23 @@ spec:
         - id: C-06
           description: |
               Discovery MUST follow the execution graph rather than a fixed
-              list of paths. Every workflow definition is an entry point, and
-              every ./path reference encountered is resolved to its action.yml
-              or action.yaml and scanned in turn, recursively, with a visited
-              set to bound cycles. A local reference that resolves to no action
-              definition is a violation. An action definition that nothing
-              references is not governed, because nothing executes it; it comes
-              under the rule as soon as something calls it.
+              list of paths. Workflow definitions are the only entry points,
+              and every ./path reference encountered is resolved to its
+              action.yml or action.yaml and scanned in turn, recursively, with
+              a visited set to bound cycles.
+
+              An action definition that nothing references is not governed,
+              because nothing executes it. That holds wherever it sits,
+              including under .github/actions: seeding any directory directly
+              would govern unreferenced actions there and not elsewhere. It
+              comes under the rule as soon as something calls it.
+
+              A local reference that resolves to no action definition is a
+              violation, and so is one that leaves the workspace. GitHub
+              defines a local path relative to the checked-out repository, so
+              a reference such as ./../x MUST be rejected lexically, before any
+              filesystem call, and a path whose resolved target lies outside
+              the repository MUST be rejected before the file is read.
           type: security
           enforcement: error
 
@@ -146,6 +156,9 @@ spec:
                   docker_reference: a reference using the docker protocol prefix
                   composite_outside_github: a referenced composite action under tools/ that calls an external action by tag
                   dangling_local_reference: a ./ reference resolving to no action definition
+                  unreferenced_under_github_actions: an action under .github/actions that nothing calls
+                  escaping_reference: a ./../ reference pointing outside the repository
+                  symlink_escape: a local action whose definition is a symlink to a file outside the repository
           expected_output:
               every_external_reference:
                   sha_length: 40
@@ -155,7 +168,8 @@ spec:
               total_external_references: 36
               local_reference: exempt from pinning
               external_actions_inside_local_actions: governed
-              unreferenced_action_definitions: not governed until referenced
+              unreferenced_action_definitions: not governed until referenced, wherever they sit
+              escaping_references: rejected before any file outside the repository is read
               unchanged:
                   - triggers
                   - permissions
