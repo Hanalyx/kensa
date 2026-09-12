@@ -33,6 +33,11 @@ env:
   NFPM_VERSION: 'v2.41.0'
   COSIGN_VERSION: 'v2.4.1'
   SYFT_VERSION: 'v1.46.0'
+  # SHA-256 of syft_1.46.0_linux_amd64.tar.gz, from the published checksums
+  # file and confirmed by hashing the downloaded archive. Verified before
+  # extraction by scripts/install-syft.sh.
+  # Not a secret: a published release digest, which is meant to be public.
+  SYFT_SHA256: 'd654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca'  # pragma: allowlist secret
 
 jobs:
   release:
@@ -91,10 +96,7 @@ jobs:
       # is reproducible. Installed to /usr/local/bin (on PATH for
       # goreleaser's sbom cmd).
       - name: Install syft
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-            | sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
-          syft version
+        run: sudo --preserve-env=SYFT_VERSION,SYFT_SHA256 ./scripts/install-syft.sh /usr/local/bin
 
       # nfpm signs rpm + deb at package-build time by reading the GPG key
       # from a file path (signature.key_file in .goreleaser.yaml). We

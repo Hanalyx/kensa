@@ -202,3 +202,90 @@ func TestSupplyChain_SBOMConfigured(t *testing.T) {
 		t.Error("sboms block does not name a kensa_<v>_sbom.cdx.json document")
 	}
 }
+
+// TestSupplyChain_SyftInstallerPinned verifies that syft, which generates
+// the SBOM that the signed checksums file anchors, is installed from a
+// pinned archive through one repository-owned script rather than from a
+// script piped out of a moving upstream branch.
+//
+// The assertions are facts about the repository, in the same style as the
+// rest of this file. The installer's runtime behavior on a corrupt digest,
+// a truncated archive or a mismatched version is proven separately by
+// running it; what is checked here is that no call site can bypass it.
+//
+// @spec system-supply-chain
+// @ac AC-07
+func TestSupplyChain_SyftInstallerPinned(t *testing.T) {
+	t.Log("// @spec system-supply-chain")
+	t.Log("// @ac AC-07")
+
+	installer := readRepoFile(t, "scripts/install-syft.sh")
+
+	// Fail-closed shape: strict mode, digest compared before extraction,
+	// and the version checked both before and after installation.
+	for _, want := range []string{
+		"set -euo pipefail",
+		"sha256sum",
+		"digest mismatch",
+		"did not contain a syft binary",
+		"--version",
+	} {
+		if !strings.Contains(installer, want) {
+			t.Errorf("scripts/install-syft.sh is missing %q", want)
+		}
+	}
+	// The digest must be compared before tar ever runs.
+	if strings.Index(installer, "sha256sum") > strings.Index(installer, "tar -xzf") {
+		t.Error("scripts/install-syft.sh extracts before verifying the digest")
+	}
+	// No fallback: a failure must not degrade to some other install path.
+	for _, forbidden := range []string{"install.sh", "go install", "|| true\nexit 0"} {
+		if strings.Contains(installer, forbidden) {
+			t.Errorf("scripts/install-syft.sh contains a fallback path %q", forbidden)
+		}
+	}
+
+	// Both workflows must install syft only through the shared script, and
+	// neither may pipe a downloaded script into a shell.
+	pipeToShell := regexp.MustCompile(`curl[^|\n]*\|\s*(sudo\s+)?(sh|bash)`)
+	callSites := 0
+	for _, wf := range []string{".github/workflows/ci.yml", ".github/workflows/release.yml"} {
+		body := readRepoFile(t, wf)
+		if pipeToShell.MatchString(body) {
+			t.Errorf("%s pipes a downloaded script into a shell", wf)
+		}
+		if strings.Contains(body, "syft/main/install.sh") {
+			t.Errorf("%s still installs syft from the upstream main branch", wf)
+		}
+		if !strings.Contains(body, "scripts/install-syft.sh") {
+			t.Errorf("%s does not install syft through the shared script", wf)
+		} else {
+			callSites++
+		}
+		// Each workflow must carry both pins, so the script cannot run unpinned.
+		for _, key := range []string{"SYFT_VERSION:", "SYFT_SHA256:"} {
+			if !strings.Contains(body, key) {
+				t.Errorf("%s does not declare %s", wf, key)
+			}
+		}
+	}
+	if callSites != 2 {
+		t.Errorf("expected 2 shared-installer call sites, found %d", callSites)
+	}
+
+	// The two workflows must pin the SAME version and digest, which is the
+	// drift this change exists to prevent.
+	ci := readRepoFile(t, ".github/workflows/ci.yml")
+	rel := readRepoFile(t, ".github/workflows/release.yml")
+	pin := regexp.MustCompile(`SYFT_(?:VERSION|SHA256):\s*'([^']+)'`)
+	ciPins := pin.FindAllStringSubmatch(ci, -1)
+	relPins := pin.FindAllStringSubmatch(rel, -1)
+	if len(ciPins) != 2 || len(relPins) != 2 {
+		t.Fatalf("expected 2 syft pins per workflow, got ci=%d release=%d", len(ciPins), len(relPins))
+	}
+	for i := range ciPins {
+		if ciPins[i][1] != relPins[i][1] {
+			t.Errorf("syft pin drift: ci has %q, release has %q", ciPins[i][1], relPins[i][1])
+		}
+	}
+}
