@@ -25,6 +25,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -260,7 +261,17 @@ type fileResult struct {
 func validateFile(path string, knownCaps map[string]struct{}, lint bool, knownVars map[string]struct{}) fileResult {
 	res := fileResult{File: path}
 
-	r, err := rule.ParseFile(path)
+	// One read serves both the schema checks and the reference scan. Reading
+	// twice would let the file change between them, so the two halves could
+	// describe different contents, and a read that failed the second time
+	// would drop the reference check silently while validation still passed.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		res.Errors = append(res.Errors, rule.ValidationError{Msg: fmt.Sprintf("rule: open %q: %v", path, err)})
+		return res
+	}
+
+	r, err := rule.Parse(bytes.NewReader(raw))
 	if err != nil {
 		res.Errors = append(res.Errors, rule.ValidationError{Msg: err.Error()})
 		return res
@@ -278,7 +289,7 @@ func validateFile(path string, knownCaps map[string]struct{}, lint bool, knownVa
 		res.Warnings = rule.Lint(r)
 	}
 
-	res.Warnings = append(res.Warnings, unresolvedVariableWarnings(path, r.ID, knownVars)...)
+	res.Warnings = append(res.Warnings, unresolvedVariableWarnings(raw, r.ID, knownVars)...)
 
 	return res
 }
@@ -286,21 +297,16 @@ func validateFile(path string, knownCaps map[string]struct{}, lint bool, knownVa
 // unresolvedVariableWarnings reports each {{ name }} in the file that no
 // built-in default and no author declaration defines.
 //
-// It reads the raw file rather than the parsed rule because that is what the
-// runtime loader substitutes over: varsub runs on the bytes before the YAML is
-// parsed, so a name appearing only in a comment is a reference the loader will
-// fail on, and is reported here for the same reason.
+// It works on the raw bytes rather than the parsed rule because that is what
+// the runtime loader substitutes over: varsub runs on the bytes before the YAML
+// is parsed, so a name appearing only in a comment is a reference the loader
+// will fail on, and is reported here for the same reason. The caller passes the
+// same bytes it parsed, so the two checks cannot disagree about the contents.
 //
 // Unresolved names are a warning, not an error. A site authoring its own rules
 // supplies its own variables later, and the validator cannot see them; --strict
 // promotes these to a failure for callers who want the stricter reading.
-func unresolvedVariableWarnings(path, ruleID string, knownVars map[string]struct{}) []rule.LintWarning {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		// The rule parsed a moment ago, so a read failure here is not worth a
-		// second diagnostic; the parse path already reports unreadable files.
-		return nil
-	}
+func unresolvedVariableWarnings(raw []byte, ruleID string, knownVars map[string]struct{}) []rule.LintWarning {
 	var out []rule.LintWarning
 	// varsub.Names returns sorted, de-duplicated names, so one warning per
 	// unresolved name per file falls out and the order is deterministic.

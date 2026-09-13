@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // A rule reaches the engine only after every {{ name }} in it resolves, so a
@@ -65,28 +68,44 @@ func ruleDir(t *testing.T) string {
 // captureCLI runs the validator and returns its exit code with whatever it
 // printed, so the assertions are about observable behavior rather than
 // internal state.
+//
+// The reader runs concurrently with the command. A pipe holds a bounded amount
+// of data, 64 KiB on Linux, and the validator prints a line per file, so a
+// large enough rules directory would fill the pipe and block the writer for
+// ever if the test only started reading after runCLI returned. Draining in a
+// goroutine keeps the size of the output irrelevant.
 func captureCLI(t *testing.T, argv ...string) (int, string) {
 	t.Helper()
-	orig := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Stdout = w
-	code := runCLI(argv)
-	_ = w.Close()
-	os.Stdout = orig
 
-	var sb strings.Builder
-	buf := make([]byte, 4096)
-	for {
-		n, rerr := r.Read(buf)
-		sb.Write(buf[:n])
-		if rerr != nil {
-			break
-		}
+	orig := os.Stdout
+	os.Stdout = w
+	// Restore stdout and release both ends even if the command panics.
+	defer func() {
+		os.Stdout = orig
+		_ = w.Close()
+		_ = r.Close()
+	}()
+
+	done := make(chan string, 1)
+	go func() {
+		var sb strings.Builder
+		_, _ = io.Copy(&sb, r)
+		done <- sb.String()
+	}()
+
+	code := runCLI(argv)
+
+	// Close the write end so the reader sees EOF, then restore stdout before
+	// waiting, so a failure in the reader cannot leave stdout redirected.
+	os.Stdout = orig
+	if cerr := w.Close(); cerr != nil {
+		t.Fatalf("closing the capture pipe: %v", cerr)
 	}
-	return code, sb.String()
+	return code, <-done
 }
 
 const unknownWarningCode = "W006"
@@ -276,5 +295,43 @@ func TestVariableRefs_ShippedCorpusIsClean(t *testing.T) {
 	}
 	if code != 0 {
 		t.Errorf("exit=%d validating the shipped corpus, want 0", code)
+	}
+}
+
+// TestVariableRefs_CaptureSurvivesLargeOutput proves the capture helper does
+// not deadlock when the validator prints more than a pipe can hold. Without a
+// concurrent reader this test hangs rather than fails, which is why it exists
+// separately from the assertions that happen to use small fixtures.
+func TestVariableRefs_CaptureSurvivesLargeOutput(t *testing.T) {
+	dir := ruleDir(t)
+	// Each file contributes an OK line plus a warning line; a few hundred is
+	// comfortably past the 64 KiB pipe buffer.
+	const files = 400
+	for i := 0; i < files; i++ {
+		fixture(t, dir, fmt.Sprintf("bulk-%03d", i), "{{ ghost_variable }}", "n", "")
+	}
+
+	done := make(chan struct{})
+	var code int
+	var out string
+	go func() {
+		defer close(done)
+		code, out = captureCLI(t, "--rules-dir", filepath.Dir(dir))
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatal("captureCLI did not return: the helper blocked on a full pipe")
+	}
+
+	if len(out) <= 65536 {
+		t.Fatalf("output is %d bytes, which does not exceed the pipe buffer this test exists to cross", len(out))
+	}
+	if code != 0 {
+		t.Errorf("exit=%d, want 0", code)
+	}
+	if got := strings.Count(out, "["+unknownWarningCode+"]"); got != files {
+		t.Errorf("got %d warnings, want one per file (%d)", got, files)
 	}
 }
