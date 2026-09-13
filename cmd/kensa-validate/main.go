@@ -25,6 +25,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,6 +38,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/Hanalyx/kensa/internal/rule"
+	"github.com/Hanalyx/kensa/internal/varsub"
 )
 
 // Short-letter constants for kensa-validate. Mirror the kensa CLI
@@ -77,7 +79,7 @@ func runCLI(argv []string) int {
 	// with a deprecation warning. Removed in v0.2.
 	argv = rewriteLegacyLongForm(argv, map[string]bool{
 		"rules-dir": true, "cap-check": true, "format": true,
-		"no-lint": true, "strict": true,
+		"no-lint": true, "strict": true, "declare-variable": true,
 	})
 
 	fs := pflag.NewFlagSet("kensa-validate", pflag.ContinueOnError)
@@ -92,6 +94,7 @@ func runCLI(argv []string) int {
 		format      string
 		noLint      bool
 		strict      bool
+		declared    []string
 	)
 	fs.BoolVarP(&showHelp, "help", shortHelp, false, "show this help and exit")
 	fs.BoolVarP(&showVersion, "version", shortVersion, false, "print version and exit")
@@ -100,6 +103,7 @@ func runCLI(argv []string) int {
 	fs.StringVarP(&format, "format", shortFormat, "table", "output format: table or json")
 	fs.BoolVar(&noLint, "no-lint", false, "skip effective-vs-static linter (long-only)")
 	fs.BoolVarP(&strict, "strict", shortStrict, false, "treat lint warnings as errors")
+	fs.StringArrayVar(&declared, "declare-variable", nil, "declare a site-defined variable name so it is not reported as unresolved (long-only, repeatable)")
 
 	if err := fs.Parse(argv); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -117,6 +121,26 @@ func runCLI(argv []string) int {
 	if showHelp {
 		printUsage(os.Stdout, fs)
 		return 0
+	}
+
+	// Known variable names: what Kensa embeds, plus whatever the author
+	// declares. A site rule may legitimately reference a name Kensa has never
+	// heard of, and the author is the only one who can say so.
+	knownVars, err := varsub.BuiltInTypes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "kensa-validate: read built-in variable types: %v\n", err)
+		return 2
+	}
+	known := make(map[string]struct{}, len(knownVars)+len(declared))
+	for name := range knownVars {
+		known[name] = struct{}{}
+	}
+	for _, name := range declared {
+		if !varsub.ValidName(name) {
+			fmt.Fprintf(os.Stderr, "kensa-validate: --declare-variable %q is not a valid variable name (letter first, then letters, digits or underscores)\n", name)
+			return 2
+		}
+		known[name] = struct{}{}
 	}
 
 	var files []string
@@ -147,7 +171,7 @@ func runCLI(argv []string) int {
 	hasErrors := false
 
 	for _, path := range files {
-		res := validateFile(path, knownCaps, !noLint)
+		res := validateFile(path, knownCaps, !noLint, known)
 		if len(res.Errors) > 0 {
 			hasErrors = true
 		}
@@ -234,10 +258,20 @@ type fileResult struct {
 }
 
 // validateFile parses and validates path, optionally running the linter.
-func validateFile(path string, knownCaps map[string]struct{}, lint bool) fileResult {
+func validateFile(path string, knownCaps map[string]struct{}, lint bool, knownVars map[string]struct{}) fileResult {
 	res := fileResult{File: path}
 
-	r, err := rule.ParseFile(path)
+	// One read serves both the schema checks and the reference scan. Reading
+	// twice would let the file change between them, so the two halves could
+	// describe different contents, and a read that failed the second time
+	// would drop the reference check silently while validation still passed.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		res.Errors = append(res.Errors, rule.ValidationError{Msg: fmt.Sprintf("rule: open %q: %v", path, err)})
+		return res
+	}
+
+	r, err := rule.Parse(bytes.NewReader(raw))
 	if err != nil {
 		res.Errors = append(res.Errors, rule.ValidationError{Msg: err.Error()})
 		return res
@@ -255,7 +289,41 @@ func validateFile(path string, knownCaps map[string]struct{}, lint bool) fileRes
 		res.Warnings = rule.Lint(r)
 	}
 
+	res.Warnings = append(res.Warnings, unresolvedVariableWarnings(raw, r.ID, knownVars)...)
+
 	return res
+}
+
+// unresolvedVariableWarnings reports each {{ name }} in the file that no
+// built-in default and no author declaration defines.
+//
+// It works on the raw bytes rather than the parsed rule because that is what
+// the runtime loader substitutes over: varsub runs on the bytes before the YAML
+// is parsed, so a name appearing only in a comment is a reference the loader
+// will fail on, and is reported here for the same reason. The caller passes the
+// same bytes it parsed, so the two checks cannot disagree about the contents.
+//
+// Unresolved names are a warning, not an error. A site authoring its own rules
+// supplies its own variables later, and the validator cannot see them; --strict
+// promotes these to a failure for callers who want the stricter reading.
+func unresolvedVariableWarnings(raw []byte, ruleID string, knownVars map[string]struct{}) []rule.LintWarning {
+	var out []rule.LintWarning
+	// varsub.Names returns sorted, de-duplicated names, so one warning per
+	// unresolved name per file falls out and the order is deterministic.
+	for _, name := range varsub.Names(string(raw)) {
+		if _, ok := knownVars[name]; ok {
+			continue
+		}
+		out = append(out, rule.LintWarning{
+			RuleID:    ruleID,
+			ImplIndex: -1,
+			Path:      name,
+			Code:      "W006",
+			Msg: fmt.Sprintf("variable %q is referenced but has no built-in default; the rule will be skipped at scan time unless a site defines it. Declare it with --declare-variable %s if it is site-defined.",
+				name, name),
+		})
+	}
+	return out
 }
 
 // knownCategories is the set of valid parent-directory names that indicate
@@ -327,6 +395,12 @@ func printTable(results []fileResult, strict bool) {
 			fmt.Printf("  ERROR  %s\n", e)
 		}
 		for _, w := range r.Warnings {
+			// A negative index means the warning is about the file rather than
+			// one implementation; printing impl[-1] would invent a location.
+			if w.ImplIndex < 0 {
+				fmt.Printf("  WARN   [%s] %s: %s\n", w.Code, w.Path, w.Msg)
+				continue
+			}
 			fmt.Printf("  WARN   [%s] impl[%d] %s: %s\n", w.Code, w.ImplIndex, w.Path, w.Msg)
 		}
 	}

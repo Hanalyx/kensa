@@ -335,8 +335,41 @@ A clean corpus reports `0 error(s)` (the sole expected warning is a stylistic
 W005 on `selinux-policy-targeted.yml`). Any `FAIL` line names the file, the rule
 ID, and the violated constraint, for example `exactly one implementation must
 have default:true` if you forgot the fallback, or a `transactional: true` rule
-that contains a non-capturable mechanism. Fix every error before opening a PR;
-CI runs the same gate.
+that contains a non-capturable mechanism. Fix every error before opening a PR.
+
+CI does not run this binary over the corpus. What it runs is a Go test,
+`TestLoadRules_ProductionCorpus`, which loads every rule on the built-in
+defaults and fails if any variable has no default. The two overlap for the
+shipped corpus and are not the same gate, so a clean local run is the check
+that matters for a rule you are about to submit.
+
+### Unresolved variables
+
+The validator also reports a `W006` warning for each `{{ name }}` it cannot
+resolve. A name Kensa ships a default for resolves silently; anything else is
+reported, because at scan time that rule is skipped rather than assessed, and
+the skip is easy to miss.
+
+References are read from the whole file, comments included, because
+substitution runs over the raw bytes before the YAML is parsed. A variable
+mentioned only in a comment is a real reference, and the loader fails on it.
+
+If the name is site-defined and supplied later, declare it so the validator
+stops asking:
+
+```bash
+./bin/kensa-validate --rules-dir rules --declare-variable site_local_thing
+```
+
+The flag is repeatable. A valid variable name is a letter followed by letters,
+digits or underscores; anything else is a usage error. Unresolved variables are
+warnings and do not fail the run on their own. Pass `--strict` to turn every
+warning into a failure, which is useful in a site's own pipeline.
+
+For the shipped corpus, the standing gate is a Go test,
+`TestVariableRefs_ShippedCorpusIsClean`, which runs the validator in process
+and fails if any rule produces a `W006`. It does not pass `--strict`, because
+the assertion is that the corpus produces no such warning at all.
 
 ## Next
 
