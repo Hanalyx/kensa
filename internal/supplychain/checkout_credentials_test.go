@@ -29,14 +29,25 @@ import (
 const (
 	assertScript   = "scripts/assert-no-git-credentials.sh"
 	assertStepName = "Assert no Git credential persisted"
-	pinSpecPath    = "specs/system/checkout-credential-non-persistence.spec.yaml"
+	// The placement wording the spec must carry; the gate enforces the
+	// behaviour, and this keeps the contract's description of it honest.
+	approvedPlacement = "the step immediately after each checkout"
+	pinSpecPath       = "specs/system/checkout-credential-non-persistence.spec.yaml"
 )
 
-// runIsBareInvocation matches a run: body that is exactly the assertion script,
-// optionally with one argument, and nothing else. A substring match would
-// accept `echo ./scripts/assert-no-git-credentials.sh` or the same command
-// followed by `|| true`, both of which assert nothing.
-var runIsBareInvocation = regexp.MustCompile(`^\./` + regexp.QuoteMeta(assertScript) + `( +[^\s;&|]+)?$`)
+// runIsBareInvocation matches a run: body that is exactly the assertion
+// script and nothing else. A substring match would accept
+// `echo ./scripts/assert-no-git-credentials.sh` or the same command followed
+// by `|| true`, both of which assert nothing. An argument is refused too: the
+// script takes a directory, so `… /tmp` would check somewhere other than the
+// workspace and report success while a credential survived in the checkout.
+// The argument stays available to the Go tests, which need it to point at a
+// fixture repository; it has no place in a workflow step.
+var runIsBareInvocation = regexp.MustCompile(`^\./` + regexp.QuoteMeta(assertScript) + `$`)
+
+// fullSHA is a complete lowercase-hex commit id. len() >= 40 would accept a
+// 41-character or non-hex revision.
+var fullSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 type wfStep struct {
 	Name string         `yaml:"name"`
@@ -62,6 +73,8 @@ type approvedShape struct {
 	fetchDepthZero map[string][]string // workflow -> job names that must carry fetch-depth: 0
 	permissions    map[string]map[string]string
 	assertions     int
+	requiredInput  map[string]any
+	placement      string
 }
 
 func loadApprovedShape(t *testing.T) approvedShape {
@@ -81,9 +94,11 @@ func loadApprovedShape(t *testing.T) approvedShape {
 						FetchDepthZeroJobs map[string][]string `yaml:"fetch_depth_zero_jobs"`
 					} `yaml:"preserved_inputs"`
 					WorkflowPermissions map[string]map[string]string `yaml:"workflow_permissions"`
+					RequiredInput       map[string]any               `yaml:"required_input"`
 					Assertion           struct {
-						Script string `yaml:"script"`
-						Count  int    `yaml:"count"`
+						Script    string `yaml:"script"`
+						Count     int    `yaml:"count"`
+						Placement string `yaml:"placement"`
 					} `yaml:"assertion"`
 				} `yaml:"inputs"`
 			} `yaml:"acceptance_criteria"`
@@ -110,6 +125,8 @@ func loadApprovedShape(t *testing.T) approvedShape {
 			fetchDepthZero: in.PreservedInputs.FetchDepthZeroJobs,
 			permissions:    in.WorkflowPermissions,
 			assertions:     in.Assertion.Count,
+			requiredInput:  in.RequiredInput,
+			placement:      in.Assertion.Placement,
 		}
 	}
 	t.Fatal("spec declares no AC-01")
@@ -153,6 +170,15 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 	want := loadApprovedShape(t)
 	found := workflowPaths(t)
 
+	// The literals this gate enforces come from the spec, so a contract edited
+	// to expect something else fails here rather than being quietly ignored.
+	if got, ok := want.requiredInput["persist-credentials"]; !ok || got != false {
+		t.Fatalf("spec required_input.persist-credentials is %v, gate enforces false", got)
+	}
+	if want.placement != approvedPlacement {
+		t.Fatalf("spec assertion.placement is %q, gate enforces %q", want.placement, approvedPlacement)
+	}
+
 	// Every approved workflow exists, and no workflow exists that the spec
 	// does not name: a new one would otherwise carry unchecked checkouts.
 	sort.Strings(found)
@@ -160,6 +186,17 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 	sort.Strings(approved)
 	if !reflect.DeepEqual(found, approved) {
 		t.Fatalf("workflow set is %v, spec approves %v", found, approved)
+	}
+
+	// Permissions must be declared for every workflow and for no other, so a
+	// dropped entry cannot make a workflow skip the check.
+	permKeys := make([]string, 0, len(want.permissions))
+	for k := range want.permissions {
+		permKeys = append(permKeys, k)
+	}
+	sort.Strings(permKeys)
+	if !reflect.DeepEqual(permKeys, approved) {
+		t.Fatalf("spec declares permissions for %v, workflows are %v", permKeys, approved)
 	}
 
 	checkouts, assertions := 0, 0
@@ -174,10 +211,9 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 
 		// C-05, enforced rather than asserted in prose: the workflow holds the
 		// permissions the contract approves.
-		if wantPerms, ok := want.permissions[wf]; ok {
-			if !reflect.DeepEqual(doc.Permissions, wantPerms) {
-				t.Errorf("%s: permissions are %v, spec approves %v", wf, doc.Permissions, wantPerms)
-			}
+		wantPerms := want.permissions[wf]
+		if !reflect.DeepEqual(doc.Permissions, wantPerms) {
+			t.Errorf("%s: permissions are %v, spec approves %v", wf, doc.Permissions, wantPerms)
 		}
 
 		for jobName, job := range doc.Jobs {
@@ -196,8 +232,8 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 					t.Errorf("%s: persist-credentials is %v, want false", where, got)
 				}
 
-				if parts := strings.SplitN(st.Uses, "@", 2); len(parts) != 2 || len(parts[1]) < 40 {
-					t.Errorf("%s: checkout is not pinned to a full SHA: %q", where, st.Uses)
+				if parts := strings.SplitN(st.Uses, "@", 2); len(parts) != 2 || !fullSHA.MatchString(parts[1]) {
+					t.Errorf("%s: checkout is not pinned to a full 40-character lowercase-hex SHA: %q", where, st.Uses)
 				}
 				for k, v := range st.With {
 					switch k {
