@@ -115,6 +115,16 @@ func SubstituteFile(path string, raw []byte, vars Variables) ([]byte, error) {
 	return []byte(rendered), nil
 }
 
+// nameRe is the bare variable-name grammar, i.e. what templateRe captures
+// between the braces. It is kept alongside templateRe so a caller validating a
+// name it was handed cannot drift from the names Substitute will recognize.
+var nameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+
+// ValidName reports whether name is a well-formed variable name: a letter,
+// then letters, digits or underscores. It is the same grammar [Substitute]
+// recognizes inside {{ }}, so a name that fails here can never be substituted.
+func ValidName(name string) bool { return nameRe.MatchString(name) }
+
 // Names returns the distinct `{{ name }}` template variable names
 // in input, sorted. It uses the same template vocabulary as
 // [Substitute] (templateRe), so a name reported here is exactly a

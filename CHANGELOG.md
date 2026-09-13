@@ -55,6 +55,19 @@ any pair).
 
 ### Added
 
+- **`kensa-validate` reports unresolved variables.** A rule referencing a
+  `{{ name }}` that no built-in default defines used to validate clean, and the
+  mistake surfaced later as a rule silently skipped at scan time. The validator
+  now emits a `W006` warning naming each unresolved variable, once per name per
+  file. References are read from the raw file, comments included, because
+  substitution runs over the bytes before the YAML is parsed, so a name in a
+  comment is a reference the loader fails on. Site-defined names are declared
+  with the repeatable `--declare-variable NAME`, which rejects names the
+  substitution grammar could never match. Unresolved variables are warnings,
+  not errors, because a site supplies its own variables later; `--strict`
+  promotes them as it does every other warning. The shipped corpus reports
+  none.
+
 - **`kensa list variables --rules-dir DIR`** names every rule variable the
   corpus references, with the type and default Kensa ships for it, whether that
   default is a value, deliberately empty, or absent, and the rules that use it.

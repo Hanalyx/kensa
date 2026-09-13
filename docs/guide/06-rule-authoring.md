@@ -338,6 +338,29 @@ have default:true` if you forgot the fallback, or a `transactional: true` rule
 that contains a non-capturable mechanism. Fix every error before opening a PR;
 CI runs the same gate.
 
+### Unresolved variables
+
+The validator also reports a `W006` warning for each `{{ name }}` it cannot
+resolve. A name Kensa ships a default for resolves silently; anything else is
+reported, because at scan time that rule is skipped rather than assessed, and
+the skip is easy to miss.
+
+References are read from the whole file, comments included, because
+substitution runs over the raw bytes before the YAML is parsed. A variable
+mentioned only in a comment is a real reference, and the loader fails on it.
+
+If the name is site-defined and supplied later, declare it so the validator
+stops asking:
+
+```bash
+./bin/kensa-validate --rules-dir rules --declare-variable site_local_thing
+```
+
+The flag is repeatable. A valid variable name is a letter followed by letters,
+digits or underscores; anything else is a usage error. Unresolved variables are
+warnings and do not fail the run on their own. `--strict` turns every warning
+into a failure, which is what CI uses.
+
 ## Next
 
 [07-integration](07-integration.md) covers consuming scan results downstream;
