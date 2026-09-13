@@ -131,6 +131,16 @@ any pair).
   version-update pull requests still arrive, and whoever bumps a pin reviews
   upstream advisories for that action at the same time.
 
+- **Checkout no longer leaves a Git credential in the working copy.** Every
+  `actions/checkout` step now sets `persist-credentials: false`, and a shared
+  script asserts immediately after each one that no credential survived. The
+  assertion reads the effective Git configuration rather than the local file,
+  because checkout supplies the header through an `includeIf` include that a
+  local-scoped lookup cannot see; a local-scoped check would have reported
+  nothing either way. No Git operation in CI needed the credential: the two
+  fetches read a public repository anonymously, everything else is a local
+  read, and the release upload authenticates with its own step-scoped token.
+
 ## v0.10.0 (2026-08-10)
 
 ### Added

@@ -47,7 +47,10 @@ jobs:
       - name: Checkout (full history for goreleaser)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
+      - name: Assert no Git credential persisted
+        run: ./scripts/assert-no-git-credentials.sh
 
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
