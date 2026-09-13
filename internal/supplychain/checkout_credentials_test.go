@@ -5,7 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -24,11 +27,16 @@ import (
 // wrong reason. The runtime cases below reproduce that mechanism exactly.
 
 const (
-	assertScript      = "scripts/assert-no-git-credentials.sh"
-	assertStepName    = "Assert no Git credential persisted"
-	wantCheckouts     = 17
-	wantFetchDepthSet = 4
+	assertScript   = "scripts/assert-no-git-credentials.sh"
+	assertStepName = "Assert no Git credential persisted"
+	pinSpecPath    = "specs/system/checkout-credential-non-persistence.spec.yaml"
 )
+
+// runIsBareInvocation matches a run: body that is exactly the assertion script,
+// optionally with one argument, and nothing else. A substring match would
+// accept `echo ./scripts/assert-no-git-credentials.sh` or the same command
+// followed by `|| true`, both of which assert nothing.
+var runIsBareInvocation = regexp.MustCompile(`^\./` + regexp.QuoteMeta(assertScript) + `( +[^\s;&|]+)?$`)
 
 type wfStep struct {
 	Name string         `yaml:"name"`
@@ -38,9 +46,74 @@ type wfStep struct {
 }
 
 type wfDoc struct {
-	Jobs map[string]struct {
+	Permissions map[string]string `yaml:"permissions"`
+	Jobs        map[string]struct {
+		Name  string   `yaml:"name"`
 		Steps []wfStep `yaml:"steps"`
 	} `yaml:"jobs"`
+}
+
+// approvedShape is the contract, read from the spec rather than duplicated
+// here, so a count or a mapping cannot be changed in one place only.
+type approvedShape struct {
+	workflows      []string
+	totalCheckouts int
+	perWorkflow    map[string]int
+	fetchDepthZero map[string][]string // workflow -> job names that must carry fetch-depth: 0
+	permissions    map[string]map[string]string
+	assertions     int
+}
+
+func loadApprovedShape(t *testing.T) approvedShape {
+	t.Helper()
+	var doc struct {
+		Spec struct {
+			AcceptanceCriteria []struct {
+				ID     string `yaml:"id"`
+				Inputs struct {
+					Workflows     []string `yaml:"workflows"`
+					CheckoutSteps struct {
+						Total   int `yaml:"total"`
+						CI      int `yaml:"ci"`
+						Release int `yaml:"release"`
+					} `yaml:"checkout_steps"`
+					PreservedInputs struct {
+						FetchDepthZeroJobs map[string][]string `yaml:"fetch_depth_zero_jobs"`
+					} `yaml:"preserved_inputs"`
+					WorkflowPermissions map[string]map[string]string `yaml:"workflow_permissions"`
+					Assertion           struct {
+						Script string `yaml:"script"`
+						Count  int    `yaml:"count"`
+					} `yaml:"assertion"`
+				} `yaml:"inputs"`
+			} `yaml:"acceptance_criteria"`
+		} `yaml:"spec"`
+	}
+	if err := yaml.Unmarshal([]byte(readRepoFile(t, pinSpecPath)), &doc); err != nil {
+		t.Fatalf("parsing %s: %v", pinSpecPath, err)
+	}
+	for _, ac := range doc.Spec.AcceptanceCriteria {
+		if ac.ID != "AC-01" {
+			continue
+		}
+		in := ac.Inputs
+		if in.Assertion.Script != assertScript {
+			t.Fatalf("spec names assertion script %q, test holds %q", in.Assertion.Script, assertScript)
+		}
+		return approvedShape{
+			workflows:      in.Workflows,
+			totalCheckouts: in.CheckoutSteps.Total,
+			perWorkflow: map[string]int{
+				".github/workflows/ci.yml":      in.CheckoutSteps.CI,
+				".github/workflows/release.yml": in.CheckoutSteps.Release,
+			},
+			fetchDepthZero: in.PreservedInputs.FetchDepthZeroJobs,
+			permissions:    in.WorkflowPermissions,
+			assertions:     in.Assertion.Count,
+		}
+	}
+	t.Fatal("spec declares no AC-01")
+	return approvedShape{}
 }
 
 func workflowPaths(t *testing.T) []string {
@@ -66,9 +139,10 @@ func workflowPaths(t *testing.T) []string {
 	return out
 }
 
-// TestCheckoutCredentials_Declared covers the declaration half: every checkout
-// in every workflow, the assertion immediately behind it, and no other input
-// disturbed.
+// TestCheckoutCredentials_Declared covers the declaration half, bound to the
+// approved spec: the flag on every checkout, a real invocation of the assertion
+// immediately behind it, fetch-depth: 0 on the named jobs rather than a bare
+// total, and the permissions each workflow is approved to hold.
 //
 // @spec system-checkout-credential-non-persistence
 // @ac AC-01
@@ -76,22 +150,45 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 	t.Log("// @spec system-checkout-credential-non-persistence")
 	t.Log("// @ac AC-01")
 
-	checkouts, assertions, fetchDepthZero := 0, 0, 0
+	want := loadApprovedShape(t)
+	found := workflowPaths(t)
 
-	for _, wf := range workflowPaths(t) {
+	// Every approved workflow exists, and no workflow exists that the spec
+	// does not name: a new one would otherwise carry unchecked checkouts.
+	sort.Strings(found)
+	approved := append([]string(nil), want.workflows...)
+	sort.Strings(approved)
+	if !reflect.DeepEqual(found, approved) {
+		t.Fatalf("workflow set is %v, spec approves %v", found, approved)
+	}
+
+	checkouts, assertions := 0, 0
+	perWorkflow := map[string]int{}
+	sawFetchDepthZero := map[string][]string{}
+
+	for _, wf := range found {
 		var doc wfDoc
 		if err := yaml.Unmarshal([]byte(readRepoFile(t, wf)), &doc); err != nil {
 			t.Fatalf("parsing %s: %v", wf, err)
 		}
+
+		// C-05, enforced rather than asserted in prose: the workflow holds the
+		// permissions the contract approves.
+		if wantPerms, ok := want.permissions[wf]; ok {
+			if !reflect.DeepEqual(doc.Permissions, wantPerms) {
+				t.Errorf("%s: permissions are %v, spec approves %v", wf, doc.Permissions, wantPerms)
+			}
+		}
+
 		for jobName, job := range doc.Jobs {
 			for i, st := range job.Steps {
 				if !strings.Contains(st.Uses, "actions/checkout@") {
 					continue
 				}
 				checkouts++
+				perWorkflow[wf]++
 				where := fmt.Sprintf("%s %s step %d", wf, jobName, i)
 
-				// C-01: the flag, and exactly false.
 				got, ok := st.With["persist-credentials"]
 				if !ok {
 					t.Errorf("%s: checkout does not set persist-credentials", where)
@@ -99,23 +196,23 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 					t.Errorf("%s: persist-credentials is %v, want false", where, got)
 				}
 
-				// C-05: the pin is untouched and no unexpected input appeared.
-				if !strings.Contains(st.Uses, "@") || len(strings.Split(st.Uses, "@")[1]) < 40 {
+				if parts := strings.SplitN(st.Uses, "@", 2); len(parts) != 2 || len(parts[1]) < 40 {
 					t.Errorf("%s: checkout is not pinned to a full SHA: %q", where, st.Uses)
 				}
-				for k := range st.With {
+				for k, v := range st.With {
 					switch k {
 					case "persist-credentials":
 					case "fetch-depth":
-						if st.With[k] == 0 {
-							fetchDepthZero++
+						if v == 0 {
+							sawFetchDepthZero[wf] = append(sawFetchDepthZero[wf], jobName)
+						} else {
+							t.Errorf("%s: fetch-depth is %v; only 0 is approved", where, v)
 						}
 					default:
 						t.Errorf("%s: unexpected checkout input %q", where, k)
 					}
 				}
 
-				// C-04: the assertion is the very next step.
 				if i+1 >= len(job.Steps) {
 					t.Errorf("%s: checkout is the last step; the assertion is missing", where)
 					continue
@@ -125,8 +222,10 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 					t.Errorf("%s: next step is %q, want %q", where, next.Name, assertStepName)
 					continue
 				}
-				if !strings.Contains(next.Run, assertScript) {
-					t.Errorf("%s: assertion step does not run %s", where, assertScript)
+				// Reject anything that is not a bare invocation.
+				body := strings.TrimSpace(next.Run)
+				if !runIsBareInvocation.MatchString(body) {
+					t.Errorf("%s: assertion step runs %q, which is not a bare invocation of %s", where, body, assertScript)
 					continue
 				}
 				assertions++
@@ -134,14 +233,31 @@ func TestCheckoutCredentials_Declared(t *testing.T) {
 		}
 	}
 
-	if checkouts != wantCheckouts {
-		t.Errorf("found %d checkout steps, spec approves %d", checkouts, wantCheckouts)
+	if checkouts != want.totalCheckouts {
+		t.Errorf("found %d checkout steps, spec approves %d", checkouts, want.totalCheckouts)
 	}
-	if assertions != wantCheckouts {
-		t.Errorf("found %d immediately-following assertions, want %d", assertions, wantCheckouts)
+	if assertions != want.assertions {
+		t.Errorf("found %d bare assertion invocations, spec approves %d", assertions, want.assertions)
 	}
-	if fetchDepthZero != wantFetchDepthSet {
-		t.Errorf("found %d fetch-depth: 0 inputs, want %d preserved", fetchDepthZero, wantFetchDepthSet)
+	for wf, n := range want.perWorkflow {
+		if perWorkflow[wf] != n {
+			t.Errorf("%s has %d checkouts, spec approves %d", wf, perWorkflow[wf], n)
+		}
+	}
+	// fetch-depth: 0 is bound to the named jobs, not to a total.
+	for wf, jobs := range want.fetchDepthZero {
+		got := append([]string(nil), sawFetchDepthZero[wf]...)
+		exp := append([]string(nil), jobs...)
+		sort.Strings(got)
+		sort.Strings(exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("%s: fetch-depth: 0 on jobs %v, spec approves %v", wf, got, exp)
+		}
+	}
+	for wf := range sawFetchDepthZero {
+		if _, ok := want.fetchDepthZero[wf]; !ok {
+			t.Errorf("%s carries fetch-depth: 0 but the spec approves none there", wf)
+		}
 	}
 }
 
