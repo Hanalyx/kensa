@@ -30,7 +30,7 @@ const (
 	assertScript   = "scripts/assert-no-git-credentials.sh"
 	assertStepName = "Assert no Git credential persisted"
 	// The placement wording the spec must carry; the gate enforces the
-	// behaviour, and this keeps the contract's description of it honest.
+	// behavior, and this keeps the contract's description of it honest.
 	approvedPlacement = "the step immediately after each checkout"
 	pinSpecPath       = "specs/system/checkout-credential-non-persistence.spec.yaml"
 )
