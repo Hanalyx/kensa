@@ -121,23 +121,28 @@ gate is not satisfied by a proposed test or by a green suite.
 All results below are the author's. No second party has rerun them. Each
 command is exact; a reviewer who reruns one should get the stated outcome.
 
-Baseline, meaning the state before the fix. Run it in a throwaway worktree
-so nothing can touch a working checkout. `448ff8c` is the parent commit this
+Baseline, meaning the state before the fix. It runs in a throwaway worktree
+at a path unique to the run, and every setup step must succeed before the
+next one runs, so a failed worktree creation or a failed `cd` cannot leave
+the commands editing a real checkout. `448ff8c` is the parent commit this
 branch starts from:
 
 ```
-git worktree add --detach /tmp/kensa-baseline fix/evidence-signing-order
-cd /tmp/kensa-baseline
+set -eu
+wt=$(mktemp -d -t kensa-baseline.XXXXXX)
+git worktree add --detach "$wt" fix/evidence-signing-order
+cd "$wt"
 git checkout 448ff8c -- internal/engine/commit.go
 rm internal/engine/payload.go internal/engine/payload_test.go
+set +e   # the test run below is EXPECTED to fail
 go test ./internal/engine/ -run 'TestFinalize_' -count=1
 ```
 
-Clean up by deleting the throwaway worktree, which leaves every other
-checkout untouched:
+Clean up by removing only the worktree this run created, named by the `$wt`
+set above:
 
 ```
-cd - && git worktree remove --force /tmp/kensa-baseline
+cd - >/dev/null && git worktree remove --force "$wt"
 ```
 
 `payload_test.go` is removed with `payload.go` because it is an in-package
