@@ -80,6 +80,13 @@ any pair).
 
 ### Fixed
 
+- **Evidence signature verification is fixed** for partially applied
+  transactions with stranded steps, and for returned evidence after a
+  terminal persistence failure. The engine settles every signed field before
+  signing and gives the envelope its own copy of the data, instead of
+  changing the payload afterwards. The fix does not repair previously
+  affected records and does not change rollback behavior.
+
 - **`kensa list frameworks`, `kensa coverage --framework` and `kensa info` now
   read the whole corpus.** They loaded rules with no variables, so every rule
   carrying a `{{ name }}` template was dropped before the count was taken and

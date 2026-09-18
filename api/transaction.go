@@ -242,7 +242,8 @@ type TransactionResult struct {
 	// steps, when a rollback ran. Empty for committed transactions and
 	// for pre-apply failures (nothing was applied to reverse). Carried
 	// here and on [EvidenceEnvelope.RollbackResults] so the audit record
-	// proves what restoration was attempted and whether it succeeded.
+	// shows what restoration was attempted and whether it succeeded. See
+	// that field for what the v1 signature does and does not cover.
 	RollbackResults []RollbackResult
 	// HostUnchanged is true if and only if the host is provably in its
 	// pre-transaction state at terminal time: a failure that reached no
@@ -365,7 +366,13 @@ type EvidenceEnvelope struct {
 	ValidatorResults []ValidatorResult `json:"validator_results"`
 	// RollbackResults records, per reversed step, whether restoration
 	// succeeded and whether it was only partial. Empty when no rollback
-	// ran (committed, or pre-apply failure). Part of the signed record.
+	// ran (committed, or pre-apply failure).
+	//
+	// Serialized into the v1 envelope but NOT authenticated by it: the v1
+	// canonical form does not include this field, so the signature does not
+	// cover it and editing it does not invalidate verification. Authenticating
+	// it changes the canonical bytes and so needs a schema version that a
+	// verifier can tell apart from v1.
 	RollbackResults []RollbackResult  `json:"rollback_results,omitempty"`
 	Decision        TransactionStatus `json:"decision"`
 	// Severity is denormalised from the rule at write time so the

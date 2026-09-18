@@ -49,6 +49,174 @@ incl. U1000 both 0 findings; `govulncheck` 0 reachable vulns).
 
 ---
 
+## Evidence signing integrity (2026-09-18)
+
+Required evidence for the signing-order and payload-ownership change on
+`internal/engine/finalize`. These are acceptance gates on that change, not
+follow-up work. Attach an evidence reference to each as it is satisfied. A
+gate is not satisfied by a proposed test or by a green suite.
+
+- **[GATE] Signing order.** Demonstrate the pre-fix regression failure, then
+  verify real Ed25519 signatures on the returned envelope and on the envelope
+  persisted and reloaded through `SQLite.Get`.
+  Evidence: `TestFinalize_ReturnedEnvelopeVerifies`,
+  `TestFinalize_PersistedEnvelopeVerifies`, `TestFinalize_StrandedSurvivesSigning`
+  (`internal/engine/signing_order_test.go`), branch `fix/evidence-signing-order`.
+  Both verification tests fail at the parent commit and pass after it;
+  reintroducing the post-`Sign` write fails them again.
+- **[GATE] Payload ownership.** Independent review of the `PreState.Data` type
+  inventory and of the copy implementation. Test nested alias isolation,
+  every supported type, numeric precision, and unsupported-value handling.
+  Evidence in `internal/engine/payload_test.go`:
+  `TestEvidenceEnvelope_OwnsEverySourceField` (all six mutable fields mutated
+  independently, `RollbackResults` checked directly because it is outside the
+  v1 signature), `TestPayloadCopy_SupportedTypes`, `_NumericPrecision`,
+  `_NilnessPreserved`, `_NestedIsolation`, `_UnsupportedFailsClosed`,
+  `_ElementTypes`. Independent review raised two defects in the first cut
+  (unredacted re-sign fallback, typed-nil slices widened to empty); both are
+  fixed and locked by tests.
+- **[GATE] Persistence and re-signing.** Inject persistence and signing
+  failures. Prove evidence retention, joined error reporting where the frozen
+  `TransactionResult.Error` rule permits it, a valid replacement signature,
+  and an explicitly unsigned fallback that carries no stale signature.
+  Evidence in `internal/engine/error_path_matrix_test.go`:
+  `TestPersistFailure_DemotionMatrix` (committed, rolled_back with
+  `HostUnchanged` preserved, staged; partially_applied and rollback_failed
+  retained with nil `Error` and a valid signature),
+  `TestPersistFailure_TerminalEventIsFailure`,
+  `TestCopyFailure_PersistsUnsignedDiagnostic`; plus
+  `TestFinalize_PersistFailureSignsReplacementEvidence` and
+  `TestFinalize_ResignFailureIsExplicitlyUnsigned`.
+- **[GATE] Operational pre-state.** Prove signing and redaction leave both the
+  caller's captured state and the persisted restoration source (the
+  `pre_states` table) unchanged.
+  Evidence: `TestFinalize_RedactionBoundaries` subtests
+  `store-redaction/AC-04` and `store-redaction/AC-06`,
+  `TestEvidenceEnvelope_RedactsOwnedBundles`, and
+  `TestResignFailure_EvidenceIsRedacted`, which covers evidence returned when
+  no signer ever redacted it.
+- **[GATE] Rollback behavior.** Review the diff and run the rollback, recovery,
+  deadman and apply regressions to establish that rollback eligibility,
+  rollback execution, recovery and deadman behavior are unchanged.
+  Evidence: `go test ./... -count=1` clean; the rollback, recovery, deadman and
+  apply regressions across `internal/engine`, `internal/store` and
+  `internal/evidence` pass unchanged. `make spec-sync` and
+  `make spec-coverage-strict` report 153 of 153 specs passing. The strict gate
+  needs `make build` first: without `bin/kensa`, `TestOpenAgent_LocalStub`
+  skips and `agent-cli-env-var` reports 5 of 7. That is a missing local build
+  artifact, not a defect, and it reproduces at the parent commit.
+- **[GATE] Historical exposure.** Determine affected versions from repository
+  history. Retained-record verification is PENDING SEPARATE AUTHORIZATION; do
+  not access field records.
+  Evidence, from repository history only: the signing-order defect enters at
+  `c58d527` (2026-04-14) with real signing wired at `b97283c` (2026-05-10);
+  both are contained in `v0.1.0`, so every tagged release through `v0.10.0` carries it, reaching transactions that end
+  `partially_applied` with a successful non-capturable step. The in-place
+  `Decision` edit enters at `e86dc6b` and first ships in `v0.6.0`, reaching
+  transactions whose terminal result fails to persist after signing. No field
+  records were accessed.
+
+### Reproducing the evidence
+
+All results below are the author's. No second party has rerun them. Each
+command is exact; a reviewer who reruns one should get the stated outcome.
+
+Baseline, meaning the state before the fix. It runs in a throwaway worktree
+at a path unique to the run, and every setup step must succeed before the
+next one runs, so a failed worktree creation or a failed `cd` cannot leave
+the commands editing a real checkout. `448ff8c` is the parent commit this
+branch starts from:
+
+```
+set -eu
+wt=$(mktemp -d -t kensa-baseline.XXXXXX)
+git worktree add --detach "$wt" fix/evidence-signing-order
+cd "$wt"
+git checkout 448ff8c -- internal/engine/commit.go
+rm internal/engine/payload.go internal/engine/payload_test.go
+set +e   # the test run below is EXPECTED to fail
+go test ./internal/engine/ -run 'TestFinalize_' -count=1
+```
+
+Clean up by removing only the worktree this run created, named by the `$wt`
+set above:
+
+```
+cd - >/dev/null && git worktree remove --force "$wt"
+```
+
+`payload_test.go` is removed with `payload.go` because it is an in-package
+test of the copy helpers, which do not exist at the parent commit. The other
+three new test files compile against the parent commit unchanged.
+
+Seven tests fail: `ReturnedEnvelopeVerifies`, `PersistedEnvelopeVerifies`,
+`ResultWritesDoNotReachEnvelope`, `PersistFailureSignsReplacementEvidence`,
+`ResignFailureIsExplicitlyUnsigned`, `UnsupportedCapturedStateFailsClosed`,
+and `RedactionBoundaries/store-redaction/AC-06`. Two pass:
+`StrandedSurvivesSigning` and `RedactionBoundaries/store-redaction/AC-04`.
+Those two are companion assertions, not detectors.
+
+The recorded baseline covers the `TestFinalize_` set only. The error-path
+matrix tests were written after it and have no recorded baseline; they cover
+behavior the fix introduces.
+
+Use `-count=1` on every run so Go executes the tests instead of reporting a
+cached result from an earlier identical run.
+
+Mutations. Each row is one edit to the fixed tree, followed by the named
+test, which must fail. Run these in a throwaway worktree as above, so
+restoring means deleting the worktree rather than reverting files in place.
+
+| Edit | File | Test that must fail |
+|---|---|---|
+| Move the stranded marking below `result.Envelope = envelope`, writing through `result.Steps`, AND make `copySteps` return its input | `commit.go`, `payload.go` | `ReturnedEnvelopeVerifies`, `PersistedEnvelopeVerifies` |
+| Move the stranded marking only, keeping the copies | `commit.go` | `StrandedSurvivesSigning` |
+| `func copySteps(in []api.StepResult) []api.StepResult { return in }` | `payload.go` | `ResultWritesDoNotReachEnvelope` |
+| Make `copyStringKeyedMap` return `in, nil` | `payload.go` | `RedactionBoundaries/store-redaction/AC-06` |
+| Replace the `resignAsErrored` call with `result.Envelope.Decision = api.StatusErrored` | `commit.go` | `PersistFailureSignsReplacementEvidence` |
+| Discard the `resignAsErrored` error instead of joining it | `commit.go` | `ResignFailureIsExplicitlyUnsigned` |
+| Make the `copyDataValue` default branch `return v, nil` | `payload.go` | `UnsupportedCapturedStateFailsClosed`, `PayloadCopy_UnsupportedFailsClosed` |
+| Delete the two `redactBundles` calls | `commit.go` | `ResignFailure_EvidenceIsRedacted` |
+| Delete the `t == nil` guards in the `[]string` and `[]any` cases | `payload.go` | `PayloadCopy_NilnessPreserved` |
+| Make `copyValidators`, `copyRollbacks` and `copyFrameworkRefs` return their input | `payload.go` | `EvidenceEnvelope_OwnsEverySourceField` |
+| Make `post` alias `postStates` instead of copying | `commit.go` | `EvidenceEnvelope_OwnsEverySourceField` |
+
+A mutation must leave the package compiling, or it tests nothing about the
+assertion it targets. Removing the `fmt` error in the `copyDataValue` row
+leaves that import unused, so keep it referenced when making that edit.
+
+Full gates, which need the binary built first because
+`TestOpenAgent_LocalStub` skips without it and a skipped test does not count
+toward coverage:
+
+```
+make build && make spec-coverage-strict     # expect 153 of 153 passing
+go test ./... -count=1
+golangci-lint run --config=.golangci.yml ./...
+make comment-lint docs-check docs-style
+```
+
+CI already orders this correctly: `.github/workflows/ci.yml` runs
+`make build` immediately before `make spec-coverage-strict`.
+
+Kept open alongside it, as separate Red work:
+
+- **[SECURITY, HIGH, Red-class, FOUNDER-GATED] `rollback_results` is serialized
+  but not authenticated.** `envelopeCanonical` (`internal/evidence/signer.go`)
+  carries 14 of the 17 `api.EvidenceEnvelope` fields. `Signature` and
+  `SigningKeyID` are excluded by design; `RollbackResults` is excluded by
+  nothing, so editing the record of whether restoration succeeded leaves
+  `kensa verify` reporting a valid signature. Spec AC-03 promises that a tamper
+  of any field invalidates the signature, and AC-01 omits the field, so the
+  spec disagrees with itself and the struct follows neither. Same class as the
+  `Severity` omission that `TestVerify_TamperedSeverity` locks. Adding the
+  field changes the canonical bytes and breaks existing signatures, so the fix
+  needs a `schema_version` bump with a verifier that distinguishes "valid v1
+  signature" from "rollback results authenticated". Continuing to verify v1
+  must not imply the protection was supplied retroactively.
+
+---
+
 ## Security process (2026-07-25)
 
 - **[SECURITY-PROCESS, MED, FOUNDER-GATED] `SECURITY.md` directs vulnerability
