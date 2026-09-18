@@ -80,6 +80,20 @@ any pair).
 
 ### Fixed
 
+- **Evidence records verify again.** The engine signed the evidence envelope
+  and then changed it, so the envelope it returned and the one it stored no
+  longer matched their signature and `kensa verify` rejected them. Two writes
+  did it: marking a step stranded on a partially applied transaction, and
+  rewriting the decision when the terminal result failed to persist. The
+  engine now settles every signed field before signing, gives the envelope its
+  own copy of the data, and builds and signs a fresh errored record instead of
+  editing a signed one. If the copy or the replacement signature fails, the
+  record is returned unsigned and redacted with a note saying what was lost,
+  rather than signed and wrong. Records written by earlier versions are NOT
+  repaired: they stay unverifiable, because rewriting them would mean signing
+  evidence after the fact. Captured pre-state, rollback behavior and host
+  changes are unaffected.
+
 - **`kensa list frameworks`, `kensa coverage --framework` and `kensa info` now
   read the whole corpus.** They loaded rules with no variables, so every rule
   carrying a `{{ name }}` template was dropped before the count was taken and

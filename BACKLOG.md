@@ -121,15 +121,23 @@ gate is not satisfied by a proposed test or by a green suite.
 All results below are the author's. No second party has rerun them. Each
 command is exact; a reviewer who reruns one should get the stated outcome.
 
-Baseline, meaning the state before the fix. `448ff8c` is the parent commit
-this branch starts from:
+Baseline, meaning the state before the fix. Run it in a throwaway worktree
+so nothing can touch a working checkout. `448ff8c` is the parent commit this
+branch starts from:
 
 ```
+git worktree add --detach /tmp/kensa-baseline fix/evidence-signing-order
+cd /tmp/kensa-baseline
 git checkout 448ff8c -- internal/engine/commit.go
 rm internal/engine/payload.go internal/engine/payload_test.go
 go test ./internal/engine/ -run 'TestFinalize_' -count=1
-git checkout HEAD -- internal/engine/commit.go internal/engine/payload.go \
-    internal/engine/payload_test.go
+```
+
+Clean up by deleting the throwaway worktree, which leaves every other
+checkout untouched:
+
+```
+cd - && git worktree remove --force /tmp/kensa-baseline
 ```
 
 `payload_test.go` is removed with `payload.go` because it is an in-package
@@ -147,11 +155,12 @@ The recorded baseline covers the `TestFinalize_` set only. The error-path
 matrix tests were written after it and have no recorded baseline; they cover
 behavior the fix introduces.
 
-`-count=1` is required. Go caches test results, and an edit to a file the
-package does not compile leaves a stale pass in place.
+Use `-count=1` on every run so Go executes the tests instead of reporting a
+cached result from an earlier identical run.
 
 Mutations. Each row is one edit to the fixed tree, followed by the named
-test, which must fail. Restore the file afterward.
+test, which must fail. Run these in a throwaway worktree as above, so
+restoring means deleting the worktree rather than reverting files in place.
 
 | Edit | File | Test that must fail |
 |---|---|---|
@@ -167,9 +176,9 @@ test, which must fail. Restore the file afterward.
 | Make `copyValidators`, `copyRollbacks` and `copyFrameworkRefs` return their input | `payload.go` | `EvidenceEnvelope_OwnsEverySourceField` |
 | Make `post` alias `postStates` instead of copying | `commit.go` | `EvidenceEnvelope_OwnsEverySourceField` |
 
-A mutation that stops the package compiling proves nothing. Removing the
-`fmt` error in the `copyDataValue` row leaves that import unused, so keep it
-referenced when making that edit.
+A mutation must leave the package compiling, or it tests nothing about the
+assertion it targets. Removing the `fmt` error in the `copyDataValue` row
+leaves that import unused, so keep it referenced when making that edit.
 
 Full gates, which need the binary built first because
 `TestOpenAgent_LocalStub` skips without it and a skipped test does not count
