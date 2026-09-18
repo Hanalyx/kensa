@@ -116,6 +116,75 @@ gate is not satisfied by a proposed test or by a green suite.
   transactions whose terminal result fails to persist after signing. No field
   records were accessed.
 
+### Reproducing the evidence
+
+All results below are the author's. No second party has rerun them. Each
+command is exact; a reviewer who reruns one should get the stated outcome.
+
+Baseline, meaning the state before the fix. `448ff8c` is the parent commit
+this branch starts from:
+
+```
+git checkout 448ff8c -- internal/engine/commit.go
+rm internal/engine/payload.go internal/engine/payload_test.go
+go test ./internal/engine/ -run 'TestFinalize_' -count=1
+git checkout HEAD -- internal/engine/commit.go internal/engine/payload.go \
+    internal/engine/payload_test.go
+```
+
+`payload_test.go` is removed with `payload.go` because it is an in-package
+test of the copy helpers, which do not exist at the parent commit. The other
+three new test files compile against the parent commit unchanged.
+
+Seven tests fail: `ReturnedEnvelopeVerifies`, `PersistedEnvelopeVerifies`,
+`ResultWritesDoNotReachEnvelope`, `PersistFailureSignsReplacementEvidence`,
+`ResignFailureIsExplicitlyUnsigned`, `UnsupportedCapturedStateFailsClosed`,
+and `RedactionBoundaries/store-redaction/AC-06`. Two pass:
+`StrandedSurvivesSigning` and `RedactionBoundaries/store-redaction/AC-04`.
+Those two are companion assertions, not detectors.
+
+The recorded baseline covers the `TestFinalize_` set only. The error-path
+matrix tests were written after it and have no recorded baseline; they cover
+behavior the fix introduces.
+
+`-count=1` is required. Go caches test results, and an edit to a file the
+package does not compile leaves a stale pass in place.
+
+Mutations. Each row is one edit to the fixed tree, followed by the named
+test, which must fail. Restore the file afterward.
+
+| Edit | File | Test that must fail |
+|---|---|---|
+| Move the stranded marking below `result.Envelope = envelope`, writing through `result.Steps`, AND make `copySteps` return its input | `commit.go`, `payload.go` | `ReturnedEnvelopeVerifies`, `PersistedEnvelopeVerifies` |
+| Move the stranded marking only, keeping the copies | `commit.go` | `StrandedSurvivesSigning` |
+| `func copySteps(in []api.StepResult) []api.StepResult { return in }` | `payload.go` | `ResultWritesDoNotReachEnvelope` |
+| Make `copyStringKeyedMap` return `in, nil` | `payload.go` | `RedactionBoundaries/store-redaction/AC-06` |
+| Replace the `resignAsErrored` call with `result.Envelope.Decision = api.StatusErrored` | `commit.go` | `PersistFailureSignsReplacementEvidence` |
+| Discard the `resignAsErrored` error instead of joining it | `commit.go` | `ResignFailureIsExplicitlyUnsigned` |
+| Make the `copyDataValue` default branch `return v, nil` | `payload.go` | `UnsupportedCapturedStateFailsClosed`, `PayloadCopy_UnsupportedFailsClosed` |
+| Delete the two `redactBundles` calls | `commit.go` | `ResignFailure_EvidenceIsRedacted` |
+| Delete the `t == nil` guards in the `[]string` and `[]any` cases | `payload.go` | `PayloadCopy_NilnessPreserved` |
+| Make `copyValidators`, `copyRollbacks` and `copyFrameworkRefs` return their input | `payload.go` | `EvidenceEnvelope_OwnsEverySourceField` |
+| Make `post` alias `postStates` instead of copying | `commit.go` | `EvidenceEnvelope_OwnsEverySourceField` |
+
+A mutation that stops the package compiling proves nothing. Removing the
+`fmt` error in the `copyDataValue` row leaves that import unused, so keep it
+referenced when making that edit.
+
+Full gates, which need the binary built first because
+`TestOpenAgent_LocalStub` skips without it and a skipped test does not count
+toward coverage:
+
+```
+make build && make spec-coverage-strict     # expect 153 of 153 passing
+go test ./... -count=1
+golangci-lint run --config=.golangci.yml ./...
+make comment-lint docs-check docs-style
+```
+
+CI already orders this correctly: `.github/workflows/ci.yml` runs
+`make build` immediately before `make spec-coverage-strict`.
+
 Kept open alongside it, as separate Red work:
 
 - **[SECURITY, HIGH, Red-class, FOUNDER-GATED] `rollback_results` is serialized
