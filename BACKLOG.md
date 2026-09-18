@@ -49,6 +49,51 @@ incl. U1000 both 0 findings; `govulncheck` 0 reachable vulns).
 
 ---
 
+## Evidence signing integrity (2026-09-18)
+
+Required evidence for the signing-order and payload-ownership change on
+`internal/engine/finalize`. These are acceptance gates on that change, not
+follow-up work. Attach an evidence reference to each as it is satisfied. A
+gate is not satisfied by a proposed test or by a green suite.
+
+- **[GATE] Signing order.** Demonstrate the pre-fix regression failure, then
+  verify real Ed25519 signatures on the returned envelope and on the envelope
+  persisted and reloaded through `SQLite.Get`.
+- **[GATE] Payload ownership.** Independent review of the `PreState.Data` type
+  inventory and of the copy implementation. Test nested alias isolation,
+  every supported type, numeric precision, and unsupported-value handling.
+- **[GATE] Persistence and re-signing.** Inject persistence and signing
+  failures. Prove evidence retention, joined error reporting where the frozen
+  `TransactionResult.Error` rule permits it, a valid replacement signature,
+  and an explicitly unsigned fallback that carries no stale signature.
+- **[GATE] Operational pre-state.** Prove signing and redaction leave both the
+  caller's captured state and the persisted restoration source (the
+  `pre_states` table) unchanged.
+- **[GATE] Rollback behavior.** Review the diff and run the rollback, recovery,
+  deadman and apply regressions to establish that rollback eligibility,
+  rollback execution, recovery and deadman behavior are unchanged.
+- **[GATE] Historical exposure.** Determine affected versions from repository
+  history. Retained-record verification is PENDING SEPARATE AUTHORIZATION; do
+  not access field records.
+
+Kept open alongside it, as separate Red work:
+
+- **[SECURITY, HIGH, Red-class, FOUNDER-GATED] `rollback_results` is serialized
+  but not authenticated.** `envelopeCanonical` (`internal/evidence/signer.go`)
+  carries 14 of the 17 `api.EvidenceEnvelope` fields. `Signature` and
+  `SigningKeyID` are excluded by design; `RollbackResults` is excluded by
+  nothing, so editing the record of whether restoration succeeded leaves
+  `kensa verify` reporting a valid signature. Spec AC-03 promises that a tamper
+  of any field invalidates the signature, and AC-01 omits the field, so the
+  spec disagrees with itself and the struct follows neither. Same class as the
+  `Severity` omission that `TestVerify_TamperedSeverity` locks. Adding the
+  field changes the canonical bytes and breaks existing signatures, so the fix
+  needs a `schema_version` bump with a verifier that distinguishes "valid v1
+  signature" from "rollback results authenticated". Continuing to verify v1
+  must not imply the protection was supplied retroactively.
+
+---
+
 ## Security process (2026-07-25)
 
 - **[SECURITY-PROCESS, MED, FOUNDER-GATED] `SECURITY.md` directs vulnerability
