@@ -5,8 +5,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/redact"
 )
 
 // TestPayloadCopy_SupportedTypes covers every value shape the corpus
@@ -172,5 +174,131 @@ func TestPayloadCopy_ElementTypes(t *testing.T) {
 					typ.Name(), f.Name, f.Type.Kind())
 			}
 		}
+	}
+}
+
+// TestPayloadCopy_NilnessPreserved locks the difference between a typed
+// nil slice and an empty one. Turning nil into an empty slice changes the
+// captured state's JSON from null to [], which changes both the signed
+// bytes and what a reader sees.
+func TestPayloadCopy_NilnessPreserved(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-03")
+	var nilStrings []string
+	var nilAnys []any
+	in := map[string]any{
+		"nil_strings":   nilStrings,
+		"nil_anys":      nilAnys,
+		"empty_strings": []string{},
+		"empty_anys":    []any{},
+		"nil_map":       map[string]any(nil),
+	}
+	out, err := copyStringKeyedMap(in, "data")
+	if err != nil {
+		t.Fatalf("copy failed: %v", err)
+	}
+	want, _ := json.Marshal(in)
+	got, _ := json.Marshal(out)
+	if string(got) != string(want) {
+		t.Errorf("nilness changed:\n got %s\nwant %s", got, want)
+	}
+	if out["nil_strings"].([]string) != nil {
+		t.Error("typed nil []string became non-nil")
+	}
+	if out["nil_anys"].([]any) != nil {
+		t.Error("typed nil []any became non-nil")
+	}
+	if out["empty_strings"].([]string) == nil {
+		t.Error("empty []string became nil")
+	}
+	if out["empty_anys"].([]any) == nil {
+		t.Error("empty []any became nil")
+	}
+}
+
+// TestEvidenceEnvelope_OwnsEverySourceField mutates each of the six
+// mutable inputs independently and asserts none of them reaches the
+// envelope. Signature verification cannot stand in for this: RollbackResults
+// is outside the v1 canonical form, so tampering with it would verify
+// cleanly, and PostStateBundle and ValidatorResults are not reachable from
+// the returned result at all.
+func TestEvidenceEnvelope_OwnsEverySourceField(t *testing.T) {
+	t.Log("// @spec evidence-envelope")
+	t.Log("// @ac AC-03")
+	const original = "original"
+	const mutated = "mutated after construction"
+
+	steps := []api.StepResult{{StepIndex: 0, Detail: original}}
+	pre := []api.PreState{{StepIndex: 0, Data: map[string]any{
+		"k":      original,
+		"nested": map[string]any{"inner": original},
+	}}}
+	post := []api.PreState{{StepIndex: 0, Data: map[string]any{"k": original}}}
+	validators := []api.ValidatorResult{{Name: original}}
+	rollbacks := []api.RollbackResult{{StepIndex: 0, Detail: original}}
+	txn := &api.Transaction{FrameworkRefs: []api.FrameworkRef{{FrameworkID: original}}}
+
+	env, err := evidenceEnvelope(txn, time.Now(), time.Now(), api.StatusCommitted,
+		steps, pre, validators, rollbacks, post)
+	if err != nil {
+		t.Fatalf("evidenceEnvelope: %v", err)
+	}
+
+	steps[0].Detail = mutated
+	pre[0].Data["k"] = mutated
+	pre[0].Data["nested"].(map[string]any)["inner"] = mutated
+	post[0].Data["k"] = mutated
+	validators[0].Name = mutated
+	rollbacks[0].Detail = mutated
+	txn.FrameworkRefs[0].FrameworkID = mutated
+
+	checks := []struct {
+		field string
+		got   any
+	}{
+		{"ApplySteps", env.ApplySteps[0].Detail},
+		{"PreStateBundle", env.PreStateBundle[0].Data["k"]},
+		{"PreStateBundle (nested)", env.PreStateBundle[0].Data["nested"].(map[string]any)["inner"]},
+		{"PostStateBundle", env.PostStateBundle[0].Data["k"]},
+		{"ValidatorResults", env.ValidatorResults[0].Name},
+		{"RollbackResults", env.RollbackResults[0].Detail},
+		{"FrameworkRefs", env.FrameworkRefs[0].FrameworkID},
+	}
+	for _, c := range checks {
+		if c.got != original {
+			t.Errorf("%s: envelope shares its source (got %v)", c.field, c.got)
+		}
+	}
+}
+
+// TestEvidenceEnvelope_RedactsOwnedBundles proves the envelope is redacted
+// at construction rather than as a side effect of signing, so evidence that
+// never reaches a successful Sign still carries no credential value. The
+// source maps must stay verbatim: they are the rollback restoration source.
+func TestEvidenceEnvelope_RedactsOwnedBundles(t *testing.T) {
+	t.Log("// @spec store-redaction")
+	t.Log("// @ac AC-04")
+	const secret = "s3cr3t-value" // pragma: allowlist secret
+	pre := []api.PreState{{Data: map[string]any{
+		"nested": map[string]any{"password": secret},
+	}}}
+	post := []api.PreState{{Data: map[string]any{"api_key": secret}}}
+
+	env, err := evidenceEnvelope(&api.Transaction{}, time.Now(), time.Now(),
+		api.StatusCommitted, nil, pre, nil, nil, post)
+	if err != nil {
+		t.Fatalf("evidenceEnvelope: %v", err)
+	}
+	if got := env.PreStateBundle[0].Data["nested"].(map[string]any)["password"]; got != redact.Placeholder {
+		t.Errorf("nested pre-state credential not redacted: got %v", got)
+	}
+	if got := env.PostStateBundle[0].Data["api_key"]; got != redact.Placeholder {
+		t.Errorf("post-state credential not redacted: got %v", got)
+	}
+	if got := pre[0].Data["nested"].(map[string]any)["password"]; got != secret {
+		t.Errorf("source pre-state was redacted in place: got %v", got)
+	}
+	if got := post[0].Data["api_key"]; got != secret {
+		t.Errorf("source post-state was redacted in place: got %v", got)
 	}
 }

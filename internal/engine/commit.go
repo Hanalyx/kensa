@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/redact"
 )
 
 // finalize composes the [api.TransactionResult], generates and signs
@@ -310,6 +311,16 @@ func evidenceEnvelope(
 ) (*api.EvidenceEnvelope, error) {
 	pre, preErr := copyPreStates(preStates)
 	post, postErr := copyPreStates(postStates)
+	// Redact the envelope's own bundles here rather than relying on the
+	// signer to do it. The signer redacts before signing, so on the normal
+	// path this is the same content either way; but an envelope that never
+	// reaches a successful Sign — unrepresentable state, or a signer that
+	// fails before its own redaction — would otherwise carry credential
+	// values back to the caller. Safe to do unconditionally because these
+	// bundles are copies: the caller's state and the rollback restoration
+	// source are untouched.
+	redactBundles(pre)
+	redactBundles(post)
 	return &api.EvidenceEnvelope{
 		SchemaVersion:    "v1",
 		TransactionID:    txn.ID,
@@ -327,6 +338,14 @@ func evidenceEnvelope(
 		PostStateBundle:  post,
 		FrameworkRefs:    copyFrameworkRefs(txn.FrameworkRefs),
 	}, errors.Join(preErr, postErr)
+}
+
+// redactBundles scrubs credential values from captured-state maps the
+// envelope owns.
+func redactBundles(bundle []api.PreState) {
+	for i := range bundle {
+		redact.Tree(bundle[i].Data)
+	}
 }
 
 // markUnsigned stamps the unsigned sentinel: an empty, non-nil signature

@@ -59,22 +59,62 @@ gate is not satisfied by a proposed test or by a green suite.
 - **[GATE] Signing order.** Demonstrate the pre-fix regression failure, then
   verify real Ed25519 signatures on the returned envelope and on the envelope
   persisted and reloaded through `SQLite.Get`.
+  Evidence: `TestFinalize_ReturnedEnvelopeVerifies`,
+  `TestFinalize_PersistedEnvelopeVerifies`, `TestFinalize_StrandedSurvivesSigning`
+  (`internal/engine/signing_order_test.go`), branch `fix/evidence-signing-order`.
+  Both verification tests fail at the parent commit and pass after it;
+  reintroducing the post-`Sign` write fails them again.
 - **[GATE] Payload ownership.** Independent review of the `PreState.Data` type
   inventory and of the copy implementation. Test nested alias isolation,
   every supported type, numeric precision, and unsupported-value handling.
+  Evidence in `internal/engine/payload_test.go`:
+  `TestEvidenceEnvelope_OwnsEverySourceField` (all six mutable fields mutated
+  independently, `RollbackResults` checked directly because it is outside the
+  v1 signature), `TestPayloadCopy_SupportedTypes`, `_NumericPrecision`,
+  `_NilnessPreserved`, `_NestedIsolation`, `_UnsupportedFailsClosed`,
+  `_ElementTypes`. Independent review raised two defects in the first cut
+  (unredacted re-sign fallback, typed-nil slices widened to empty); both are
+  fixed and locked by tests.
 - **[GATE] Persistence and re-signing.** Inject persistence and signing
   failures. Prove evidence retention, joined error reporting where the frozen
   `TransactionResult.Error` rule permits it, a valid replacement signature,
   and an explicitly unsigned fallback that carries no stale signature.
+  Evidence in `internal/engine/error_path_matrix_test.go`:
+  `TestPersistFailure_DemotionMatrix` (committed, rolled_back with
+  `HostUnchanged` preserved, staged; partially_applied and rollback_failed
+  retained with nil `Error` and a valid signature),
+  `TestPersistFailure_TerminalEventIsFailure`,
+  `TestCopyFailure_PersistsUnsignedDiagnostic`; plus
+  `TestFinalize_PersistFailureSignsReplacementEvidence` and
+  `TestFinalize_ResignFailureIsExplicitlyUnsigned`.
 - **[GATE] Operational pre-state.** Prove signing and redaction leave both the
   caller's captured state and the persisted restoration source (the
   `pre_states` table) unchanged.
+  Evidence: `TestFinalize_RedactionBoundaries` subtests
+  `store-redaction/AC-04` and `store-redaction/AC-06`,
+  `TestEvidenceEnvelope_RedactsOwnedBundles`, and
+  `TestResignFailure_EvidenceIsRedacted`, which covers evidence returned when
+  no signer ever redacted it.
 - **[GATE] Rollback behavior.** Review the diff and run the rollback, recovery,
   deadman and apply regressions to establish that rollback eligibility,
   rollback execution, recovery and deadman behavior are unchanged.
+  Evidence: `go test ./... -count=1` clean; the rollback, recovery, deadman and
+  apply regressions across `internal/engine`, `internal/store` and
+  `internal/evidence` pass unchanged. `make spec-sync` and
+  `make spec-coverage-strict` report 153 of 153 specs passing. The strict gate
+  needs `make build` first: without `bin/kensa`, `TestOpenAgent_LocalStub`
+  skips and `agent-cli-env-var` reports 5 of 7. That is a missing local build
+  artifact, not a defect, and it reproduces at the parent commit.
 - **[GATE] Historical exposure.** Determine affected versions from repository
   history. Retained-record verification is PENDING SEPARATE AUTHORIZATION; do
   not access field records.
+  Evidence, from repository history only: the signing-order defect enters at
+  `c58d527` (2026-04-14) with real signing wired at `b97283c` (2026-05-10);
+  both are contained in `v0.1.0`, so every tagged release through `v0.10.0` carries it, reaching transactions that end
+  `partially_applied` with a successful non-capturable step. The in-place
+  `Decision` edit enters at `e86dc6b` and first ships in `v0.6.0`, reaching
+  transactions whose terminal result fails to persist after signing. No field
+  records were accessed.
 
 Kept open alongside it, as separate Red work:
 

@@ -62,10 +62,18 @@ func copyDataValue(v any, path string) (any, error) {
 		// to float64 and lose exactness above 2^53.
 		return t, nil
 	case []string:
+		// A typed nil stays nil: turning it into an empty slice would
+		// change the captured state's JSON from null to [].
+		if t == nil {
+			return t, nil
+		}
 		out := make([]string, len(t))
 		copy(out, t)
 		return out, nil
 	case []any:
+		if t == nil {
+			return t, nil
+		}
 		out := make([]any, len(t))
 		for i := range t {
 			cv, err := copyDataValue(t[i], path+"["+strconv.Itoa(i)+"]")
