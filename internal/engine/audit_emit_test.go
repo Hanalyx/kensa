@@ -78,10 +78,13 @@ func TestEmit_RolledBackSequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if res.Status != api.StatusRolledBack {
-		t.Fatalf("status = %s, want rolled_back", res.Status)
+	// A failed apply leaves the host unconfirmed, so the terminal phase is
+	// rollback_failed. The property this test exists for is unchanged:
+	// there is no validate phase, because apply did not succeed.
+	if res.Status != api.StatusRollbackFailed {
+		t.Fatalf("status = %s, want rollback_failed", res.Status)
 	}
-	want := []string{"started", "capture", "apply", "rolled_back"}
+	want := []string{"started", "capture", "apply", "rollback_failed"}
 	if !reflect.DeepEqual(em.phases, want) {
 		t.Errorf("emitted phases = %v, want %v", em.phases, want)
 	}

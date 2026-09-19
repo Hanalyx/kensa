@@ -63,9 +63,12 @@ func TestEngine_AC01_CommittedOnFullSuccess(t *testing.T) {
 
 // @spec engine-transaction
 // @ac AC-02
-func TestEngine_AC02_RolledBackOnApplyFailure(t *testing.T) {
+func TestEngine_AC02_RollbackFailedOnApplyFailure(t *testing.T) {
 	t.Log("// @spec engine-transaction")
 	t.Log("// @ac AC-02")
+	// A failed step is not reversed, so its effects are unresolved and the
+	// host is unconfirmed. This asserted RolledBack with a rolled-back
+	// timestamp until the failed-apply reporting fix.
 	h := &engine.FakeHandler{
 		HandlerName:  "fake_apply_fails",
 		IsCapturable: true,
@@ -77,11 +80,14 @@ func TestEngine_AC02_RolledBackOnApplyFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run returned err: %v", err)
 	}
-	if res.Status != api.StatusRolledBack {
-		t.Errorf("got Status=%s, want RolledBack", res.Status)
+	if res.Status != api.StatusRollbackFailed {
+		t.Errorf("got Status=%s, want RollbackFailed", res.Status)
 	}
-	if res.RolledBackAt == nil {
-		t.Error("expected RolledBackAt to be set on rolled-back transaction")
+	if res.RolledBackAt != nil {
+		t.Error("RolledBackAt is set on a transaction that did not roll back cleanly")
+	}
+	if res.HostUnchanged {
+		t.Error("HostUnchanged is true after an invoked Apply reported failure")
 	}
 }
 
@@ -133,8 +139,11 @@ func TestEngine_AC02_RollbackInReverseOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run err: %v", err)
 	}
-	if res.Status != api.StatusRolledBack {
-		t.Fatalf("got Status=%s, want RolledBack", res.Status)
+	// The third step's Apply failed, so the transaction is RollbackFailed.
+	// The reverse-order property this test exists for is unaffected: the
+	// steps that DID apply are still reversed, last applied first.
+	if res.Status != api.StatusRollbackFailed {
+		t.Fatalf("got Status=%s, want RollbackFailed", res.Status)
 	}
 	// Step 0 and 1 applied successfully; both should have rolled back.
 	if h0.RollbackCalls != 1 {
@@ -163,18 +172,20 @@ func TestEngine_AC05_PartiallyAppliedForNonCapturableSuccess(t *testing.T) {
 	t.Log("// @spec engine-transaction")
 	t.Log("// @ac AC-05")
 	// Two steps. Step 0 is non-capturable and succeeds; step 1 is
-	// capturable and fails. Rule is transactional:false (it must be,
-	// because it has a non-capturable step).
+	// capturable and succeeds, and validation then fails. Rule is
+	// transactional:false (it must be, because it has a non-capturable
+	// step). The failure is in validation rather than apply so this stays a
+	// PartiallyApplied fixture: an apply failure would leave the host
+	// unconfirmed and report RollbackFailed instead.
 	h0 := &engine.FakeHandler{HandlerName: "noncap_ok", IsCapturable: false}
 	h1 := &engine.FakeHandler{
-		HandlerName:  "cap_fails",
+		HandlerName:  "cap_ok",
 		IsCapturable: true,
-		ApplyErr:     errors.New("induced fail"),
 	}
 	r := handler.NewRegistry()
 	r.Register(h0)
 	r.Register(h1)
-	e := engine.New(engine.WithRegistry(r))
+	e := engine.New(engine.WithRegistry(r), engine.WithForceValidateFail())
 
 	txn := &api.Transaction{
 		ID:     uuid.New(),
@@ -182,7 +193,7 @@ func TestEngine_AC05_PartiallyAppliedForNonCapturableSuccess(t *testing.T) {
 		HostID: "test-host",
 		Steps: []api.Step{
 			{Index: 0, Mechanism: "noncap_ok"},
-			{Index: 1, Mechanism: "cap_fails"},
+			{Index: 1, Mechanism: "cap_ok"},
 		},
 		Transactional: false,
 	}

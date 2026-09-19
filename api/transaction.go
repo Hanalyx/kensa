@@ -19,15 +19,18 @@ const (
 	// evidence envelope is signed and persisted.
 	StatusCommitted TransactionStatus = "committed"
 
-	// StatusRolledBack indicates apply or validate failed and every
-	// applied capturable step was reversed using captured pre-state.
-	// The host is in the exact pre-change state.
+	// StatusRolledBack indicates apply or validate failed, no invoked
+	// Apply reported failure, and every applied capturable step was
+	// reversed using captured pre-state. The host is in the exact
+	// pre-change state.
 	StatusRolledBack TransactionStatus = "rolled_back"
 
 	// StatusPartiallyApplied indicates that for a transactional:false
 	// rule, at least one non-capturable step ran before a failure.
 	// Those steps are not reversed; per-step Stranded flags in
-	// [TransactionResult.Steps] identify which ones.
+	// [TransactionResult.Steps] identify which ones. A transaction that
+	// also has a failed invoked Apply reports [StatusRollbackFailed]
+	// instead; the Stranded flags are set either way.
 	StatusPartiallyApplied TransactionStatus = "partially_applied"
 
 	// StatusErrored indicates the engine could not complete a phase
@@ -38,14 +41,23 @@ const (
 	// that never mutated the host from one that left a mutation behind.
 	StatusErrored TransactionStatus = "errored"
 
-	// StatusRollbackFailed indicates apply or validate failed and the
-	// engine attempted to reverse the applied steps, but the restoration
-	// could NOT be machine-verified as complete (a rollback step failed
-	// or reported PartialRestore, or the recaptured post-state did not
-	// match the captured pre-state). The host is in an unconfirmed state;
-	// per-step detail is in [TransactionResult.RollbackResults]. Produced
-	// by the engine when a reversed step fails or reports a partial
-	// restore (the verdict-computed rollback status).
+	// StatusRollbackFailed indicates the host is in an unconfirmed state,
+	// from either of two causes. A rollback handler reported failure or a
+	// partial restore for a step it attempted to reverse; or an invoked
+	// Apply reported failure, whose effects are unresolved because the
+	// engine does not reverse a failed step and cannot know what it
+	// changed before failing. Per-step detail is in
+	// [TransactionResult.RollbackResults] and [TransactionResult.Steps].
+	//
+	// A transaction can reach this status with a rollback set in which
+	// every row succeeded: the failed step produces no RollbackResult,
+	// while earlier successful steps may have reversed cleanly. The
+	// status describes the transaction, not the rollback rows.
+	//
+	// Recapture is advisory and separate: the engine re-reads post-state
+	// and records, per reversed step, whether it byte-matches the captured
+	// pre-state. That finding is carried in the RollbackResult Detail for
+	// audit and does not determine this status.
 	StatusRollbackFailed TransactionStatus = "rollback_failed"
 
 	// StatusRecovered indicates an interrupted transaction (the process
@@ -277,9 +289,10 @@ type StepResult struct {
 	Success bool
 	// Detail is human-readable per-step output suitable for logs and UI.
 	Detail string
-	// Stranded is true for non-capturable steps that succeeded before
-	// a later failure left the rule [StatusPartiallyApplied]. Such
-	// steps are not reversed by rollback.
+	// Stranded is true for non-capturable steps that succeeded before a
+	// later failure, in any terminal status of a transactional:false
+	// transaction. Such steps are not reversed by rollback. It is never
+	// set on a step that failed, and never on a successful transaction.
 	Stranded bool
 	// Staged is true when the mechanism could not converge live state and
 	// instead wrote a reboot-deferred persist change (audit_rule_set on an

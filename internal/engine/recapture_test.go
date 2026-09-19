@@ -91,8 +91,13 @@ func TestEngine_AC23_RollbackRecapturesAndMatches(t *testing.T) {
 		IsCapturable:   true,
 		RollbackResult: &api.RollbackResult{Success: true, Detail: "restored"},
 	}
-	h1 := &engine.FakeHandler{HandlerName: "rc_s1", IsCapturable: true, ApplyErr: errors.New("boom")}
-	e := durabilityEngine(t, nil, nil, h0, h1)
+	h1 := &engine.FakeHandler{HandlerName: "rc_s1", IsCapturable: true}
+	// Validation failure drives the rollback, so this exercises recapture on
+	// a clean RolledBack outcome rather than on an unresolved apply.
+	rr := handler.NewRegistry()
+	rr.Register(h0)
+	rr.Register(h1)
+	e := engine.New(engine.WithRegistry(rr), engine.WithForceValidateFail())
 
 	txn := &api.Transaction{
 		ID:            uuid.New(),
