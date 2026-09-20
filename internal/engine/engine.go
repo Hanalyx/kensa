@@ -468,6 +468,15 @@ func anyStaged(rs []api.StepResult) bool {
 // rollback that left stranded non-capturable steps (transactional:false) is
 // PartiallyApplied; an otherwise-clean rollback is RolledBack.
 func rollbackStatus(rb []api.RollbackResult, txn *api.Transaction, applyResults []api.StepResult) api.TransactionStatus {
+	// An invoked Apply that reported failure leaves its effects unresolved.
+	// The engine does not reverse a failed step (see rollback), and it cannot
+	// know what the handler changed before it failed, so the host is
+	// unconfirmed — which is what RollbackFailed means. This outranks the
+	// stranded-step verdict because it is the more severe claim; the stranded
+	// flags survive on the steps either way.
+	if hasFailedApply(applyResults) {
+		return api.StatusRollbackFailed
+	}
 	if !rollbackClean(rb) {
 		return api.StatusRollbackFailed
 	}
@@ -475,6 +484,19 @@ func rollbackStatus(rb []api.RollbackResult, txn *api.Transaction, applyResults 
 		return api.StatusPartiallyApplied
 	}
 	return api.StatusRolledBack
+}
+
+// hasFailedApply reports whether any step's handler was invoked and reported
+// failure, by returning an error or a Success:false result. Both shapes land
+// here identically (see applySteps). A step that never ran produces no
+// StepResult at all, so presence in this slice means the handler was invoked.
+func hasFailedApply(steps []api.StepResult) bool {
+	for _, s := range steps {
+		if !s.Success {
+			return true
+		}
+	}
+	return false
 }
 
 // rollbackClean reports whether every reversed step restored cleanly —

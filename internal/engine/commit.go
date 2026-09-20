@@ -60,7 +60,16 @@ func (e *Engine) finalize(
 	// of the signed payload, so setting it after Sign rewrote signed bytes
 	// through the array the envelope shared with the result and left both
 	// the returned and the persisted evidence unverifiable.
-	if status == api.StatusPartiallyApplied {
+	//
+	// The status test is what keeps this honest. A successful transaction
+	// strands nothing, and a failed one strands its non-capturable work
+	// whether the verdict came out PartiallyApplied or RollbackFailed. The
+	// Success test is load-bearing too: consumers read the flag as "this step
+	// succeeded and was not reversed", so it must never land on a step that
+	// failed.
+	if !txn.Transactional &&
+		(status == api.StatusPartiallyApplied ||
+			status == api.StatusRollbackFailed) {
 		for i := range steps {
 			if steps[i].Success && !steps[i].Capturable {
 				steps[i].Stranded = true

@@ -80,6 +80,24 @@ any pair).
 
 ### Fixed
 
+- **A failed remediation step no longer reports the host as restored.** When a
+  remediation handler failed partway, Kensa reported `rolled_back` with
+  `HostUnchanged: true`. The engine does not reverse a step whose own apply
+  failed, and it cannot know what that step changed before failing, so the
+  host could still carry a partial change while the record said it had been
+  restored. Those transactions now report `rollback_failed` with
+  `HostUnchanged: false`, which is the status that means the host is in an
+  unconfirmed state. Steps that succeeded and could not be reversed keep their
+  stranded marking, and the flag is never set on the step that failed.
+  Transactions whose steps all applied are unaffected: a clean reversal after
+  a failed validation still reports `rolled_back`.
+
+  In OpenWatch this moves the affected remediations from "Reverted, host
+  unchanged" to "Partially applied" with an inspection prompt. That is the
+  point: those hosts may need a look. It also means a handler that failed
+  without changing anything now reports an unconfirmed restoration, because
+  the engine has no evidence either way.
+
 - **Evidence signature verification is fixed** for partially applied
   transactions with stranded steps, and for returned evidence after a
   terminal persistence failure. The engine settles every signed field before

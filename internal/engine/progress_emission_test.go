@@ -2,7 +2,6 @@ package engine_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -34,19 +33,22 @@ func TestEngine_StreamingPayloadsCarryRuleID(t *testing.T) {
 	t.Run("progress-emission/AC-04", func(t *testing.T) {
 		const wantRuleID = "rule-emit-ac04"
 
-		// A handler whose Apply fails forces the rollback path, so the
-		// same run exercises TransactionStarted, PhaseCompleted, AND
-		// RolledBack — all three RuleID-bearing payloads.
+		// A clean apply whose validation fails forces the rollback path,
+		// so the same run exercises TransactionStarted, PhaseCompleted,
+		// AND RolledBack — all three RuleID-bearing payloads. Driving it
+		// with a FAILED apply instead would end RollbackFailed, which
+		// publishes the same RolledBack event kind but for an unconfirmed
+		// host; this test wants the clean verdict.
 		h := &engine.FakeHandler{
 			HandlerName:  "fake_apply_fails",
 			IsCapturable: true,
-			ApplyErr:     errors.New("induced apply failure"),
 		}
 		r := handler.NewRegistry()
 		r.Register(h)
 
 		bus := engine.NewInMemoryEventBus()
-		e := engine.New(engine.WithRegistry(r), engine.WithEvents(bus))
+		e := engine.New(engine.WithRegistry(r), engine.WithEvents(bus),
+			engine.WithForceValidateFail())
 
 		// Long-lived subscription drained after the run; cancel closes
 		// the channel so drainEvents terminates.

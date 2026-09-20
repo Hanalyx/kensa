@@ -183,16 +183,19 @@ spec:
         - id: C-11
           description: |
               The terminal status of a transaction that rolled back MUST be a
-              VERDICT over the per-step RollbackResults, not a constant. The
-              status is RolledBack only when every reversed step restored
-              cleanly (Success == true AND PartialRestore == false). If any
-              reversed step failed or reported a partial restore, the host is
-              in an unconfirmed state and the status MUST be RollbackFailed
-              (with HostUnchanged == false and the per-step divergence carried
-              in RollbackResults) — the engine MUST NOT report RolledBack /
-              "the host is unchanged" for a restoration it did not confirm. A
-              clean rollback that left stranded non-capturable steps
-              (transactional:false) is PartiallyApplied.
+              VERDICT over the per-step RollbackResults AND the apply results,
+              not a constant. The status is RolledBack only when no invoked
+              Apply reported failure and every reversed step restored cleanly
+              (Success == true AND PartialRestore == false). If any reversed
+              step failed or reported a partial restore, or any invoked Apply
+              reported failure, the host is in an unconfirmed state and the
+              status MUST be RollbackFailed (with HostUnchanged == false and
+              the per-step divergence carried in RollbackResults and Steps) —
+              the engine MUST NOT report RolledBack / "the host is unchanged"
+              for a restoration it did not confirm, and it does not attempt to
+              reverse a failed step, so it cannot confirm one. A clean
+              rollback with no failed apply that left stranded non-capturable
+              steps (transactional:false) is PartiallyApplied.
           type: security
           enforcement: error
         - id: C-14
@@ -221,17 +224,28 @@ spec:
           priority: critical
         - id: AC-02
           description: |
-              Run returns TransactionResult{Status: RolledBack} when any
-              apply step fails; every preceding applied capturable step is
-              reversed in reverse order using its captured pre-state.
+              When any apply step fails, every PRECEDING applied capturable
+              step is reversed in reverse order using its captured pre-state.
+              The failed step itself is not reversed, so its effects are
+              unresolved and Run returns TransactionResult{Status:
+              RollbackFailed} with HostUnchanged false, even when every
+              reversed step restored cleanly. This criterion stated
+              RolledBack until the failed-apply reporting correction; the
+              engine reported a restoration it had not performed.
           references_constraints: [C-01, C-02]
           priority: critical
         - id: AC-05
           description: |
               For rules declared transactional:false, non-capturable steps
-              that have already executed are NOT reversed on failure. The
-              outcome is Status=PartiallyApplied with per-step stranded
-              flags in the result.
+              that have already executed are NOT reversed on failure. Where
+              no invoked Apply reported failure and every reversed step
+              restored cleanly, the outcome is Status=PartiallyApplied with
+              per-step stranded flags in the result. Where an invoked Apply
+              failed, or a reversed step failed or reported a partial
+              restore, the outcome is RollbackFailed and the stranded flags
+              are still set: an unconfirmed host outranks the stranded-step
+              verdict without erasing its evidence (see AC-26 for the full
+              precedence). The flags are never set on a step that failed.
           references_constraints: [C-01]
           priority: high
 
@@ -336,10 +350,17 @@ spec:
           priority: critical
         - id: AC-17
           description: |
-              When every reversed step restores cleanly (Success == true and
-              PartialRestore == false), the terminal Status is RolledBack and
-              HostUnchanged is true — the clean-rollback verdict is unchanged
-              from prior behavior.
+              When no invoked Apply reported failure, every reversed step
+              restores cleanly (Success == true and PartialRestore == false),
+              and no successful non-capturable step remains stranded, the
+              terminal Status is RolledBack and HostUnchanged is true. With
+              stranded steps remaining and everything else clean, the Status
+              is PartiallyApplied (AC-05); with any failed apply or unclean
+              reversal, it is RollbackFailed (AC-26). The clean-rollback
+              verdict is otherwise unchanged from prior behavior; the
+              failed-apply qualifier is the correction, since a clean
+              reversal of the steps that DID apply says nothing about the
+              one that did not.
           references_constraints: [C-11]
           priority: critical
         - id: AC-18
@@ -407,6 +428,23 @@ spec:
               RolledBackAt are both nil, HostUnchanged is false, and the signed
               evidence envelope records Decision == staged.
           references_constraints: [C-14]
+          priority: critical
+        - id: AC-26
+          description: |
+              An invoked Apply that reports failure, by returned error or by
+              a Success:false result, yields StatusRollbackFailed with
+              HostUnchanged=false, whether or not the reversible steps rolled
+              back cleanly. Successful non-capturable steps in the same
+              transaction keep their Stranded flag.
+
+              When Apply fully succeeds and validation fails, any reported
+              rollback failure or partial restoration yields
+              StatusRollbackFailed. Otherwise, remaining successful
+              non-capturable steps yield StatusPartiallyApplied; with none
+              remaining, clean reported rollback yields StatusRolledBack and
+              HostUnchanged=true. A successful transaction sets no Stranded
+              flag.
+          references_constraints: [C-09, C-11]
           priority: critical
 
     depends_on:

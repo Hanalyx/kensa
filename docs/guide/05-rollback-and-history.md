@@ -26,10 +26,10 @@ terminal status the transaction lands in is what the log records:
 | Status | How it gets there |
 |---|---|
 | `committed` | Every apply step succeeded and every validator passed. The host is in the target state; the signed evidence envelope (the Ed25519-signed record of what the transaction did) is persisted. This is the status `rollback` reverses. |
-| `rolled_back` | Apply or validate failed, and the engine reversed every applied capturable step using the captured pre-state, in the **same run**. The host is back in its exact pre-change state. |
-| `partially_applied` | A `transactional: false` rule ran at least one non-capturable step before failing. Those steps are not reversed; per-step `Stranded` flags say which. |
+| `rolled_back` | The engine began reversing in the **same run**, and three things held: no apply step failed, every reversed step reported `Success: true` with no partial restore, and no successful non-capturable step was left behind. The host is back in its exact pre-change state. |
+| `partially_applied` | The same conditions on apply and reversal held, but a `transactional: false` rule ran at least one non-capturable step that succeeded and cannot be reversed. Those steps keep their per-step `Stranded` flags, which say which ones. |
 | `errored` | A phase could not complete within the deadline, or a terminal step (signing or persistence) failed. `HostUnchanged` distinguishes an abort that never mutated the host. |
-| `rollback_failed` | Apply/validate failed and the engine tried to reverse, but the restoration could not be machine-verified (a rollback step failed or reported a partial restore). The host is in an unconfirmed state. |
+| `rollback_failed` | The host is in an unconfirmed state, for either of two reasons. **An apply step failed.** The engine does not reverse a step whose own apply failed, and it cannot know what that step changed before failing, so its effects are unresolved; earlier successful capturable steps are still reversed. **Or a reversed step reported failure or a partial restore.** Either reason wins over `partially_applied`, and any successful non-capturable step keeps its `Stranded` flag. Recapture is recorded per reversed step for the audit record and does not decide this status. |
 | `recovered` | An interrupted transaction (the process died after pre-state was persisted but before any terminal record) was reversed out-of-band by [`kensa recover`](#recover-crash-recovery). |
 
 The key distinction: **`rolled_back`** is the engine undoing a failure

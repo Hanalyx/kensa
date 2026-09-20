@@ -86,9 +86,11 @@ spec:
           priority: critical
         - id: AC-02
           description: |
-              A rolled-back transaction (apply fails) emits started,
-              capture, apply, rolled_back — with NO validate phase (apply
-              did not succeed).
+              A transaction whose apply fails emits started, capture, apply,
+              rollback_failed — with NO validate phase (apply did not
+              succeed). The terminal phase carries the transaction's status,
+              and a failed apply leaves the host unconfirmed. This criterion
+              named rolled_back until the failed-apply reporting correction.
           references_constraints: [C-01]
           priority: critical
         - id: AC-03

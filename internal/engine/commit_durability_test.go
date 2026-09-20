@@ -197,19 +197,22 @@ func TestEngine_AC14_HostUnchangedPredicate(t *testing.T) {
 func TestEngine_AC15_RollbackResultsOnResultAndEnvelope(t *testing.T) {
 	t.Log("// @spec engine-transaction")
 	t.Log("// @ac AC-15")
-	// Two steps: step 0 applies, step 1 fails → step 0 is rolled back,
-	// producing a RollbackResult that must reach both surfaces.
+	// Two steps apply, validation fails, both are rolled back, producing
+	// RollbackResults that must reach both surfaces.
 	h0 := &engine.FakeHandler{
 		HandlerName:    "s0",
 		IsCapturable:   true,
 		RollbackResult: &api.RollbackResult{Success: true, Detail: "s0 restored"},
 	}
 	h1 := &engine.FakeHandler{
-		HandlerName:  "s1",
-		IsCapturable: true,
-		ApplyErr:     errors.New("induced apply failure"),
+		HandlerName:    "s1",
+		IsCapturable:   true,
+		RollbackResult: &api.RollbackResult{Success: true, Detail: "s1 restored"},
 	}
-	e := durabilityEngine(t, nil, nil, h0, h1)
+	r := handler.NewRegistry()
+	r.Register(h0)
+	r.Register(h1)
+	e := engine.New(engine.WithRegistry(r), engine.WithForceValidateFail())
 
 	txn := &api.Transaction{
 		ID:            uuid.New(),
@@ -248,9 +251,16 @@ func twoStepRollbackTxn(t *testing.T, step0Rollback *api.RollbackResult) (*engin
 	h1 := &engine.FakeHandler{
 		HandlerName:  "rb_s1",
 		IsCapturable: true,
-		ApplyErr:     errors.New("induced apply failure"),
 	}
-	e := durabilityEngine(t, nil, nil, h0, h1)
+	// Both steps apply cleanly and validation then fails, so the rollback
+	// verdict is decided by the rollback results alone. Reaching this path
+	// through a FAILED apply would make every outcome here RollbackFailed
+	// for that reason instead, and AC-16 could no longer tell an unclean
+	// rollback from an unresolved apply.
+	r := handler.NewRegistry()
+	r.Register(h0)
+	r.Register(h1)
+	e := engine.New(engine.WithRegistry(r), engine.WithForceValidateFail())
 	txn := &api.Transaction{
 		ID:            uuid.New(),
 		RuleID:        "test-rule",
