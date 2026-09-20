@@ -290,9 +290,13 @@ type StepResult struct {
 	// Detail is human-readable per-step output suitable for logs and UI.
 	Detail string
 	// Stranded is true for non-capturable steps that succeeded before a
-	// later failure, in any terminal status of a transactional:false
-	// transaction. Such steps are not reversed by rollback. It is never
-	// set on a step that failed, and never on a successful transaction.
+	// later failure in a transactional:false transaction. It is set when
+	// the transaction's verdict is [StatusPartiallyApplied] or
+	// [StatusRollbackFailed], before the evidence is built, and it stays
+	// set if a later evidence or persistence failure demotes the result to
+	// [StatusErrored]. A transaction whose verdict was Committed carries no
+	// stranded marking even if it is later demoted. Such steps are not
+	// reversed by rollback. The flag is never set on a step that failed.
 	Stranded bool
 	// Staged is true when the mechanism could not converge live state and
 	// instead wrote a reboot-deferred persist change (audit_rule_set on an

@@ -274,3 +274,35 @@ func TestFailedApply_PlanPathClassifiesTheSame(t *testing.T) {
 		t.Error("plan path marked the FAILED step Stranded")
 	}
 }
+
+// TestApplySucceeded_StrandedWithFailedRollback combines successful
+// non-capturable work with a capturable step whose reversal fails. The
+// unclean reversal outranks the stranded-step verdict, and the stranded
+// evidence survives the change of status. The status here was already
+// RollbackFailed before the failed-apply work; what that work added is the
+// retained flag, which the narrower gate used to drop.
+//
+// @spec engine-transaction
+// @ac AC-26
+func TestApplySucceeded_StrandedWithFailedRollback(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-26")
+	nc := noncapOK("swfr_nc")
+	c := capOK("swfr_cap")
+	c.RollbackResult = &api.RollbackResult{Success: false, Detail: "induced rollback failure"}
+	res := runTxn(t, applyFailTxn(false, "swfr_nc", "swfr_cap"),
+		[]engine.Option{engine.WithForceValidateFail()}, nc, c)
+
+	if res.Status != api.StatusRollbackFailed {
+		t.Errorf("got Status=%s, want RollbackFailed (unclean reversal outranks stranded)", res.Status)
+	}
+	if res.HostUnchanged {
+		t.Error("an unconfirmed restoration reported HostUnchanged=true")
+	}
+	if !res.Steps[0].Stranded {
+		t.Error("the successful non-capturable step lost its Stranded flag under RollbackFailed")
+	}
+	if res.Steps[1].Stranded {
+		t.Error("a capturable step was marked Stranded")
+	}
+}

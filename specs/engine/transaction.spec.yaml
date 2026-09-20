@@ -238,12 +238,14 @@ spec:
           description: |
               For rules declared transactional:false, non-capturable steps
               that have already executed are NOT reversed on failure. Where
-              no invoked Apply reported failure, the outcome is
-              Status=PartiallyApplied with per-step stranded flags in the
-              result. Where one did, the outcome is RollbackFailed and the
-              stranded flags are still set: an unresolved apply outranks the
-              stranded-step verdict without erasing its evidence. The flags
-              are never set on a step that failed.
+              no invoked Apply reported failure and every reversed step
+              restored cleanly, the outcome is Status=PartiallyApplied with
+              per-step stranded flags in the result. Where an invoked Apply
+              failed, or a reversed step failed or reported a partial
+              restore, the outcome is RollbackFailed and the stranded flags
+              are still set: an unconfirmed host outranks the stranded-step
+              verdict without erasing its evidence (see AC-26 for the full
+              precedence). The flags are never set on a step that failed.
           references_constraints: [C-01]
           priority: high
 
@@ -348,13 +350,17 @@ spec:
           priority: critical
         - id: AC-17
           description: |
-              When no invoked Apply reported failure and every reversed step
+              When no invoked Apply reported failure, every reversed step
               restores cleanly (Success == true and PartialRestore == false),
-              the terminal Status is RolledBack and HostUnchanged is true.
-              The clean-rollback verdict is otherwise unchanged from prior
-              behavior; the added qualifier is the failed-apply correction,
-              since a clean reversal of the steps that DID apply says nothing
-              about the one that did not.
+              and no successful non-capturable step remains stranded, the
+              terminal Status is RolledBack and HostUnchanged is true. With
+              stranded steps remaining and everything else clean, the Status
+              is PartiallyApplied (AC-05); with any failed apply or unclean
+              reversal, it is RollbackFailed (AC-26). The clean-rollback
+              verdict is otherwise unchanged from prior behavior; the
+              failed-apply qualifier is the correction, since a clean
+              reversal of the steps that DID apply says nothing about the
+              one that did not.
           references_constraints: [C-11]
           priority: critical
         - id: AC-18
