@@ -195,11 +195,17 @@ none; OpenWatch confirmed no consumer change is needed.
 
 ### Known limits
 
-- Evidence records written by earlier versions on the two affected paths, a
-  partially applied transaction with a stranded step and a persistence failure
-  after signing, stay unverifiable. They are not repaired or re-signed:
-  rewriting them would mean signing evidence after the fact. Records on every
-  other path are unaffected.
+- Two kinds of evidence from earlier versions fail verification, and neither
+  is repaired or re-signed, because rewriting them would mean signing evidence
+  after the fact. **Stored records** of a partially applied transaction with a
+  stranded step: those were persisted with a signature that no longer matched
+  their contents. **Returned envelopes** handed back to the caller after a
+  committed, rolled-back or staged result was demoted because its persistence
+  failed: the engine rewrote the decision inside a signed envelope. Those
+  envelopes were not stored by Kensa, since storing them is what had failed;
+  whether a caller kept one is not something Kensa can establish. A
+  persistence failure that did not demote the result left the signature
+  intact. Records on every other path are unaffected.
 - The v1 evidence envelope serializes `rollback_results` but does not cover it
   with the signature. Editing that field in a stored record does not
   invalidate verification. Authenticating it changes the signed bytes and needs

@@ -226,15 +226,22 @@ Current phase. Indicates:
   CHANGELOG entry and one-version deprecation warning**
 - Breaking changes to `api/` require a major bump (`1.0.0` or later); the
   `api/` contract is the load-bearing commitment to OpenWatch
-- **Pre-1.0 exception, founder-approved 2026-09-20.** During 0.x, an
-  `api/` change that moves no Go signature, adds no field and removes none,
-  but changes what an existing value means to a consumer, ships in a MINOR
-  bump. Two conditions apply: the CHANGELOG entry states the change in
-  consumer terms, and the affected consumer (OpenWatch) has confirmed in
-  writing that it needs no change or has made the change. The first use is
-  v0.11.0, where a failed apply step reports `rollback_failed` instead of
-  `rolled_back`. This is an exception granted for the 0.x line, not a
-  reading of the rule above; at 1.0 and later such a change is MAJOR.
+- **Pre-1.0 exception, founder-approved 2026-09-20, one change at a
+  time.** During 0.x, a *corrective* `api/` behavior change may ship in a
+  MINOR bump: one that moves no Go signature, adds no field and removes
+  none, and changes what an existing value means only to stop it stating
+  something false. It is not a general license to change value semantics.
+  Each use needs its own founder approval, and the release that carries it
+  must document three things: the compatibility assessment (which consumers
+  are known, what each sees, and what remains unassessed), the operator-
+  visible effect, and any migration a consumer must perform. Written
+  clearance from OpenWatch is required and is evidence for OpenWatch only;
+  it does not establish compatibility for any other consumer of `api/`.
+  The first use is v0.11.0, where a failed apply step reports
+  `rollback_failed` instead of `rolled_back` because `rolled_back` claimed
+  a restoration the engine had not performed. This is an exception granted
+  for the 0.x line, not a reading of the rule above; at 1.0 and later such
+  a change is MAJOR.
 - No long-term support commitment for 0.x lines
 
 ### Production Phase (1.x.x+)
@@ -276,22 +283,32 @@ echo "0.11.0" > VERSION
 $EDITOR CHANGELOG.md README.md
 
 # 3. Open a release PR; `make docs-check` verifies VERSION, CHANGELOG and
-#    README agree. CI on the PR runs the release snapshot job, which builds
-#    every artifact without publishing or signing.
+#    README agree. Pull-request CI does NOT run the release snapshot or
+#    govulncheck jobs: both are gated to `schedule` and `workflow_dispatch`
+#    and show as skipped on the PR.
 git checkout -b chore/release-v0.11.0
 git add VERSION CHANGELOG.md README.md
 git commit -m "chore(release): v0.11.0"
 git push -u origin chore/release-v0.11.0
 gh pr create --title "chore(release): v0.11.0" --body "..."
 
-# 4. After CI green, PR merge, and founder release acceptance: tag the
-#    merge commit. The workflow refuses to run without GPG_PRIVATE_KEY,
-#    GPG_PASSPHRASE, COSIGN_PRIVATE_KEY and COSIGN_PASSWORD.
+# 4. Dispatch CI on the candidate branch and require it green on EVERY
+#    job, including "Release snapshot" (builds every artifact, no publish,
+#    no sign) and "Vulnerability Scan (govulncheck)". Record the run id and
+#    confirm its head SHA is the candidate. This is the packaging gate; a
+#    green pull-request run is not.
+gh workflow run ci.yml --ref chore/release-v0.11.0
+gh run list --workflow ci.yml --branch chore/release-v0.11.0 --event workflow_dispatch --limit 1
+
+# 5. After PR merge and founder release acceptance: tag the merge commit.
+#    The workflow refuses to run without GPG_PRIVATE_KEY, GPG_PASSPHRASE,
+#    COSIGN_PRIVATE_KEY and COSIGN_PASSWORD. Nothing checks that the tag
+#    matches VERSION; the tag name alone sets the published version.
 git checkout main && git pull --ff-only
 git tag -a "v0.11.0" -m "Release v0.11.0 — Sentinel"
 git push origin "v0.11.0"
 
-# 5. GoReleaser has changelog generation disabled, so the release page is
+# 6. GoReleaser has changelog generation disabled, so the release page is
 #    published with an EMPTY body. Set it from the CHANGELOG section after
 #    the workflow finishes, and check the extracted notes are not empty
 #    first (see the sed note above).
