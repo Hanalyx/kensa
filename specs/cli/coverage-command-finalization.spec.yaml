@@ -338,9 +338,13 @@ spec:
                   KENSA_NO_REPURPOSE_WARNINGS_active_entry: absent
                   manpage_check: pass
               changelog:
-                  Unreleased_records_finalization: true
+                  # The entry lives under Unreleased until the release that
+                  # ships it stamps that section; the finalization shipped
+                  # in v0.11.0. "Unreleased_records_finalization: true" and
+                  # "VERSION_changed: false" were PR-time guards written as
+                  # permanent expectations, which no release could satisfy.
+                  records_finalization_at_or_after: v0.11.0
                   historical_release_sections_changed: false
-                  VERSION_changed: false
               specifications:
                   old_rename_status: deprecated
                   current_contract_points_to: cli-coverage-command-finalization
