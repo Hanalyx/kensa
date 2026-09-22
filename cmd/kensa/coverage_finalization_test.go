@@ -632,25 +632,29 @@ func TestActiveDocsAgreeWithFinalContract(t *testing.T) {
 		}
 	})
 
-	t.Run("changelog_and_version", func(t *testing.T) {
+	t.Run("changelog", func(t *testing.T) {
 		c := read("CHANGELOG.md")
-		// Anchor on the heading at line start: the file's preamble mentions
-		// "## Unreleased" in prose, and matching that would slice the wrong
-		// region and pass or fail for the wrong reason.
-		const heading = "\n## Unreleased\n"
-		i := strings.Index(c, heading)
-		if i < 0 {
-			t.Fatal("CHANGELOG has no Unreleased heading")
+		// The finalization entry sits under Unreleased until the release
+		// that ships it stamps that section, which happened in v0.11.0. So
+		// the entry must appear above the v0.10.0 heading, whichever
+		// section it is in; pinning it to Unreleased, or pinning VERSION,
+		// would fail at every release. Anchor headings at line start: the
+		// preamble mentions "## Unreleased" in prose.
+		const entry = "**`kensa coverage` always reports framework control coverage.**"
+		const prior = "\n## v0.10.0 "
+		e := strings.Index(c, entry)
+		p := strings.Index(c, prior)
+		if e < 0 {
+			t.Fatal("CHANGELOG does not record the coverage finalization")
 		}
-		unreleased := c[i+len(heading):]
-		if j := strings.Index(unreleased, "\n## "); j >= 0 {
-			unreleased = unreleased[:j]
+		if p < 0 {
+			t.Fatal("CHANGELOG has no v0.10.0 heading to anchor on")
 		}
-		if !strings.Contains(unreleased, "coverage") || !strings.Contains(unreleased, "--framework") {
-			t.Errorf("Unreleased does not record the finalization:\n%s", unreleased)
+		if e > p {
+			t.Errorf("the finalization entry sits below the v0.10.0 heading, in a release that predates it")
 		}
-		if v := strings.TrimSpace(read("VERSION")); v != "0.10.0" {
-			t.Errorf("VERSION = %q; this slice must not bump it", v)
+		if !strings.Contains(c[e:p], "--framework") {
+			t.Error("the finalization entry does not name --framework")
 		}
 	})
 

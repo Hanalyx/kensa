@@ -226,6 +226,22 @@ Current phase. Indicates:
   CHANGELOG entry and one-version deprecation warning**
 - Breaking changes to `api/` require a major bump (`1.0.0` or later); the
   `api/` contract is the load-bearing commitment to OpenWatch
+- **Pre-1.0 exception, founder-approved 2026-09-20, one change at a
+  time.** During 0.x, a *corrective* `api/` behavior change may ship in a
+  MINOR bump: one that moves no Go signature, adds no field and removes
+  none, and changes what an existing value means only to stop it stating
+  something false. It is not a general license to change value semantics.
+  Each use needs its own founder approval, and the release that carries it
+  must document three things: the compatibility assessment (which consumers
+  are known, what each sees, and what remains unassessed), the operator-
+  visible effect, and any migration a consumer must perform. Written
+  clearance from OpenWatch is required and is evidence for OpenWatch only;
+  it does not establish compatibility for any other consumer of `api/`.
+  The first use is v0.11.0, where a failed apply step reports
+  `rollback_failed` instead of `rolled_back` because `rolled_back` claimed
+  a restoration the engine had not performed. This is an exception granted
+  for the 0.x line, not a reading of the rule above; at 1.0 and later such
+  a change is MAJOR.
 - No long-term support commitment for 0.x lines
 
 ### Production Phase (1.x.x+)
@@ -252,32 +268,59 @@ Indicates production-ready software:
 
 ### Tagging
 
-Kensa releases are git tags of the form `v$(cat VERSION)`. The release
-process is manual today; release automation (GoReleaser, RPM packaging,
-Ed25519-signed checksums) is planned for v1.0.
+Kensa releases are git tags of the form `v$(cat VERSION)`. Pushing a `v*`
+tag triggers `.github/workflows/release.yml`, which runs GoReleaser per
+`.goreleaser.yaml` and publishes the GitHub Release with its artifacts.
+The tag push IS publication; there is no separate publish step and no way
+to preview it, so everything below the tag line is a point of no return.
 
 ```bash
 # 1. Bump VERSION on a release branch
-echo "0.2.0" > VERSION
+echo "0.11.0" > VERSION
 
-# 2. Update CHANGELOG.md: stamp ## Unreleased as ## v0.2.0 — <date>
-$EDITOR CHANGELOG.md
+# 2. Update CHANGELOG.md: stamp ## Unreleased as ## v0.11.0 (<date>) and
+#    keep an empty ## Unreleased above it. Update the README version lines.
+$EDITOR CHANGELOG.md README.md
 
-# 3. Open a release PR
-git checkout -b release/v0.2.0
-git add VERSION CHANGELOG.md
-git commit -m "chore(release): v0.2.0"
-git push -u origin release/v0.2.0
-gh pr create --title "chore(release): v0.2.0" --body "..."
+# 3. Open a release PR; `make docs-check` verifies VERSION, CHANGELOG and
+#    README agree. Pull-request CI does NOT run the release snapshot or
+#    govulncheck jobs: both are gated to `schedule` and `workflow_dispatch`
+#    and show as skipped on the PR.
+git checkout -b chore/release-v0.11.0
+git add VERSION CHANGELOG.md README.md
+git commit -m "chore(release): v0.11.0"
+git push -u origin chore/release-v0.11.0
+gh pr create --title "chore(release): v0.11.0" --body "..."
 
-# 4. After CI green + PR merge, tag the merge commit and create the
-#    GitHub Release page from the CHANGELOG section.
+# 4. Dispatch CI on the candidate branch and require it green on EVERY
+#    job, including "Release snapshot" (builds every artifact, no publish,
+#    no sign) and "Vulnerability Scan (govulncheck)". Record the run id and
+#    confirm its head SHA is the candidate. This is the packaging gate; a
+#    green pull-request run is not.
+gh workflow run ci.yml --ref chore/release-v0.11.0
+gh run list --workflow ci.yml --branch chore/release-v0.11.0 --event workflow_dispatch --limit 1
+
+# 5. After PR merge and founder release acceptance: tag the merge commit.
+#    The workflow refuses to run without GPG_PRIVATE_KEY, GPG_PASSPHRASE,
+#    COSIGN_PRIVATE_KEY and COSIGN_PASSWORD. Nothing checks that the tag
+#    matches VERSION; the tag name alone sets the published version.
 git checkout main && git pull --ff-only
-git tag -a "v0.2.0" -m "Release v0.2.0 — Sentinel"
-git push origin "v0.2.0"
-gh release create v0.2.0 --title "v0.2.0 — Sentinel" \
-    --notes-file <(sed -n '/^## v0.2.0/,/^## v[0-9]/p' CHANGELOG.md | sed '$d')
+git tag -a "v0.11.0" -m "Release v0.11.0 — Sentinel"
+git push origin "v0.11.0"
+
+# 6. GoReleaser has changelog generation disabled, so the release page is
+#    published with an EMPTY body. Set it from the CHANGELOG section after
+#    the workflow finishes, and check the extracted notes are not empty
+#    first (see the sed note above).
+sed -n '/^## v0.11.0/,/^## v[0-9]/p' CHANGELOG.md | sed '$d' > /tmp/notes.md
+test -s /tmp/notes.md && gh release edit v0.11.0 --notes-file /tmp/notes.md
 ```
+
+What a release publishes, all signed: rpm and deb for linux/amd64 and
+linux/arm64, a noarch `kensa-rules` rpm and deb, binary tarballs, `with-rules`
+air-gap tarballs, a CycloneDX SBOM, and a sha256 checksums file with a cosign
+signature over it. The GPG signing key is the Hanalyx LLC key in `KEYS`;
+the checksums signature uses the Kensa cosign key, also in `KEYS`.
 
 Use `sed` for the range, not `awk`. An awk range whose end pattern also
 matches its start line opens and closes on that one line, so
@@ -286,10 +329,12 @@ matches its start line opens and closes on that one line, so
 page with no body, published without an error. A `sed` range never
 terminates on its start line. Check the output is not empty before tagging.
 
-The 0.x line ships source-only. OpenWatch and other Go consumers
-import the `api/` package via `go get github.com/Hanalyx/kensa@v0.x.y`
-against the tag. Operators build from source per `README.md` →
-**Building from source**.
+Go consumers such as OpenWatch import the `api/` package via
+`go get github.com/Hanalyx/kensa@v0.x.y` against the tag, independent of
+the packages. Operators install the signed rpm or deb; building from source
+per `README.md` remains supported but is not the shipped path. This section
+said the 0.x line ships source-only until v0.11.0, which was untrue from
+v0.2.0 on.
 
 ### Commit Message Format
 

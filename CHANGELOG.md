@@ -11,10 +11,24 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.8.0...v0.9.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.10.0...v0.11.0> (swap the tags for
 any pair).
 
 ## Unreleased
+
+## v0.11.0 (2026-09-20)
+
+Two engine corrections lead this release, both to what Kensa reports rather
+than to what it does on a host. Evidence records are signed over their final
+contents, so `kensa verify` accepts records it used to reject. And a
+remediation step that fails partway now reports the host as unconfirmed
+instead of restored, which OpenWatch shows as "Partially applied" with an
+inspection prompt where it used to show "Reverted, host unchanged". Expect
+more of those prompts: a handler that failed without changing anything reports
+the same way, because the engine has no evidence either way. The rest is two
+CLI additions, a CLI change announced since v0.1, and a supply-chain
+hardening pass over CI. The frozen `api/` package gains no field and loses
+none; OpenWatch confirmed no consumer change is needed.
 
 ### Changed
 
@@ -178,6 +192,27 @@ any pair).
   nothing either way. No Git operation in CI needed the credential: the two
   fetches read a public repository anonymously, everything else is a local
   read, and the release upload authenticates with its own step-scoped token.
+
+### Known limits
+
+- Two kinds of evidence from earlier versions fail verification, and neither
+  is repaired or re-signed, because rewriting them would mean signing evidence
+  after the fact. **Stored records** of a partially applied transaction with a
+  stranded step: those were persisted with a signature that no longer matched
+  their contents. **Returned envelopes** handed back to the caller after a
+  committed, rolled-back or staged result was demoted because its persistence
+  failed: the engine rewrote the decision inside a signed envelope. Those
+  envelopes were not stored by Kensa, since storing them is what had failed;
+  whether a caller kept one is not something Kensa can establish. A
+  persistence failure that did not demote the result left the signature
+  intact. Records on every other path are unaffected.
+- The v1 evidence envelope serializes `rollback_results` but does not cover it
+  with the signature. Editing that field in a stored record does not
+  invalidate verification. Authenticating it changes the signed bytes and needs
+  a new schema version that a verifier can tell apart from v1; that work is
+  tracked and not in this release.
+- Both engine corrections were verified offline, with isolated stores and real
+  signatures, not on a live host.
 
 ## v0.10.0 (2026-08-10)
 
