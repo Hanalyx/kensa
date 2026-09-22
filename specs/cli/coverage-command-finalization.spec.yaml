@@ -352,8 +352,19 @@ spec:
                   quiet_and_manpage_drafts_match_active_surface: true
           references_constraints: [C-07]
           priority: high
+          # Accepted 2026-09-08, then revised: the changelog expectations
+          # were PR-time guards written as permanent ones. They required the
+          # entry to sit under ## Unreleased and VERSION to be unchanged,
+          # which no release can satisfy, since releasing IS stamping that
+          # section and changing VERSION. The v0.11.0 release failed its
+          # unit job on exactly that. The revised expectation is that the
+          # entry appears at or after v0.11.0, the release that shipped the
+          # finalization, and the VERSION guard is gone. The amendment was
+          # accepted on 2026-09-22, which is the date below. Both dates are
+          # kept so the record shows the contract changed after its first
+          # approval rather than appearing to have been settled once.
           approval_gate: true
-          approval_date: "2026-09-08"
+          approval_date: "2026-09-22"
 
         - id: AC-09
           description: |
