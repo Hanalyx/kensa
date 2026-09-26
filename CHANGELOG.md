@@ -46,7 +46,7 @@ any pair).
   recovery restores the state captured before it, over any later change to
   the same settings.
 
-  This ships in a minor release under a one-change exception to the rule that
+  This ships in a patch release under a one-change exception to the rule that
   atomicity-contract changes are major; see `VERSIONING_PLAN.md`. It was
   verified offline, with isolated stores, not on a live host.
 
