@@ -39,6 +39,7 @@ spec:
                 - Terminal StatusRecovered / StatusRollbackFailed record + journal clear
                 - Host scoping; idempotent re-run
                 - The recover.lock cross-process fencing primitive
+                - Step-identity validation before dispatch, and refusal reporting (including kensa recover output and exit status)
             excludes:
                 - The kensa recover CLI argument parsing (cli spec)
                 - On-host kill-9 cross-process durability test (destructive; validated out-of-band)
@@ -47,10 +48,18 @@ spec:
         - id: C-01
           description: |
               Recover MUST process every open journal entry for the requested
-              host: roll it back from its captured pre-state in reverse step
-              order, then record a terminal result — StatusRecovered when the
-              compensation is machine-clean, StatusRollbackFailed otherwise —
-              and clear the journal entry once that record is durable.
+              host, and each one ends in exactly one of two ways. If its step
+              identity is established (C-05), Recover rolls it back from its
+              captured pre-state in reverse step order, then records a terminal
+              result — StatusRecovered when the compensation is machine-clean,
+              StatusRollbackFailed otherwise — and clears the journal entry once
+              that record is durable. If its identity cannot be established, or
+              its pre-states cannot be read, Recover refuses it: nothing is
+              dispatched, no terminal record is written, the journal entry and
+              pre-states are left intact, and the refusal is reported with every
+              finding. Until this amendment C-01 required a terminal record for
+              every entry, although the unreadable-pre-state path already left
+              the entry open.
           type: security
           enforcement: error
         - id: C-02
@@ -79,6 +88,29 @@ spec:
           type: security
           enforcement: error
 
+        - id: C-05
+          description: |
+              Before dispatching any restoration for an entry, Recover MUST
+              establish that the journal's intent and the loaded pre-states
+              agree one to one: each step index appears exactly once on each
+              side; every pre-state matches an intent step and every intent
+              step has a pre-state; each pre-state's mechanism equals its
+              intent step's; every mechanism is registered in the running
+              binary's own registry (never an assumption made for agent mode);
+              and each pre-state's capturable flag equals its handler's. Any
+              failure refuses the whole entry, including its steps that pass
+              on their own, because steps can depend on each other and a
+              partial restoration can leave a combination the host was never
+              in. A refusal MUST NOT be recorded as a rollback result, and an
+              unknown mechanism MUST NOT panic. Atomic persistence of the
+              journal proves all-or-nothing writing, not that the writer was
+              correct or that the registry matches it, so a disagreement is
+              refused rather than explained. Keeping a refused entry's evidence
+              preserves the opportunity to recover it later; it does not
+              guarantee recovery, since a missing or ambiguous pre-state cannot
+              be rebuilt.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -119,6 +151,49 @@ spec:
               transaction the engine is mid-flight on.
           references_constraints: [C-04]
           priority: critical
+        - id: AC-06
+          description: |
+              An entry whose identity is established is recovered exactly as
+              before the identity check existed: each capturable step's
+              handler is invoked once, in reverse step order, with that step's
+              own pre-state, and the verdict and journal clearing are
+              unchanged. A capturable handler that cannot roll back still
+              yields a failure row and StatusRollbackFailed; that is a
+              reversal failure, not an identity refusal.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-07
+          description: |
+              An entry with a duplicate intent index, a duplicate pre-state
+              index, an unmatched or missing pre-state, a mechanism mismatch,
+              an unknown mechanism (capturable or a non-capturable marker), or
+              a capturability disagreement is refused: no handler is invoked
+              for any of its steps, recovery does not panic, no terminal record
+              is written, its journal entry stays open, and no result claims it
+              was recovered. A valid non-capturable marker is not dispatched.
+              Other entries in the same run are still recovered, and re-running
+              recovery refuses the same entry again without dispatching.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-08
+          description: |
+              Recover reports each refused entry with every finding that
+              applies to it (code, step index, mechanism, detail), including an
+              unreadable pre-state bundle. No finding appears as a rollback
+              result. A caller of Recover receives the compensated results
+              together with a RecoveryRefusedError when any entry was refused.
+          references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-09
+          description: |
+              kensa recover lists compensated entries as before, lists each
+              refused entry and its findings on stderr with guidance to check
+              the host for later changes before retrying, never reports a
+              refused entry as "no interrupted transactions found", and exits
+              1 when any entry was refused while still reporting the entries
+              it compensated.
+          references_constraints: [C-01]
+          priority: high
 
     depends_on:
         - spec_id: recovery-journal

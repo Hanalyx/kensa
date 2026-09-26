@@ -112,17 +112,23 @@ func runRecover(ctx context.Context, dbPath string, args []string) error {
 	defer func() { _ = transport.Close() }()
 
 	e := engine.New(engineOpts...)
-	results, err := e.Recover(ctx, transport, host)
+	report, err := e.RecoverReport(ctx, transport, host)
 	if err != nil {
 		return fmt.Errorf("recover: %w", err)
 	}
+	return renderRecoverReport(bodyOut(quiet), os.Stderr, report, host)
+}
 
-	out := bodyOut(quiet)
-	if len(results) == 0 {
+// renderRecoverReport prints what a recovery run did and turns any refusal
+// into a non-nil error, so the command exits non-zero. Compensated entries
+// go to out (suppressed by --quiet); refusals always go to errOut, because
+// an operator has to act on them.
+func renderRecoverReport(out, errOut io.Writer, report *engine.RecoveryReport, host string) error {
+	if len(report.Results) == 0 && len(report.Refusals) == 0 {
 		fmt.Fprintf(out, "kensa recover: no interrupted transactions found for %s\n", host)
 		return nil
 	}
-	for _, r := range results {
+	for _, r := range report.Results {
 		ruleID := ""
 		if r.Envelope != nil {
 			ruleID = r.Envelope.RuleID
@@ -130,8 +136,24 @@ func runRecover(ctx context.Context, dbPath string, args []string) error {
 		fmt.Fprintf(out, "  recovered %s  rule=%s  status=%s  host_unchanged=%v\n",
 			r.TransactionID, ruleID, r.Status, r.HostUnchanged)
 	}
-	fmt.Fprintf(out, "kensa recover: compensated %d interrupted transaction(s) on %s\n", len(results), host)
-	return nil
+	if len(report.Results) > 0 {
+		fmt.Fprintf(out, "kensa recover: compensated %d interrupted transaction(s) on %s\n", len(report.Results), host)
+	}
+	if len(report.Refusals) == 0 {
+		return nil
+	}
+	for _, rf := range report.Refusals {
+		fmt.Fprintf(errOut, "  refused %s  rule=%s  (nothing was restored; the entry stays open)\n",
+			rf.TransactionID, rf.RuleID)
+		for _, f := range rf.Findings {
+			fmt.Fprintf(errOut, "    %s  step=%d  mechanism=%q  %s\n", f.Code, f.StepIndex, f.Mechanism, f.Detail)
+		}
+	}
+	fmt.Fprintln(errOut, "  Before running recovery again for a refused transaction, check whether the host")
+	fmt.Fprintln(errOut, "  changed since the interruption: recovery restores the state captured before it,")
+	fmt.Fprintln(errOut, "  over any later change to the same settings.")
+	return fmt.Errorf("refused %d interrupted transaction(s) whose step identity could not be established on %s",
+		len(report.Refusals), host)
 }
 
 func printRecoverUsage(w io.Writer) {
@@ -139,8 +161,21 @@ func printRecoverUsage(w io.Writer) {
 
 Compensate transactions interrupted before they reached a terminal status,
 using the durable crash-recovery journal. Each open transaction is rolled back
-from its captured pre-state and recorded as recovered. Holds an exclusive
-recover lock so it never races a live kensa on the same store.
+from its captured pre-state and recorded as recovered, or as rollback_failed
+if a restoration does not complete cleanly. Holds an exclusive recover lock so
+it never races a live kensa on the same store.
+
+Before restoring anything, recover checks that each transaction's journal and
+captured pre-states agree step for step, and that this kensa has a handler for
+every mechanism named. A transaction that fails the check is refused whole:
+nothing is restored for it, no result is recorded, and its journal entry stays
+open. Other transactions are still recovered. The command exits 1 if any
+transaction was refused, after listing each one and why.
+
+A refused transaction stays open. Before running recovery for it again,
+including with an upgraded kensa, check whether the host changed since the
+interruption: recovery restores the state captured before it, over any later
+change to the same settings.
 
   -H, --host string            scope recovery to this host (also the SSH target; required)
   -u, --user string            SSH user (default: current user)

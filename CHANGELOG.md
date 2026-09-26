@@ -16,6 +16,40 @@ any pair).
 
 ## Unreleased
 
+### Changed
+
+- **`kensa recover` refuses a transaction it cannot match step for step.**
+  Before restoring anything, recovery now checks that each interrupted
+  transaction's journal and its captured pre-states agree: every step appears
+  once on each side, the mechanisms match, this kensa has a handler for each
+  one, and each step's recorded capturability matches its handler. A
+  transaction that fails any check is refused whole. Nothing is restored for
+  it, no result is recorded, and its journal entry and captured state stay in
+  place. Other transactions in the same run are still recovered.
+
+  Previously recovery restored whatever the captured state named, and could
+  crash outright on a mechanism the running kensa does not register, for
+  example after a downgrade. Restoring only the steps that check out was
+  rejected on purpose: steps can depend on each other, and a partial
+  restoration can leave a combination the host was never in.
+
+  **Exit status.** `kensa recover` now exits 1 when any transaction is
+  refused, after listing each one and its findings on stderr. The
+  transactions it did recover are still listed. Automation that treats a
+  zero exit as "recovery finished" should check for this.
+
+  **A refused transaction stays open.** It can be recovered by a later run,
+  for example with a kensa that registers the missing mechanism. A missing or
+  ambiguous captured state cannot be rebuilt, so some refused transactions
+  will need manual recovery. Before running recovery again for a refused
+  transaction, check whether the host changed since the interruption:
+  recovery restores the state captured before it, over any later change to
+  the same settings.
+
+  This ships in a minor release under a one-change exception to the rule that
+  atomicity-contract changes are major; see `VERSIONING_PLAN.md`. It was
+  verified offline, with isolated stores, not on a live host.
+
 ## v0.11.0 (2026-09-20)
 
 Two engine corrections lead this release, both to what Kensa reports rather
