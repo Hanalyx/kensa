@@ -179,8 +179,13 @@ spec:
           description: |
               Recover reports each refused entry with every finding that
               applies to it (code, step index, mechanism, detail), including an
-              unreadable pre-state bundle. No finding appears as a rollback
-              result. A caller of Recover receives the compensated results
+              unreadable pre-state bundle. Facts about a single record, whether
+              its mechanism is registered and whether a pre-state's capturable
+              flag matches its handler, are reported even when the record
+              cannot be paired; a pre-state is compared with an intent step only
+              where each index is unique on both sides. Each fact is reported
+              once, ordered by step index, then finding code, then mechanism.
+              No finding appears as a rollback result. A caller of Recover receives the compensated results
               together with a RecoveryRefusedError when any entry was refused.
           references_constraints: [C-01, C-05]
           priority: critical

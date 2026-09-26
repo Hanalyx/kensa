@@ -301,13 +301,62 @@ func TestRecoverIdentity_ValidNonCapturableMarkerNotDispatched(t *testing.T) {
 	// A matching non-capturable marker is valid identity and stays
 	// undispatched, as today. What recovery then reports for it is not
 	// changed here.
+	//
+	// So this pins today's outcome, not a correct one: the entry is not
+	// refused, it ends recovered, and its journal entry is cleared. A
+	// validator that refused valid markers would pass a zero-dispatch check
+	// alone, which is why the outcome is asserted too.
 	rig := newIdentityRig(t)
-	rig.crash("h", []api.Step{step(0, "noncap_n")}, []api.PreState{pre(0, "noncap_n", false)})
-	if _, panicked, _ := recoverSafely(rig.engine(), "h"); panicked != nil {
+	id := rig.crash("h", []api.Step{step(0, "noncap_n")}, []api.PreState{pre(0, "noncap_n", false)})
+	res, panicked, err := recoverSafely(rig.engine(), "h")
+	if panicked != nil {
 		t.Fatalf("recovery panicked: %v", panicked)
+	}
+	if err != nil {
+		t.Fatalf("a valid non-capturable entry was refused or failed: %v", err)
 	}
 	if calls := rig.log.snapshot(); len(calls) != 0 {
 		t.Errorf("a non-capturable marker was dispatched: %v", calls)
+	}
+	if len(res) != 1 || res[0].TransactionID != id || res[0].Status != api.StatusRecovered {
+		t.Fatalf("want one recovered result for the entry, got %d", len(res))
+	}
+	if rig.isOpen(id) || !rig.hasTerminal(id) {
+		t.Error("the entry was not recorded and cleared as before")
+	}
+}
+
+// @spec recovery-replay
+// @ac AC-06
+func TestRecoverIdentity_OutOfOrderBundleRestoredInReverseStepOrder(t *testing.T) {
+	t.Log("// @spec recovery-replay")
+	t.Log("// @ac AC-06")
+	// A store may return a valid bundle in any order. C-01 requires reverse
+	// step order regardless, and each step must get its own pre-state. The
+	// SQLite store already sorts, so this uses a store that does not.
+	js := newJournalRecorderStore()
+	log := &rollbackLog{}
+	r := handler.NewRegistry()
+	for _, name := range []string{"cap_a", "cap_b", "cap_c"} {
+		r.Register(&recordingHandler{name: name, capturable: true, log: log})
+	}
+	id := uuid.New()
+	entry := api.JournalEntry{TxnID: id, HostID: "h", RuleID: "r", Transactional: true, Phase: "applying",
+		Intent: []api.Step{step(0, "cap_a"), step(1, "cap_b"), step(2, "cap_c")}, CreatedAt: time.Now().UTC()}
+	if err := js.PrepareTransaction(context.Background(), entry,
+		[]api.PreState{pre(2, "cap_c", true), pre(0, "cap_a", true), pre(1, "cap_b", true)}); err != nil {
+		t.Fatal(err)
+	}
+	res, panicked, err := recoverSafely(engine.New(engine.WithRegistry(r), engine.WithStore(js)), "h")
+	if panicked != nil || err != nil {
+		t.Fatalf("recover: panic=%v err=%v", panicked, err)
+	}
+	want := []string{"cap_c=cap_c", "cap_b=cap_b", "cap_a=cap_a"}
+	if got := log.snapshot(); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("dispatch = %v, want %v", got, want)
+	}
+	if len(res) != 1 || res[0].Status != api.StatusRecovered {
+		t.Fatalf("want one recovered result, got %d", len(res))
 	}
 }
 

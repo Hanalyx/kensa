@@ -117,41 +117,70 @@ func (e *Engine) validateRecoveryIdentity(intent []api.Step, preStates []api.Pre
 		}
 	}
 
-	// Pairs that are unique on both sides get the per-step checks.
-	for idx, s := range intentByIndex {
-		if intentCount[idx] != 1 || preCount[idx] != 1 {
+	// Facts about a single record are checked on every record, paired or
+	// not: whether its mechanism is registered, and for a pre-state whether
+	// its capturable flag matches the handler. They do not depend on which
+	// intent step a pre-state belongs to, so an ambiguous pairing does not
+	// hide them.
+	for _, p := range preStates {
+		h, ok := e.registry.Get(p.Mechanism)
+		if !ok {
+			findings = append(findings, RecoveryFinding{Code: FindingUnknownMechanism, StepIndex: p.StepIndex,
+				Mechanism: p.Mechanism, Detail: "no handler is registered for this mechanism"})
 			continue
 		}
-		p := preByIndex[idx]
-		if p.Mechanism != s.Mechanism {
-			findings = append(findings, RecoveryFinding{Code: FindingMechanismMismatch, StepIndex: idx,
+		if h.Capturable() != p.Capturable {
+			findings = append(findings, RecoveryFinding{Code: FindingCapturabilityDisagreement, StepIndex: p.StepIndex,
 				Mechanism: p.Mechanism,
-				Detail:    fmt.Sprintf("pre-state mechanism %q, intent mechanism %q", p.Mechanism, s.Mechanism)})
+				Detail:    fmt.Sprintf("pre-state records capturable=%v, handler reports %v", p.Capturable, h.Capturable())})
 		}
-		for _, mech := range uniqueMechanisms(s.Mechanism, p.Mechanism) {
-			h, ok := e.registry.Get(mech)
-			if !ok {
-				findings = append(findings, RecoveryFinding{Code: FindingUnknownMechanism, StepIndex: idx,
-					Mechanism: mech, Detail: "no handler is registered for this mechanism"})
-				continue
-			}
-			if mech == p.Mechanism && h.Capturable() != p.Capturable {
-				findings = append(findings, RecoveryFinding{Code: FindingCapturabilityDisagreement, StepIndex: idx,
-					Mechanism: mech,
-					Detail:    fmt.Sprintf("pre-state records capturable=%v, handler reports %v", p.Capturable, h.Capturable())})
-			}
+	}
+	for _, st := range intent {
+		if _, ok := e.registry.Get(st.Mechanism); !ok {
+			findings = append(findings, RecoveryFinding{Code: FindingUnknownMechanism, StepIndex: st.Index,
+				Mechanism: st.Mechanism, Detail: "no handler is registered for this mechanism"})
 		}
 	}
 
+	// Comparing a pre-state with its intent step only makes sense when each
+	// index is unique on both sides; otherwise which pair to compare is the
+	// ambiguity already reported above.
+	for idx, st := range intentByIndex {
+		if intentCount[idx] != 1 || preCount[idx] != 1 {
+			continue
+		}
+		if p := preByIndex[idx]; p.Mechanism != st.Mechanism {
+			findings = append(findings, RecoveryFinding{Code: FindingMechanismMismatch, StepIndex: idx,
+				Mechanism: p.Mechanism,
+				Detail:    fmt.Sprintf("pre-state mechanism %q, intent mechanism %q", p.Mechanism, st.Mechanism)})
+		}
+	}
+
+	findings = dedupFindings(findings)
 	sortFindings(findings)
 	return findings
 }
 
-func uniqueMechanisms(a, b string) []string {
-	if a == b {
-		return []string{a}
+// dedupFindings drops repeats of the same code, step and mechanism. The
+// same fact can be seen twice, for example an unregistered mechanism named
+// by both a pre-state and its intent step, and it is reported once.
+func dedupFindings(f []RecoveryFinding) []RecoveryFinding {
+	type key struct {
+		code RecoveryFindingCode
+		step int
+		mech string
 	}
-	return []string{a, b}
+	seen := map[key]bool{}
+	out := f[:0]
+	for _, x := range f {
+		k := key{x.Code, x.StepIndex, x.Mechanism}
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, x)
+	}
+	return out
 }
 
 // findingOrder fixes the report order so a refusal reads the same on every

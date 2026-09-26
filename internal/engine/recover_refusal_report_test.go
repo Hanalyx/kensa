@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -195,5 +196,100 @@ func TestRecoverRefusal_RecoverReturnsRefusedError(t *testing.T) {
 	}
 	if len(res) != 1 || res[0].TransactionID != good {
 		t.Error("the compensated entry's result was not returned with the error")
+	}
+}
+
+// @spec recovery-replay
+// @ac AC-08
+func TestRecoverRefusal_IndependentFindingsOnAmbiguousRecords(t *testing.T) {
+	t.Log("// @spec recovery-replay")
+	t.Log("// @ac AC-08")
+	// A record that cannot be paired still carries facts of its own. They
+	// are reported, in a fixed order, and no pair comparison is attempted
+	// where the pairing is ambiguous.
+	cases := []struct {
+		name   string
+		intent []api.Step
+		pre    []api.PreState
+		want   []findingKey
+	}{
+		{"one unregistered mechanism named by both sides is reported once",
+			[]api.Step{step(0, "ghost")},
+			[]api.PreState{pre(0, "ghost", true)},
+			[]findingKey{
+				{engine.FindingUnknownMechanism, 0, "ghost"},
+			}},
+		{"unmatched pre-state with an unregistered mechanism",
+			[]api.Step{step(0, "cap_a")},
+			[]api.PreState{pre(0, "cap_a", true), pre(5, "ghost", true)},
+			[]findingKey{
+				{engine.FindingUnmatchedPreState, 5, "ghost"},
+				{engine.FindingUnknownMechanism, 5, "ghost"},
+			}},
+		{"missing pre-state for an unregistered intent step",
+			[]api.Step{step(0, "cap_a"), step(1, "ghost")},
+			[]api.PreState{pre(0, "cap_a", true)},
+			[]findingKey{
+				{engine.FindingMissingPreState, 1, "ghost"},
+				{engine.FindingUnknownMechanism, 1, "ghost"},
+			}},
+		{"duplicate intent index, both intent mechanisms checked",
+			[]api.Step{step(0, "cap_a"), step(0, "ghost")},
+			[]api.PreState{pre(0, "cap_a", false)},
+			[]findingKey{
+				{engine.FindingDuplicateIntentIndex, 0, ""},
+				{engine.FindingUnknownMechanism, 0, "ghost"},
+				{engine.FindingCapturabilityDisagreement, 0, "cap_a"},
+			}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newIdentityRig(t)
+			id := rig.crash("h", tc.intent, tc.pre)
+			rep, err := rig.engine().RecoverReport(context.Background(), engine.NewFakeTransport(), "h")
+			if err != nil {
+				t.Fatalf("RecoverReport: %v", err)
+			}
+			var got []findingKey
+			for _, f := range refusalFor(t, rep, id).Findings {
+				got = append(got, findingKey{f.Code, f.StepIndex, f.Mechanism})
+			}
+			// Exact order: step first, then code, then mechanism.
+			if fmt.Sprint(got) != fmt.Sprint(tc.want) {
+				t.Errorf("findings =\n %v\nwant\n %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// @spec recovery-replay
+// @ac AC-08
+func TestRecoverRefusal_DuplicatePreStatesCheckedIndividually(t *testing.T) {
+	t.Log("// @spec recovery-replay")
+	t.Log("// @ac AC-08")
+	js := newJournalRecorderStore()
+	rig := newIdentityRig(t)
+	id := uuid.New()
+	entry := api.JournalEntry{TxnID: id, HostID: "h", RuleID: "r", Intent: []api.Step{step(0, "cap_a")}}
+	if err := js.PrepareTransaction(context.Background(), entry,
+		[]api.PreState{pre(0, "cap_a", true), pre(0, "noncap_n", true)}); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := engine.New(engine.WithRegistry(rig.reg), engine.WithStore(js)).
+		RecoverReport(context.Background(), engine.NewFakeTransport(), "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := keys(refusalFor(t, rep, id))
+	for _, w := range []findingKey{
+		{engine.FindingDuplicatePreStateIndex, 0, "noncap_n"},
+		{engine.FindingCapturabilityDisagreement, 0, "noncap_n"},
+	} {
+		if !got[w] {
+			t.Errorf("finding %+v missing; got %v", w, got)
+		}
+	}
+	if got[findingKey{engine.FindingMechanismMismatch, 0, "noncap_n"}] || got[findingKey{engine.FindingMechanismMismatch, 0, "cap_a"}] {
+		t.Error("a pair comparison was made across an ambiguous index")
 	}
 }
