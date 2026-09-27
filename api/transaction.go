@@ -157,6 +157,14 @@ type Transaction struct {
 // cleared once the transaction reaches a terminal status (its persisted
 // result is the commit marker); an entry with no terminal result is an
 // in-flight transaction the engine started but never finished.
+//
+// Recovery compensates an entry only when its Intent and its pre-states
+// agree step for step and every mechanism is registered in the running
+// binary. Otherwise it refuses the entry: nothing is restored, no terminal
+// result is written, and the entry stays open with its pre-states intact.
+// That preserves the opportunity to recover it later; it does not
+// guarantee recovery, since a missing or ambiguous pre-state cannot be
+// rebuilt.
 type JournalEntry struct {
 	// TxnID is the transaction this entry journals.
 	TxnID uuid.UUID

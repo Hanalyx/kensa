@@ -291,7 +291,10 @@ kensa rollback --txn 9d4b... -H rhel9-host.example.com -u admin --sudo   # legac
 
 Compensate transactions interrupted before they reached a terminal
 status, using the durable crash-recovery journal. Each open transaction
-is rolled back from its captured pre-state and recorded as recovered.
+is rolled back from its captured pre-state and recorded as recovered, unless
+its journal and captured pre-states do not agree step for step or name a
+mechanism this kensa does not register. Such a transaction is refused:
+nothing is restored, it stays open, and the command exits 1.
 Holds an exclusive recover lock, so it never races a live kensa on the
 same store. Run it after a crash, when no live kensa is operating the
 host. See [05-rollback-and-history](05-rollback-and-history.md) and the

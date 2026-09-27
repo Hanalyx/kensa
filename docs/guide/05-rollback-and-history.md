@@ -112,7 +112,17 @@ power failure) **after** pre-state was persisted but **before** a
 terminal record was written, the transaction is left open. `kensa
 recover` compensates those open transactions from the durable
 crash-recovery journal: each is rolled back from its captured pre-state
-and recorded as `recovered`.
+and recorded as `recovered`, or as `rollback_failed` if a restoration does
+not complete cleanly.
+
+Recovery first checks that each transaction's journal and captured
+pre-states agree step for step, and that this kensa has a handler for every
+mechanism named. A transaction that fails the check is **refused**: nothing
+is restored for it, no result is recorded, and it stays open. Other
+transactions are still recovered, and the command exits 1, listing each
+refused transaction and why. Before recovering a refused transaction later,
+check whether the host changed since the interruption: recovery restores
+the state captured before it, over any later change to the same settings.
 
 ```bash
 kensa recover -H rhel9-host.example.com -u admin --sudo

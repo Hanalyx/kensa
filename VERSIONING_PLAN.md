@@ -242,6 +242,27 @@ Current phase. Indicates:
   a restoration the engine had not performed. This is an exception granted
   for the 0.x line, not a reading of the rule above; at 1.0 and later such
   a change is MAJOR.
+- **Pre-1.0 exception for refusing unsafe recovery dispatch,
+  founder-approved 2026-09-26, one change; approved as MINOR, then amended
+  by the founder to PATCH for v0.11.1.** During 0.x, a change may ship in a
+  PATCH release that causes crash recovery to *decline* restoration it
+  previously attempted, although the atomicity rule above makes such a
+  change MAJOR and PATCH is otherwise reserved for bug fixes. It qualifies only when every one of these holds: it refuses
+  only when the persisted journal and pre-state bundle cannot establish,
+  one to one, which handler restores which step, and it changes nothing
+  about how an accepted step is restored; a refused transaction records no
+  terminal status, and its journal entry and pre-states stay intact; every
+  refusal is reported to the operator with its reason, and the recovery
+  command's exit status says so; and the release documents the
+  operator-visible effect, including the exit-status change and the risk of
+  a long-lived open entry. It does not cover a change to how a restoration
+  is performed, which steps of a valid bundle are restored, or any `api/`
+  value or field. The one-release advance notice usually given for a
+  pre-1.0 breaking change was waived for this change: delaying it would
+  prolong recovery dispatch without established step identity, including a
+  panic on an unregistered mechanism. This is an exception granted for the
+  0.x line, not a reading of the atomicity rule; at 1.0 and later such a
+  change is MAJOR.
 - No long-term support commitment for 0.x lines
 
 ### Production Phase (1.x.x+)

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/Hanalyx/kensa/api"
 )
@@ -12,7 +13,10 @@ import (
 // in PREPARE with no terminal transaction record — see the recovery-journal
 // spec), rolls each one back from its captured pre-state, and records a
 // terminal StatusRecovered result (StatusRollbackFailed if the compensation
-// could not be machine-clean). The journal entry is cleared once the terminal
+// could not be machine-clean). An entry whose step identity cannot be
+// established is refused instead; see RecoverReport. Recover returns the
+// compensated results and, when any entry was refused, a
+// *RecoveryRefusedError. The journal entry is cleared once the terminal
 // record persists (via finalize), so Recover is idempotent: a second run
 // finds nothing, and restore-from-pre-state is itself re-runnable.
 //
@@ -30,28 +34,82 @@ import (
 // handler's Rollback directly), so it does not self-fence against its own
 // exclusive lock.
 func (e *Engine) Recover(ctx context.Context, transport api.Transport, hostID string) ([]*api.TransactionResult, error) {
+	report, err := e.RecoverReport(ctx, transport, hostID)
+	if err != nil {
+		return nil, err
+	}
+	if len(report.Refusals) > 0 {
+		return report.Results, &RecoveryRefusedError{Refusals: report.Refusals}
+	}
+	return report.Results, nil
+}
+
+// RecoveryRefusedError reports that Recover declined one or more entries.
+// Recover returns it alongside the results of the entries it did
+// compensate, so a caller that only checks the error still learns that
+// the run was incomplete. RecoverReport returns the same information as
+// data instead.
+type RecoveryRefusedError struct {
+	Refusals []RecoveryRefusal
+}
+
+func (e *RecoveryRefusedError) Error() string {
+	return fmt.Sprintf("recover: refused %d interrupted transaction(s) whose step identity could not be established", len(e.Refusals))
+}
+
+// RecoverReport compensates open journal entries like Recover, and returns
+// both the compensated results and the refused entries.
+//
+// Before anything is dispatched for an entry, recovery checks that the
+// journal's intent and the loaded pre-states agree one to one: every step
+// index appears once on each side, mechanisms match, each mechanism is
+// registered, and each pre-state's capturable flag matches its handler.
+// An entry that fails any check is refused whole. No handler runs for it,
+// no terminal record is written, and its journal entry and pre-states stay
+// intact, so a later run can recover it once the cause is fixed. Keeping
+// that evidence preserves the opportunity to recover; it does not
+// guarantee it, since a missing or ambiguous pre-state cannot be rebuilt.
+//
+// Refusing the whole entry, rather than restoring the steps that do check
+// out, is deliberate. Steps can depend on each other, so restoring some
+// and not others can leave a combination the host was never in.
+func (e *Engine) RecoverReport(ctx context.Context, transport api.Transport, hostID string) (*RecoveryReport, error) {
+	report := &RecoveryReport{}
 	js, ok := e.store.(JournalStore)
 	if !ok {
 		// No journaling capability: nothing to recover.
-		return nil, nil
+		return report, nil
 	}
 	entries, err := js.LoadOpenJournalEntries(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("recover: load open journal entries: %w", err)
 	}
 
-	results := make([]*api.TransactionResult, 0, len(entries))
+	report.Results = make([]*api.TransactionResult, 0, len(entries))
 	for _, entry := range entries {
 		if hostID != "" && entry.HostID != hostID {
 			continue
 		}
+		refuse := func(findings []RecoveryFinding) {
+			report.Refusals = append(report.Refusals, RecoveryRefusal{
+				TransactionID: entry.TxnID, HostID: entry.HostID, RuleID: entry.RuleID, Findings: findings,
+			})
+		}
 		preStates, err := e.store.LoadPreStates(ctx, entry.TxnID)
 		if err != nil {
-			// Can't load pre-state — we cannot safely compensate. Leave the
-			// entry open for a later attempt rather than recording a bogus
-			// terminal record.
+			// The bundle cannot be read, so nothing can be compensated
+			// safely. Leave the entry open for a later attempt.
+			refuse([]RecoveryFinding{{Code: FindingPreStatesUnloadable, StepIndex: -1, Detail: err.Error()}})
 			continue
 		}
+		if findings := e.validateRecoveryIdentity(entry.Intent, preStates); len(findings) > 0 {
+			refuse(findings)
+			continue
+		}
+		// The bundle matches the intent one to one, so ordering by step
+		// index gives the reverse-step-order compensation C-01 requires
+		// whatever order the store returned them in.
+		sort.SliceStable(preStates, func(i, j int) bool { return preStates[i].StepIndex < preStates[j].StepIndex })
 
 		txn := &api.Transaction{
 			ID:            entry.TxnID,
@@ -73,9 +131,9 @@ func (e *Engine) Recover(ctx context.Context, transport api.Transport, hostID st
 		// entry (clear-on-terminal). Pass nil apply steps/validators — there
 		// is no live apply to record for a recovered transaction.
 		result := e.finalize(ctx, transport, txn, entry.CreatedAt, status, nil, preStates, nil, rb)
-		results = append(results, result)
+		report.Results = append(report.Results, result)
 	}
-	return results, nil
+	return report, nil
 }
 
 // recoverRollback drives each capturable pre-state's RollbackHandler in
