@@ -26,6 +26,9 @@ before:
   hooks:
     - go mod tidy
     - go mod verify
+    # Stage the corpus for the kensa-rules package (rule files and README
+    # only; see the script).
+    - sh scripts/stage-corpus.sh bin/kensa-rules-corpus
 
 env:
   - CGO_ENABLED=0
@@ -110,13 +113,16 @@ archives:
       - README.md
       - CHANGELOG.md
       - KEYS
-      # The rules tree carried in-tarball at ./rules/ with the topic
+      # The rule corpus carried in-tarball at ./rules/ with the topic
       # subdirectories preserved (rules/<topic>/<rule>.yml), matching
       # the layout the kensa-rules package installs to /usr/share/kensa/rules.
-      # 539 .yml files / 2.2 MB. Operator extracts and runs:
+      # Only the rule files and the corpus README are copied: rules/ also
+      # holds the Go package that embeds the corpus for library consumers,
+      # and its source files are not part of the corpus. Operator extracts
+      # and runs:
       #   kensa check --rules-dir ./rules <host>
-      - src: rules
-        dst: rules
+      - src: rules/*/*.yml
+      - src: rules/README.md
 
 nfpms:
   # ---- kensa (binary package) -------------------------------------------
@@ -227,7 +233,10 @@ nfpms:
     formats: [rpm, deb]
     file_name_template: "{{ .PackageName }}_{{ .Version }}_noarch"
     contents:
-      - src: ./rules
+      # The staged corpus: rule files and the corpus README only, layout
+      # kept. rules/ also holds the Go package that embeds the corpus for
+      # library consumers; its source files are not part of the corpus.
+      - src: ./bin/kensa-rules-corpus
         dst: /usr/share/kensa/rules
         type: tree
     rpm:

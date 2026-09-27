@@ -54,8 +54,10 @@ repos:
     hooks:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
+        # Rule YAML under rules/ is excluded, but not the Go source of
+        # the embedded-corpus package that also lives there.
         # scripts/roundtrip_baseline.json is excluded for the same reason
-        # rules/ is: it holds nothing but rule IDs and outcome words, and rule
+        # rule YAML is: it holds nothing but rule IDs and outcome words, and rule
         # IDs legitimately contain "passwd" (audit-file-passwd watches
         # /etc/passwd), "gpasswd" and "key" (audit-cmd-ssh-keysign). Every
         # value in it is one of ok / not_failing / remediate_failed. Pinning
@@ -72,7 +74,7 @@ repos:
         exclude: |
           (?x)^(
             KEYS|
-            rules/.*|
+            rules/.*\.yml|
             scripts/roundtrip_baseline\.json|
             scripts/roundtrip_baseline_.*\.json|
             internal/coverage/embedded/.*\.json|

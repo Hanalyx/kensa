@@ -72,8 +72,8 @@ In scope:
 | Component | Examples |
 |---|---|
 | The Kensa binaries | `kensa`, `kensa-validate`, `kensa-keygen`, `kensa-systemd-helper` |
-| The public Go packages | `github.com/Hanalyx/kensa/api`, `github.com/Hanalyx/kensa/pkg/kensa` |
-| The rule corpus | The content of the `kensa-rules` package |
+| The public Go packages | `github.com/Hanalyx/kensa/api`, `github.com/Hanalyx/kensa/pkg/kensa`, `github.com/Hanalyx/kensa/rules` |
+| The rule corpus | The content of the `kensa-rules` package, and the same corpus embedded in the `github.com/Hanalyx/kensa/rules` package |
 | The release supply chain | Package signing, the checksums file and its cosign signature, and the trust material in `KEYS` |
 
 Out of scope:
