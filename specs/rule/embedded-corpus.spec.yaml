@@ -36,6 +36,7 @@ spec:
                 - rules/embed.go (the embedded file tree)
                 - scripts/stage-corpus.sh (kensa-rules package contents)
                 - .goreleaser.yaml rule-copy entries (tarball and kensa-rules)
+                - scripts/check-module-consumer.sh (what a module consumer gets)
             excludes:
                 - The file-tree loaders in pkg/kensa (rule-public-loader)
                 - Corpus identity and its version marker (pkg-corpus-identity)
@@ -69,6 +70,23 @@ spec:
               MUST NOT be packaged.
           type: technical
           enforcement: error
+        - id: C-04
+          description: |
+              What a program gets when it downloads the Kensa module MUST be
+              verified from the consumer's side, not from this checkout. The
+              candidate module is built from the commit's tracked contents
+              only. A consumer that requires it, with no replace directive and
+              workspace mode off, resolves it from an isolated module cache;
+              its embedded corpus MUST equal the rule files tracked at the
+              commit, and every dependency checksum it records MUST equal
+              Kensa's committed go.sum. Checksums computed for the candidate
+              from that same artifact show consistency, not authenticity.
+              Authenticity of a released version is checked against the
+              public proxy and checksum database with the script's --public
+              mode. That step is manual, after publication; only the
+              consistency check runs automatically.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -86,6 +104,10 @@ spec:
         - id: AC-04
           description: The dependency closure of every package under cmd/ and pkg/ excludes github.com/Hanalyx/kensa/rules.
           references_constraints: [C-02]
+          priority: critical
+        - id: AC-05
+          description: The module consumer check passes for the commit under test — the candidate resolves from the isolated cache with no replacement, its embedded corpus equals the tracked rule files and loads in full, every dependency checksum matches go.sum, rules/ holds no go.mod, and no cmd/ or pkg/ package links the corpus.
+          references_constraints: [C-01, C-02, C-04]
           priority: critical
 
     depends_on:
