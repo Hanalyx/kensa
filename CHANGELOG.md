@@ -16,6 +16,35 @@ any pair).
 
 ## Unreleased
 
+### Added
+
+- **The rule corpus is available embedded in the Kensa module.** Package
+  `github.com/Hanalyx/kensa/rules` holds the corpus of the module version
+  itself, and `rules.FS()` returns it as a file tree. A program that links
+  Kensa, such as OpenWatch, can load it with the new `pkg/kensa` loaders
+  `LoadRulesFS`, `RuleVariablesFS` and `LoadRuleSummariesFS`. Its engine and
+  its corpus then come from one version. Until now such a program read the
+  corpus from the separately installed `kensa-rules` package, and an engine
+  older than that corpus could not load it: engine 0.9.0 loads no rules from
+  corpus 0.10.0.
+- **The file-tree loaders behave as the directory loaders do.** `LoadRulesFS`
+  and `LoadRuleSummariesFS` are strict, as `LoadRules` is: one bad file or
+  undefined variable fails the whole load. `RuleVariablesFS` is lenient, as
+  `RuleVariables` is. There is no path resolution or explicit-file list for a
+  tree, and paths in errors are relative to it.
+
+### Changed
+
+- **The `kensa-rules` package is built from a staged copy of the corpus.**
+  `rules/` now also holds the Go source of the embedded package, which must
+  not be installed. The package still installs the rule files under
+  `/usr/share/kensa/rules` with the same layout, modes and content as
+  v0.11.1, plus the corpus README, which now also describes the embedded
+  package and the one-level layout rules must follow. The standalone `kensa`
+  binaries do not embed the corpus.
+  They still read it at run time, so `kensa-rules` can update it without a
+  binary release.
+
 ## v0.11.1 (2026-09-26)
 
 A patch release with one change: `kensa recover` now refuses to restore an
