@@ -11,10 +11,19 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.10.0...v0.11.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.11.0...v0.11.1> (swap the tags for
 any pair).
 
 ## Unreleased
+
+## v0.11.1 (2026-09-26)
+
+A patch release with one change: `kensa recover` now refuses to restore an
+interrupted transaction whose journal and captured state do not agree step
+for step, or that names a mechanism this kensa does not register. It used to
+crash on such an entry, or, with an agent, send it for restoration unchecked.
+The command now exits 1 when it refuses anything. Read the entry below before
+upgrading automation that runs `kensa recover`.
 
 ### Changed
 
@@ -49,6 +58,18 @@ any pair).
   This ships in a patch release under a one-change exception to the rule that
   atomicity-contract changes are major; see `VERSIONING_PLAN.md`. It was
   verified offline, with isolated stores, not on a live host.
+
+### Known limits
+
+- Verified offline, with isolated stores and a test agent that always
+  reports success, not on a live host. How a real agent answers a mechanism
+  it does not register is not verified.
+- Recovery still reports `recovered`, with `HostUnchanged: true`, for a
+  transaction whose non-capturable step may have run before the
+  interruption. This release does not change that; it is tracked separately.
+- A refused transaction stays open. Recovering it later restores the state
+  captured before the interruption over any change made since, so check the
+  host first.
 
 ## v0.11.0 (2026-09-20)
 
