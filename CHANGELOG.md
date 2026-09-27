@@ -31,12 +31,12 @@ package installs the same rule files as v0.11.1, and its README is updated.
   from being installed beside a newer `kensa-rules` package. In that pairing
   the older engine can fail to load the corpus or skip rules whose variables
   it does not know. Package-level protection is being designed separately.
-- **Module authenticity is checked by hand.** The new module-consumer check
-  runs in CI and proves that the embedded corpus matches the committed rule
-  files. That is consistency, not authenticity. Checking a published version
-  against the public module proxy and checksum database
-  (`scripts/check-module-consumer.sh --public VERSION`) is a manual step
-  after release.
+- **Two checks after release are manual.** In CI, the module-consumer check
+  shows that the embedded corpus matches the committed rule files. After a
+  release, run `scripts/check-module-consumer.sh --public VERSION` to check
+  that the downloaded module contains the expected rules. Separately, verify
+  the release tag's signature and confirm that it points to the approved
+  commit. The script does not check the tag's signature.
 
 ### Added
 
