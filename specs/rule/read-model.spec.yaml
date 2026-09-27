@@ -1,6 +1,6 @@
 spec:
     id: rule-read-model
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -49,6 +49,7 @@ spec:
                 - RuleSummary + RuleToSummary projection
                 - RemediationSummary factual derivation + RebootBehavior
                 - LoadRuleSummaries (reuses LoadRules)
+                - LoadRuleSummariesFS (reuses LoadRulesFS)
             excludes:
                 - RemediationSummary.RiskLevel — operator policy, declined per
                   boundary §3.3 (consumer computes from the facts)
@@ -87,6 +88,13 @@ spec:
               for change-specific cases is a false-negative). RebootBehavior is
               the honest mechanism-level signal: "boot-param" or "none".
           type: business
+          enforcement: error
+        - id: C-04
+          description: |
+              LoadRuleSummariesFS MUST reuse LoadRulesFS exactly as
+              LoadRuleSummaries reuses LoadRules, so the catalog of a file
+              tree shows the same rules a scan of that tree would run.
+          type: technical
           enforcement: error
 
     acceptance_criteria:
@@ -147,5 +155,11 @@ spec:
               across a rule set, deduplicated and sorted by id.
           references_constraints: [C-01]
           priority: medium
+        - id: AC-08
+          description: |
+              LoadRuleSummariesFS over a file tree equals RuleToSummary applied
+              to each rule LoadRulesFS returns for that tree, in the same order.
+          references_constraints: [C-04]
+          priority: high
 
     tags: [rule, read-model, catalog, public-api, pkg-kensa, boundary, tier-2]

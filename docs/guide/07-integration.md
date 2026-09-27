@@ -46,10 +46,38 @@ Loading the rule corpus from a consuming program is public surface too
 - `kensa.RuleVariables(dir)`: template variable → rule IDs using it,
   for showing operators what an override affects.
 
+`kensa.LoadRuleSummaries(dir, paths, vars)` loads the same corpus as
+`LoadRules` and returns one `RuleSummary` per rule instead of the full
+rule: the catalog view, with the rule's title, severity, framework
+references, platforms and a summary of its remediation.
+
+A program that links the Kensa module can also load the corpus of that
+exact module version from inside its own binary (added after v0.11.1;
+not in any released version yet). Package
+`github.com/Hanalyx/kensa/rules` embeds the corpus, and `rules.FS()`
+returns it as a file tree. Load it with the file-tree forms of the
+loaders:
+
+- `kensa.LoadRulesFS(fsys, vars)`, `kensa.RuleVariablesFS(fsys)` and
+  `kensa.LoadRuleSummariesFS(fsys, vars)` behave as `LoadRules`,
+  `RuleVariables` and `LoadRuleSummaries` do for a directory. The
+  differences are that there is no path resolution and no list of
+  explicit files, and paths in errors are relative to the tree.
+  `LoadRulesFS` is strict in the same way as `LoadRules`.
+  `RuleVariablesFS` is lenient in the same way as `RuleVariables`: an
+  undefined variable is reported, not an error.
+
+With the embedded corpus, the engine and the corpus always come from the
+same module version. A newer corpus beside an older engine can fail to
+load, because newer rules can use variables whose defaults only newer
+engines carry. The standalone `kensa` binaries do not embed the corpus.
+They read it at run time, so the `kensa-rules` package can update it
+without a binary release.
+
 Do not copy the rule files into a consuming repo and do not re-implement
-the loader: the corpus ships as the signed `kensa-rules` package, and 25
-of its rules are `{{ var }}` templates that only parse through the
-substitution chain above.
+the loader. The corpus ships as the signed `kensa-rules` package and as
+the embedded `rules` package. Rules that use `{{ var }}` templates only
+parse through the substitution chain above.
 
 Constructing a scanner with your own transport is public surface as well
 (since v0.3.2): embedders whose credential model the bundled on-disk-key
