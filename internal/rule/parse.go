@@ -32,6 +32,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -128,12 +129,29 @@ func ParseFileWithVars(path string, vars varsub.Variables) (*api.Rule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("rule: open %q: %w", path, err)
 	}
+	return parseWithVars(path, raw, vars)
+}
+
+// ParseFSWithVars is [ParseFileWithVars] for a rule file inside fsys, such as
+// the embedded corpus. path is slash-separated and relative to the root of
+// fsys, and it is the name used in errors.
+func ParseFSWithVars(fsys fs.FS, path string, vars varsub.Variables) (*api.Rule, error) {
+	raw, err := fs.ReadFile(fsys, path)
+	if err != nil {
+		return nil, fmt.Errorf("rule: open %q: %w", path, err)
+	}
+	return parseWithVars(path, raw, vars)
+}
+
+// parseWithVars substitutes templates in raw and decodes the result. path is
+// used only to name the file in errors.
+func parseWithVars(path string, raw []byte, vars varsub.Variables) (*api.Rule, error) {
 	// Always run substitution so a rule containing `{{ var }}`
 	// without a matching definition is detected, not silently
 	// loaded with literal templates that would later fail
 	// evaluation. The substitution helper is fast and is a
 	// no-op for rules that contain no templates.
-	raw, err = varsub.SubstituteFile(path, raw, vars)
+	raw, err := varsub.SubstituteFile(path, raw, vars)
 	if err != nil {
 		return nil, fmt.Errorf("rule: %w", err)
 	}

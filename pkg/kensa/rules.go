@@ -1,9 +1,11 @@
 package kensa
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -80,11 +82,54 @@ func LoadRules(dir string, paths []string, vars map[string]string) ([]*api.Rule,
 			return nil, fmt.Errorf("no *.yml files found in %s", dir)
 		}
 	}
+	// Explicit paths follow the walked files, in the order given and
+	// without de-duplication (rule-public-loader C-07).
 	files = append(files, paths...)
 
+	return parseRuleFiles(files, func(p string) (*api.Rule, error) {
+		return rule.ParseFileWithVars(p, merged)
+	})
+}
+
+// LoadRulesFS is [LoadRules] for a corpus held in a file tree rather than a
+// directory on disk. Its main use is the corpus embedded in the Kensa module
+// (package github.com/Hanalyx/kensa/rules), which gives a program the engine
+// and corpus of one module version.
+//
+// It behaves as LoadRules does for a directory: every *.yml file in fsys, at
+// any depth, in sorted path order; built-in variable defaults merged with
+// vars, caller values winning; and strict failure, where any file that fails
+// to parse or names an undefined variable fails the whole load with its path
+// in the error. A tree with no *.yml files is an error. There is no path
+// resolution and no explicit-path list, because the tree is the whole
+// corpus. Paths in errors are relative to the root of fsys.
+func LoadRulesFS(fsys fs.FS, vars map[string]string) ([]*api.Rule, error) {
+	if fsys == nil {
+		return nil, errors.New("nil rule file tree")
+	}
+	merged, err := effectiveVars(vars)
+	if err != nil {
+		return nil, err
+	}
+	files, err := walkRuleFS(fsys)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, errors.New("no *.yml files found in the rule file tree")
+	}
+	return parseRuleFiles(files, func(p string) (*api.Rule, error) {
+		return rule.ParseFSWithVars(fsys, p, merged)
+	})
+}
+
+// parseRuleFiles parses each file in order and fails the whole load on the
+// first error, naming the file. It is shared by the directory and file-tree
+// loaders so the two cannot differ in strictness.
+func parseRuleFiles(files []string, parse func(string) (*api.Rule, error)) ([]*api.Rule, error) {
 	rules := make([]*api.Rule, 0, len(files))
 	for _, p := range files {
-		r, err := rule.ParseFileWithVars(p, merged)
+		r, err := parse(p)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", p, err)
 		}
@@ -140,9 +185,36 @@ func RuleVariables(dir string) (map[string][]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ruleVariables(files, os.ReadFile, filepath.Base)
+}
+
+// RuleVariablesFS is [RuleVariables] for a corpus held in a file tree, such as
+// the corpus embedded in the Kensa module.
+//
+// It is textual and lenient in the same ways: templates are read from the raw
+// YAML without resolving values, so an undefined variable is reported rather
+// than being an error; a file whose id cannot be decoded is listed under its
+// file name without the .yml suffix; and a tree with no rule files returns an
+// empty map, not an error. Only a file that cannot be read is an error.
+func RuleVariablesFS(fsys fs.FS) (map[string][]string, error) {
+	if fsys == nil {
+		return nil, errors.New("nil rule file tree")
+	}
+	files, err := walkRuleFS(fsys)
+	if err != nil {
+		return nil, err
+	}
+	return ruleVariables(files, func(p string) ([]byte, error) {
+		return fs.ReadFile(fsys, p)
+	}, path.Base)
+}
+
+// ruleVariables maps each template variable in files to the sorted ids of the
+// rules that use it. It never fails on rule content; see [RuleVariables].
+func ruleVariables(files []string, read func(string) ([]byte, error), base func(string) string) (map[string][]string, error) {
 	out := map[string][]string{}
 	for _, p := range files {
-		raw, err := os.ReadFile(p)
+		raw, err := read(p)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", p, err)
 		}
@@ -152,7 +224,7 @@ func RuleVariables(dir string) (map[string][]string, error) {
 		}
 		id := ruleIDFromYAML(raw)
 		if id == "" {
-			id = strings.TrimSuffix(filepath.Base(p), ".yml")
+			id = strings.TrimSuffix(base(p), ".yml")
 		}
 		for _, n := range names {
 			out[n] = append(out[n], id)
@@ -182,18 +254,44 @@ func effectiveVars(vars map[string]string) (varsub.Variables, error) {
 // order (and therefore scan order) is deterministic across runs and
 // platforms.
 func walkRuleFiles(dir string) ([]string, error) {
+	files, err := collectRuleFiles(func(fn fs.WalkDirFunc) error {
+		return filepath.WalkDir(dir, fn)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk %s: %w", dir, err)
+	}
+	return files, nil
+}
+
+// walkRuleFS returns every *.yml file in fsys, sorted, with paths relative to
+// its root.
+func walkRuleFS(fsys fs.FS) ([]string, error) {
+	files, err := collectRuleFiles(func(fn fs.WalkDirFunc) error {
+		return fs.WalkDir(fsys, ".", fn)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk rule file tree: %w", err)
+	}
+	return files, nil
+}
+
+// collectRuleFiles gathers the *.yml files a walk visits and sorts them. The
+// sort is over the full path strings, so the order does not depend on how the
+// walk visits directories. Both walkers share it so they select and order
+// files the same way.
+func collectRuleFiles(walk func(fs.WalkDirFunc) error) ([]string, error) {
 	var files []string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := walk(func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), ".yml") {
-			files = append(files, path)
+			files = append(files, p)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walk %s: %w", dir, err)
+		return nil, err
 	}
 	sort.Strings(files)
 	return files, nil

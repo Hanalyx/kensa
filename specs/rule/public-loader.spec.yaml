@@ -1,6 +1,6 @@
 spec:
     id: rule-public-loader
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -51,6 +51,8 @@ spec:
                 - pkg/kensa.BuiltInVars (embedded defaults, defensive copy)
                 - pkg/kensa.RuleVariables (template discovery per rule)
                 - internal/varsub.Names (template-name extraction helper)
+                - pkg/kensa.LoadRulesFS / RuleVariablesFS / LoadRuleSummariesFS
+                  (the same loaders over a file tree, for the embedded corpus)
             excludes:
                 - Rule ordering / conflict resolution (rule.Resolve stays
                   internal; shape still evolving)
@@ -110,6 +112,39 @@ spec:
               error — never a raw directory-walk error.
           type: technical
           enforcement: error
+        - id: C-06
+          description: |
+              LoadRulesFS, RuleVariablesFS and LoadRuleSummariesFS MUST behave
+              as their directory forms do, loader by loader, except that a
+              file tree has no path resolution and no explicit-path list:
+              LoadRulesFS and LoadRuleSummariesFS walk every *.yml at any
+              depth in sorted full-path order, merge variables with the
+              caller winning, and are strict (C-01 to C-03); a tree with no
+              *.yml files is an error. RuleVariablesFS is textual and lenient
+              as RuleVariables is (C-05): an undefined variable is reported,
+              an undecodable file falls back to its file name, and a tree with
+              no rule files is an empty map without error. Paths in errors are
+              relative to the root of the tree. One directory-form quirk has
+              no file-tree counterpart and is not part of this parity: the
+              directory walk does not follow a dir that is itself a symlink
+              unless it is given with a trailing slash, so such a dir loads
+              no rules. The directory forms and the
+              file-tree forms share one implementation of file selection,
+              ordering and strict parsing, so they cannot drift. pkg/kensa
+              does not import the embedded corpus itself
+              (rule-embedded-corpus C-02).
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              LoadRules appends explicit paths after the files found by the
+              directory walk, in the order the caller gives them, unsorted and
+              without de-duplication: a path that is also under dir is loaded
+              twice. Explicit paths alone skip the walk. The walk's own order
+              is a sort of the full path strings, not the order the walk
+              visits directories.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -135,6 +170,30 @@ spec:
         - id: AC-06
           description: RuleVariables, LoadRules, and LoadRuleSummaries agree on empty-dir resolution — all resolve the same effective dir, so with no default install path RuleVariables("") returns the same actionable path-naming error as LoadRules(""), never a raw directory-walk error.
           references_constraints: [C-01, C-05]
+          priority: critical
+        - id: AC-07
+          description: LoadRules orders a directory walk by full-path byte order (a-b/ before a/), keeps explicit paths in the given order after the walked files, loads a path that is also under dir twice, and with paths only skips the walk.
+          references_constraints: [C-01, C-07]
+          priority: critical
+        - id: AC-08
+          description: Each strict failure of LoadRules and LoadRuleSummaries keeps its form — malformed YAML (parse <path> prefix, no sentinel), unknown variable (file and variable named, errors.Is varsub.ErrUndefined), empty tree (exact "no *.yml files found in <dir>", no sentinel), missing explicit path and missing dir (errors.Is fs.ErrNotExist).
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-09
+          description: RuleVariables reports an undefined variable without error, lists an undecodable file under its file-name stem, omits untemplated rules, sorts rule ids per variable, and returns an empty map without error for a directory with no rule files.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-10
+          description: Over the production corpus, LoadRulesFS (with and without caller variables), RuleVariablesFS and LoadRuleSummariesFS (framework-ref order normalized) equal their directory forms; over a small tree LoadRulesFS orders a-b/ before a/ and caller variables win.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-11
+          description: LoadRulesFS and LoadRuleSummariesFS fail the whole load on malformed YAML (relative path named, no sentinel) and on an unknown variable (errors.Is varsub.ErrUndefined), fail with an exact message on a tree with no *.yml files and on a nil tree, and return no rules when one bad file sits beside a good one.
+          references_constraints: [C-06]
+          priority: critical
+        - id: AC-12
+          description: RuleVariablesFS reports an undefined variable, lists an undecodable file under its file-name stem, sorts ids, returns an empty map without error for a tree with no rule files, and errors on a nil tree.
+          references_constraints: [C-06]
           priority: critical
 
     depends_on:

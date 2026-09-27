@@ -1,6 +1,7 @@
 package kensa
 
 import (
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"
@@ -288,9 +289,24 @@ func LoadRuleSummaries(dir string, paths []string, vars map[string]string) ([]Ru
 	if err != nil {
 		return nil, err
 	}
+	return summarize(rules), nil
+}
+
+// LoadRuleSummariesFS is [LoadRuleSummaries] for a corpus held in a file tree,
+// such as the corpus embedded in the Kensa module. It reuses [LoadRulesFS], so
+// the catalog shows the same rules a scan of that tree would run.
+func LoadRuleSummariesFS(fsys fs.FS, vars map[string]string) ([]RuleSummary, error) {
+	rules, err := LoadRulesFS(fsys, vars)
+	if err != nil {
+		return nil, err
+	}
+	return summarize(rules), nil
+}
+
+func summarize(rules []*api.Rule) []RuleSummary {
 	out := make([]RuleSummary, len(rules))
 	for i, r := range rules {
 		out[i] = RuleToSummary(r)
 	}
-	return out, nil
+	return out
 }
