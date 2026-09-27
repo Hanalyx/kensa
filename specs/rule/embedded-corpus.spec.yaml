@@ -1,0 +1,95 @@
+spec:
+    id: rule-embedded-corpus
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: rule-embedded-corpus
+        description: |
+            A program that links the Kensa module compiles in the engine of
+            the module version it pins. Until now it read the rule corpus from
+            a separately installed package at /usr/share/kensa/rules, so the
+            engine and the corpus could come from different versions. An
+            engine older than the corpus cannot load it: engine 0.9.0 loads no
+            rules from corpus 0.10.0, because newer rules use variables whose
+            defaults exist only in newer engines.
+
+            The rules package exposes the corpus of the module version itself
+            as an embedded file tree. A library consumer that loads it gets
+            the engine and the corpus from one version, so the pairing cannot
+            go wrong at install time.
+
+            The standalone kensa binaries are unchanged. They do not import
+            the rules package and keep reading the corpus at run time, so the
+            corpus can still be updated without a binary release. The
+            kensa-rules package keeps shipping the corpus and nothing else.
+
+    objective:
+        summary: |
+            github.com/Hanalyx/kensa/rules embeds exactly the rule files the
+            directory loaders read, the standalone binaries do not link it, and
+            the release packages carry only the corpus.
+        scope:
+            includes:
+                - rules/embed.go (the embedded file tree)
+                - scripts/stage-corpus.sh (kensa-rules package contents)
+                - .goreleaser.yaml rule-copy entries (tarball and kensa-rules)
+            excludes:
+                - The file-tree loaders in pkg/kensa (rule-public-loader)
+                - Corpus identity and its version marker (pkg-corpus-identity)
+                - Engine and corpus compatibility checks
+
+    constraints:
+        - id: C-01
+          description: |
+              The embedded tree MUST contain exactly the *.yml files that the
+              directory loaders collect from rules/ (every *.yml at any depth,
+              per rule-public-loader C-01), with identical content, and no
+              other *.yml file. Every rule file MUST be a regular file
+              exactly one level down (rules/<topic>/<id>.yml), and the
+              corpus MUST NOT contain a testdata directory: the embed
+              pattern and the release tarball select that depth, and a Go
+              test fixture there would ship and load as a rule.
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              No package under cmd/ or pkg/ may import
+              github.com/Hanalyx/kensa/rules. The standalone binaries read the
+              corpus at run time and MUST NOT carry a compiled-in copy.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              The kensa-rules package and the with-rules tarball MUST carry the
+              corpus only: the rule files and the corpus README, with the
+              layout under rules/ kept. The Go source that lives in rules/
+              MUST NOT be packaged.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: The embedded tree and the *.yml files under rules/ on disk have the same paths and the same sha256 for every file, and every rule file on disk is a regular file at rules/<topic>/<id>.yml with no testdata directory present.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: The tree comparison reports a rule file present on disk but missing from the embedded tree, including one deeper than the embed pattern reaches, and a file whose content differs; it ignores non-rule files. The layout check reports a rule at the corpus root, one too deep, a symlinked rule, and a testdata directory.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: The staging script that feeds the kensa-rules package produces the same rule files as disk plus the corpus README and nothing else, with directories 0755 and files 0644.
+          references_constraints: [C-03]
+          priority: critical
+        - id: AC-04
+          description: The dependency closure of every package under cmd/ and pkg/ excludes github.com/Hanalyx/kensa/rules.
+          references_constraints: [C-02]
+          priority: critical
+
+    depends_on:
+        - spec_id: rule-public-loader
+          relationship: requires
+
+    tags: [rule, corpus, embed, packaging, api-consumer, tier-2]

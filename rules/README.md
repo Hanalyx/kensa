@@ -1,13 +1,22 @@
 # rules/: the Kensa rules corpus
 
 The YAML rules in this tree are the inputs to `kensa check` and
-`kensa remediate`. The binary carries **no embedded corpus**; this
-directory is the source of truth.
+`kensa remediate`, and this directory is their source of truth. The
+`kensa` binaries carry **no embedded corpus**. They read it at run time,
+so the corpus can be updated without a binary release.
+
+This directory is also the Go package `github.com/Hanalyx/kensa/rules`
+(`embed.go`). It embeds the corpus for programs that link the Kensa
+module, so they get the engine and the corpus of one module version.
 
 ## Layout
 
-Rules are grouped into 8 topic directories. The grouping is organizational only, and the
-loader walks recursively so the layout is for humans, not the engine:
+Every rule lives exactly one level down, in a topic directory:
+`rules/<topic>/<rule-id>.yml`. The embedded package and the release
+tarball select rules at that depth, and a test fails if a rule file is
+placed anywhere else, is a symlink, or sits under a `testdata`
+directory. Keep test fixtures out of this tree. Rules are grouped into 8
+topic directories:
 
 | Topic            | Scope                                                   |
 |------------------|---------------------------------------------------------|
@@ -24,10 +33,13 @@ loader walks recursively so the layout is for humans, not the engine:
 
 - `kensa check --rules-dir <here>`: read-only compliance scan.
 - `kensa remediate --rules-dir <here>`: transactional apply.
-- The `kensa-rules` package (rpm/deb, noarch) installs this directory to
-  `/usr/share/kensa/rules`. With the `kensa-rules` package present the
+- The `kensa-rules` package (rpm/deb, noarch) installs the rule files and
+  this README to `/usr/share/kensa/rules`, staged by
+  `scripts/stage-corpus.sh` so the Go source here is not installed. With the `kensa-rules` package present the
   `--rules-dir` flag is optional; `cmd/kensa.loadRulesFromDirOrFiles` falls
   back to the default path per `specs/rule/default-path-resolution.spec.yaml`.
+- The Go package in this directory: `rules.FS()` returns the embedded
+  corpus, loaded with `pkg/kensa.LoadRulesFS` and its siblings.
 
 ## Schema
 
