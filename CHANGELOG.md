@@ -11,10 +11,32 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.11.0...v0.11.1> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.11.1...v0.12.0> (swap the tags for
 any pair).
 
 ## Unreleased
+
+## v0.12.0 (2026-09-27)
+
+A minor release for programs that link Kensa as a library. They can now load
+the rule corpus embedded in the Kensa module, so the engine and the corpus
+they use come from one module version. Nothing changes for the standalone
+`kensa` binaries: they still read the corpus at run time. The `kensa-rules`
+package installs the same rule files as v0.11.1, and its README is updated.
+
+### Known limits
+
+- **Standalone packages can still be paired wrongly.** The embedded corpus
+  protects programs that link Kensa. It does not stop an older `kensa` binary
+  from being installed beside a newer `kensa-rules` package. In that pairing
+  the older engine can fail to load the corpus or skip rules whose variables
+  it does not know. Package-level protection is being designed separately.
+- **Module authenticity is checked by hand.** The new module-consumer check
+  runs in CI and proves that the embedded corpus matches the committed rule
+  files. That is consistency, not authenticity. Checking a published version
+  against the public module proxy and checksum database
+  (`scripts/check-module-consumer.sh --public VERSION`) is a manual step
+  after release.
 
 ### Added
 

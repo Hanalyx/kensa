@@ -52,8 +52,8 @@ rule: the catalog view, with the rule's title, severity, framework
 references, platforms and a summary of its remediation.
 
 A program that links the Kensa module can also load the corpus of that
-exact module version from inside its own binary (added after v0.11.1;
-not in any released version yet). Package
+exact module version from inside its own binary (since v0.12.0).
+Package
 `github.com/Hanalyx/kensa/rules` embeds the corpus, and `rules.FS()`
 returns it as a file tree. Load it with the file-tree forms of the
 loaders:
