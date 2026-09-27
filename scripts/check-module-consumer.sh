@@ -17,11 +17,13 @@
 # The candidate is built from the commit's tracked contents (git archive),
 # never from the working tree, so local edits and untracked files cannot reach
 # it. Its checksums are computed from that same artifact, so they show the
-# consumer built exactly this artifact. They do not show the artifact is
-# authentic; a released version is checked against the public proxy and
-# checksum database instead (see --public). Only the candidate check runs
-# automatically, in the unit tests; --public is a manual step after a release
-# is published.
+# consumer built exactly this artifact, not where the artifact came from.
+#
+# After a release, run --public VERSION to check that the downloaded module
+# contains the expected rules. Separately, verify the release tag's signature
+# and confirm that it points to the approved commit. This script does not
+# check the tag's signature. Only the candidate check runs automatically, in
+# the unit tests; both release checks are manual.
 #
 # Usage:
 #   scripts/check-module-consumer.sh [COMMIT]     candidate from COMMIT (HEAD)
@@ -76,8 +78,10 @@ export GOMODCACHE="$work/modcache"
 unset GOPRIVATE GONOPROXY GONOSUMDB GOINSECURE
 
 if [ -n "$public" ]; then
-	# A released version: the public proxy and checksum database, which is
-	# what establishes authenticity.
+	# A released version, fetched the way a consumer gets it: from the public
+	# proxy, verified against the public checksum database. This checks what
+	# the downloaded module contains. It does not check the release tag's
+	# signature, which is verified separately.
 	export GOPROXY=https://proxy.golang.org
 	export GOSUMDB=sum.golang.org
 else
@@ -193,7 +197,7 @@ while IFS='|' read -r mpath mver mrep mdir; do
 done <<<"$graph"
 [ -n "$found" ] || fail "$module is not in the consumer's build graph"
 
-# Dependency authenticity: every dependency line the consumer recorded must
+# Dependency checksums: every dependency line the consumer recorded must
 # appear, identically, in Kensa's committed go.sum.
 while read -r line; do
 	case "$line" in "$module "*) continue ;; esac

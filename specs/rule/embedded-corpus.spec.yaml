@@ -80,10 +80,12 @@ spec:
               its embedded corpus MUST equal the rule files tracked at the
               commit, and every dependency checksum it records MUST equal
               Kensa's committed go.sum. Checksums computed for the candidate
-              from that same artifact show consistency, not authenticity.
-              Authenticity of a released version is checked against the
-              public proxy and checksum database with the script's --public
-              mode. That step is manual, after publication; only the
+              from that same artifact show consistency only. After a
+              release, the script's --public mode checks that the module
+              downloaded from the public proxy contains the expected rules.
+              It does not check the release tag's signature; verifying that
+              signature, and that the tag points to the approved commit, is
+              a separate step. Both release checks are manual; only the
               consistency check runs automatically.
           type: technical
           enforcement: error
