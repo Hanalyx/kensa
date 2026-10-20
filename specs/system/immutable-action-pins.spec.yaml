@@ -131,8 +131,8 @@ spec:
                       tag: v6.5.0
                       count: 14
                   actions/setup-python:
-                      sha: ece7cb06caefa5fff74198d8649806c4678c61a1  # pragma: allowlist secret
-                      tag: v6.3.0
+                      sha: 5fda3b95a4ea91299a34e894583c3862153e4b97  # pragma: allowlist secret
+                      tag: v7.0.0
                       count: 1
                   actions/upload-artifact:
                       sha: cf430e030ddbb5b0abf93d22962f4752f3646cd9  # pragma: allowlist secret
