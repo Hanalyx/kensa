@@ -35,7 +35,7 @@ type actionPin struct {
 // upstream tag must be re-verified from two sources at that time.
 var approvedPins = map[string]actionPin{
 	"actions/checkout":              {"3d3c42e5aac5ba805825da76410c181273ba90b1", "v7.0.1", 17}, // pragma: allowlist secret
-	"actions/setup-go":              {"924ae3a1cded613372ab5595356fb5720e22ba16", "v6.5.0", 14}, // pragma: allowlist secret
+	"actions/setup-go":              {"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e", "v7.0.0", 14}, // pragma: allowlist secret
 	"actions/setup-python":          {"ece7cb06caefa5fff74198d8649806c4678c61a1", "v6.3.0", 1},  // pragma: allowlist secret
 	"actions/upload-artifact":       {"043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7.0.1", 2},  // pragma: allowlist secret
 	"golangci/golangci-lint-action": {"ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a", "v9.3.0", 1},  // pragma: allowlist secret

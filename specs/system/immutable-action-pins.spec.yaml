@@ -127,8 +127,8 @@ spec:
                       tag: v7.0.1
                       count: 17
                   actions/setup-go:
-                      sha: 924ae3a1cded613372ab5595356fb5720e22ba16  # pragma: allowlist secret
-                      tag: v6.5.0
+                      sha: b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # pragma: allowlist secret
+                      tag: v7.0.0
                       count: 14
                   actions/setup-python:
                       sha: ece7cb06caefa5fff74198d8649806c4678c61a1  # pragma: allowlist secret
