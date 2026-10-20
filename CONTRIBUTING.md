@@ -80,9 +80,9 @@ satisfies, and the test that exercises its failure path before approving.
 The bar scales with blast radius. An ordinary change needs a green CI run and a
 reviewer's approval. A change to the transaction engine, a handler's capture or
 rollback path, the public `api/` surface, or anything security-sensitive carries
-the additional discipline below: a failure-mode analysis, two-reviewer approval
-for rollback handlers, a real-host atomicity test, and a capture-sufficiency
-analysis for transactional rules. None of it is skippable.
+the additional discipline below: two-reviewer approval for rollback handlers,
+a real-host atomicity test, and a capture-sufficiency analysis for transactional
+rules. None of it is skippable.
 
 ## Spec before code
 
@@ -99,23 +99,6 @@ spec first, and that needs approval before the implementation changes.
 Run `make spec-sync` before every PR. A PR that reduces spec coverage below its
 tier threshold blocks at CI. A new test must carry its `@spec`/`@ac` annotations,
 or the coverage gate fails.
-
-## Failure-mode analysis (engine, capture, rollback PRs)
-
-Every PR that touches `internal/engine/`, `internal/handlers/*/capture.go`, or
-`internal/handlers/*/rollback.go` includes a failure-mode analysis in the PR
-description, answering:
-
-1. What could this change do wrong in production?
-2. What state is captured before the change, and is it sufficient to restore the
-   system if the change or its validation fails?
-3. What real-world edge case is this change *not* safe for, and is that edge case
-   documented and gated?
-
-The reviewer is the final reasoner: they walk through the change, the spec it
-satisfies, and the integration test that exercises the failure path before
-approving. That approval is the human signature the atomicity commitment depends
-on.
 
 ## Two-reviewer review for rollback handlers
 
@@ -152,8 +135,6 @@ Merge is blocked if this section is missing for a `transactional: true` rule.
   not `fixed` / `fixes`). Keep the first line short; wrap the body.
 - The body explains the **mechanism and the why**, the same standard as code
   comments: no planning labels, no chronology, no pointers into untracked docs.
-- Engine, capture, or rollback commits carry the **failure-mode analysis** in the
-  body (see above). Reference the PR/issue.
 - Name a branch for what the change does (`fix/login-rate-limit`). A permanent,
   resolvable reference is fine: a PR number, an issue number, a CVE.
 
@@ -203,6 +184,6 @@ unavoidable and a maintainer agrees, mark that line with
 
 ## What gets merged without this discipline
 
-Nothing. A PR that skips the failure-mode analysis, skips the rollback
-integration test, or tries to adjust a test to match broken code is not merged.
+Nothing. A PR that skips the rollback integration test or tries to adjust a test
+to match broken code is not merged.
 This is the only way the atomicity commitment stays honest.

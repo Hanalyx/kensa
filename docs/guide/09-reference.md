@@ -59,8 +59,9 @@ Run `kensa <command> --help` for a subcommand's own flags.
 | `1` | Runtime error |
 | `2` | Usage error (bad flag, unknown subcommand, missing required arg) |
 
-`verify` overloads exit `1` to mean *signature INVALID* (tampered,
-wrong key, or missing key); see [verify](#verify) for the full table.
+`verify` uses exit `1` for an invalid or unverified signature, or rejection
+by CLI policy. See [verify](#verify) for the full table and planned v0.13.0
+breaking change.
 
 ### Environment variables
 
@@ -606,6 +607,9 @@ kensa diff <id1> <id2> --format json       # programmatic output
 
 ## verify
 
+The policy below is planned for **v0.13.0, a breaking pre-1.0 release**.
+Released v0.12.0 accepts valid v1 signatures; it cannot verify v2.
+
 Verify the Ed25519 signature on a kensa evidence-envelope JSON file. The
 public key is looked up by the envelope's `signing_key_id` in a trust
 directory (a directory of `.pub` files produced by `kensa-keygen`).
@@ -623,31 +627,68 @@ Default trust directory, in priority order:
 | `-h` | `--help` | | | Show help and exit |
 | | `--trust-dir` | `string` | matches `kensa-keygen` output dir | Directory of `.pub` files to look up `signing_key_id` |
 | | `--format` | `string` | `text` | Output format: `text` or `json` |
-| `-q` | `--quiet` | | | Suppress default output |
+| `-q` | `--quiet` | | | Suppress the body; mandatory v1 warnings still go to stderr |
+| | `--accept-legacy-v1` | | `false` | Accept a valid v1 signature with the rollback-result limitation warning |
 
 **Exit codes (verify-specific):**
 
 | Code | Meaning |
 |---|---|
-| `0` | Signature is valid (envelope is authentic) |
-| `1` | Signature is **INVALID** (tampered, wrong key, missing key, unknown schema version) |
-| `2` | Usage error (missing file, bad flag, malformed JSON) |
+| `0` | Signature is valid and accepted by CLI policy |
+| `1` | Invalid/unverified signature or policy rejection, including valid v1 by default |
+| `2` | Usage error: missing file, bad flag, wrong argument count or malformed JSON |
 
-Critical failure modes that exit `1` (not `2`): signature mismatch
-(tampered after signing), unknown key (`signing_key_id` has no `.pub` in
-the trust dir), wrong key (signature doesn't match the found `.pub`), and
-unknown schema version (envelope from a future kensa).
+v2 authenticates every declared envelope field except `Signature` and
+`SigningKeyID`, including all rollback results. Historical v1 excludes those
+two fields and `RollbackResults`. Editing v1 rollback results is not detected
+by its signature. The CLI rejects valid v1 by default. Explicit legacy
+acceptance exits `0` with `--accept-legacy-v1`. Both v1 paths always warn on
+stderr, even under quiet mode:
 
-Success warnings that still exit `0`: `signed_by_rotated_key` (authentic
-but signed by a rotated-out key) and `signing_key_id_mismatch` (the
-signature is real but the matched key's id disagrees with the envelope's
-`signing_key_id`; investigate).
+> Legacy v1 signature is valid; rollback results are not authenticated.
+
+JSON `valid` retains its cryptographic meaning. `accepted` reports CLI policy.
+`rollback_results_authenticated` is true only after a valid v2 signature:
+
+| Record | valid | accepted | rollback_results_authenticated | Exit |
+|---|---|---|---|---|
+| Valid v2 | true | true | true | 0 |
+| Valid v1, default | true | false | false | 1 |
+| Valid v1, explicit legacy flag | true | true | false | 0 |
+
+When a JSON body is emitted, its warnings include the mandatory v1 limitation.
+Quiet mode may suppress that body but never the warning on stderr. Existing
+key-rotation and key-ID warnings remain. The flag cannot bypass a bad
+signature, missing trusted key, malformed key ID, unsigned record, or empty
+or unknown version. Those exit `1`. Invalid or unverified records never report
+authenticated rollback results. Some failures happen before a JSON body can
+be produced; check the process exit status too.
 
 ```bash
 kensa verify evidence.json
 kensa verify evidence.json --trust-dir /etc/kensa/keys
-kensa verify evidence.json --format json | jq -r .valid
+set -o pipefail
+kensa verify evidence.json --format json | jq -e .accepted
+kensa verify historical-v1.json --accept-legacy-v1
 ```
+
+For automation, use the command's exit status and `accepted` when a JSON body
+is present. Do not use `.valid` alone as an acceptance decision. These extra
+fields belong to the CLI; the Go API's `VerifyResult.Valid` remains a
+cryptographic result for both known schema versions.
+
+**Upgrade order:** test and upgrade affected verifiers before enabling their
+v2 producers. Old verifiers reject v2 as an unknown version. Upgraded producers
+label new envelopes v2, including paths that stay unsigned. Preserve old
+records, signatures and public keys; do not rewrite or re-sign historical
+evidence. If a producer upgrade is rolled back, retain a v2-capable verifier
+for records already written as v2. Meet notice, migration, consumer and release
+conditions before publishing or rolling out the breaking release. See
+[evidence migration](07-integration.md#evidence-migration-for-v0130) for
+consumer checks, numeric handling and deferred integrations. Unknown
+consumers remain unassessed until explicitly dispositioned. A signature
+authenticates canonical content; it
+does not prove that a host was restored or that every raw JSON byte is intact.
 
 ## migrate
 

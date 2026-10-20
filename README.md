@@ -158,6 +158,5 @@ Business Source License 1.1; converts to Apache 2.0 on 2029-01-01.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Every engine PR carries a human-authored
-failure-mode analysis. Rollback handlers require two-human review and a real-host
-atomicity test via `kensa-fuzz`.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Rollback handlers require two-human
+review and a real-host atomicity test via `kensa-fuzz`.

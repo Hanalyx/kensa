@@ -155,13 +155,19 @@ upstream.)
 
 ## Signed evidence envelopes
 
-Every transaction, committed or rolled back, produces a structured
-evidence envelope: a signed record carrying the timestamp and duration,
-host context, the pre-state snapshot, the change attempted, the validation
-results, the commit-or-rollback decision, the post-state, and the
-framework-control mappings. The envelope is signed with an Ed25519 key so an
-auditor can verify a finding months later without access to the original
-host; `kensa verify` checks that signature on an envelope file.
+A transaction produces a structured evidence envelope with host/time context,
+state bundles, applied steps, validation and the decision. Signed remediation
+envelopes use Ed25519. Some paths, including scan persistence and failure
+records, remain unsigned; a schema label alone does not authenticate them.
+
+Planned breaking pre-1.0 v0.13.0 introduces schema v2. It signs rollback
+results as well as the other declared fields except the signature and key ID.
+Historical v1 signatures do not cover rollback results. The CLI rejects v1
+by default; explicit legacy acceptance always warns about that limitation.
+See [verify](09-reference.md#verify) for exit codes, JSON policy and migration.
+A valid signature authenticates canonical content. It does not prove that
+restoration succeeded. Historical v1 records keep their original bytes and
+signatures; no evidence is rewritten.
 
 Evidence is stored alongside the change in the transaction log, not in a
 separate silo that can drift out of sync, and it can be exported in Open

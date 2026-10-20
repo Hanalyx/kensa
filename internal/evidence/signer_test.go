@@ -61,8 +61,7 @@ func TestGenerate_ReturnsFreshSigner(t *testing.T) {
 // @ac AC-04
 func TestSignAndVerify(t *testing.T) {
 	t.Log("// @spec evidence-envelope")
-	t.Run("evidence-envelope/AC-03", func(t *testing.T) {})
-	t.Run("evidence-envelope/AC-04", func(t *testing.T) {})
+
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 
@@ -142,11 +141,11 @@ func TestVerify_UnknownSchemaVersion(t *testing.T) {
 	t.Log("// @ac AC-06")
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
-	env.SchemaVersion = "v2"
+	env.SchemaVersion = "v99"
 
 	_, err := s.Verify(env)
 	if err == nil {
-		t.Error("expected error for unknown schema_version v2")
+		t.Error("expected error for unknown schema_version v99")
 	}
 }
 
@@ -158,8 +157,7 @@ func TestVerify_UnknownSchemaVersion(t *testing.T) {
 // @ac AC-03
 func TestCanonical_ExcludesSignatureFields(t *testing.T) {
 	t.Log("// @spec evidence-envelope")
-	t.Run("evidence-envelope/AC-02", func(t *testing.T) {})
-	t.Run("evidence-envelope/AC-03", func(t *testing.T) {})
+
 	s, _ := evidence.Generate()
 	env := makeEnvelope()
 
