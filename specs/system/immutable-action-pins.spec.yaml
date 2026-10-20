@@ -135,8 +135,8 @@ spec:
                       tag: v7.0.0
                       count: 1
                   actions/upload-artifact:
-                      sha: 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # pragma: allowlist secret
-                      tag: v7.0.1
+                      sha: cf430e030ddbb5b0abf93d22962f4752f3646cd9  # pragma: allowlist secret
+                      tag: v7.0.2
                       count: 2
                   golangci/golangci-lint-action:
                       sha: ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a  # pragma: allowlist secret
