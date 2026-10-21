@@ -16,7 +16,12 @@ any pair).
 
 ## Unreleased
 
-### Breaking change planned for v0.13.0 (pre-1.0)
+## v0.13.0 (2026-10-20; release candidate)
+
+Candidate stamp only. This version has not been published. The date records
+candidate preparation, not an approved publication date.
+
+### Breaking change (pre-1.0)
 
 - New production evidence uses schema v2. Its distinct signing domain
   authenticates rollback results and every other declared envelope field
