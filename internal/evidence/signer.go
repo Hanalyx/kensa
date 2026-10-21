@@ -61,6 +61,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -163,6 +164,9 @@ func signedBytes(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	tag := sigDomainTag
 	if envelope.SchemaVersion == "v2" {
 		tag = sigDomainTagV2
+	}
+	if len(canonical) > math.MaxInt-len(tag) {
+		return nil, errors.New("evidence: canonical payload exceeds addressable size")
 	}
 	out := make([]byte, 0, len(tag)+len(canonical))
 	out = append(out, tag...)
