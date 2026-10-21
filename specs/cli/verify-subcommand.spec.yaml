@@ -1,6 +1,6 @@
 spec:
     id: cli-verify-subcommand
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 3
 
@@ -8,11 +8,10 @@ spec:
         system: kensa
         feature: cli-verify-subcommand
         description: |
-            CLI Phase 5b deliverable C-060. Wires M-012's
-            Ed25519 signer through the engine + adds the
-            operator-facing `kensa verify <evidence-file>`
-            subcommand so auditors can validate signed
-            evidence envelopes from disk.
+            The existing C-060 verify command reads signed evidence
+            from disk. PT-04.1 adds v2 rollback-result authentication
+            and explicit CLI acceptance policy for historical v1.
+            The v0.13.0 release is planned as breaking pre-1.0.
 
             **Scope split with M-012.** M-012 shipped the
             cryptographic primitive (Ed25519Signer +
@@ -37,8 +36,9 @@ spec:
                up the public key by the envelope's
                signing_key_id against a trust directory
                (default $XDG_CONFIG_HOME/kensa/keys/),
-               runs Ed25519 verification, exits 0 valid /
-               1 invalid / 2 usage.
+               runs Ed25519 verification, then applies CLI
+               acceptance policy. A valid v1 signature is
+               rejected unless --accept-legacy-v1 is set.
 
             4. Delete `noopSigner` from
                internal/engine/stubs.go. Change
@@ -47,12 +47,11 @@ spec:
                real (ephemeral) signer rather than an
                empty-signature placeholder.
 
-            5. Documentation updates: the disclaimer
-               that evidence envelopes are unsigned is
-               removed everywhere it appears, and the
-               noopSigner placeholder notes are scrubbed,
-               including the cmd/kensa/scan_persist.go
-               comment.
+            5. Documentation distinguishes signed remediation
+               evidence from intentionally unsigned scan and
+               failure records. Help, completion, man page and
+               operator guide distinguish signature validity,
+               CLI acceptance and rollback-result coverage.
 
             **Trust-directory model.** The verifier
             looks up public keys by key_id (the
@@ -83,23 +82,23 @@ spec:
                 - "pkg/kensa.Default() reads KENSA_SIGNING_KEY env var"
                 - "Delete noopSigner from internal/engine/stubs.go"
                 - "Change engine.New() default signer to evidence.Generate()"
-                - "Documentation updates: remove the unsigned-envelope disclaimer and the noopSigner notes, including scan_persist.go comments"
-                - "CHANGELOG entry under v1.1 Unreleased / Added"
+                - "Documentation updates: explain signed and unsigned paths, v1 limitations and v2 CLI acceptance"
+                - "v0.13.0 breaking pre-1.0 release notes and migration guidance"
             excludes:
                 - "Multi-key trust dir (rotation history): default loader handles a SINGLE active key per .pub file. Multi-key support (key_history) is a v1.2 deliverable."
                 - "Hardware-token signing (HSM, YubiKey): out of scope; private key lives on disk."
-                - "Evidence envelope signing for `kensa check --store`: scan_persist persists envelopes already; with engine default flipped, those envelopes carry real signatures automatically — no new wiring."
+                - "Changing the intentionally unsigned status of `kensa check --store` scan envelopes or unsigned failure records."
 
     constraints:
         - id: C-01
           description: |
-              `kensa verify <evidence-file>` MUST exit 0
-              when the envelope's signature validates
-              against a key in the trust directory; exit
-              1 when it doesn't validate (signature
-              mismatch, unknown key, tampered envelope);
-              exit 2 on usage error (missing file, bad
-              flag, wrong arg count).
+              `kensa verify <evidence-file>` exits 0 only when a known-version
+              signature verifies and CLI policy accepts the record. Valid v2 is
+              accepted. Valid v1 exits 1 by default; --accept-legacy-v1 accepts
+              it with exit 0. Invalid, unsigned, empty-version and unknown-version
+              records exit 1, with or without the flag. Missing trusted key,
+              malformed key ID and bad signature also exit 1. Missing file,
+              malformed JSON, bad flags and wrong argument count retain exit 2.
           type: business
           enforcement: error
         - id: C-02
@@ -149,11 +148,12 @@ spec:
           enforcement: error
         - id: C-06
           description: |
-              Every statement that evidence envelopes are
-              unsigned MUST be removed, and the noopSigner
-              placeholder notes scrubbed. They were a v1.0
-              disclaimer that no longer holds with the
-              signer wired through.
+              Documentation must describe which evidence records are signed,
+              including intentionally unsigned scan and failure paths. The verify
+              help, completion, man page and operator guide must distinguish a
+              cryptographically valid signature from CLI acceptance and state the
+              v1 rollback-result limitation. No documentation may imply that a
+              file-state signature proves host restoration.
           type: business
           enforcement: error
         - id: C-07
@@ -171,22 +171,25 @@ spec:
     acceptance_criteria:
         - id: AC-01
           description: |
-              `kensa verify <file>` with a valid
-              envelope + matching .pub in trust dir
-              exits 0; text output surfaces the
-              VALID status and any KeyRotation /
-              KeyIDMismatch warnings the verifier
-              produced. Trust dir defaults match
-              kensa-keygen's output dir per spec
-              C-03 (--trust-dir override available).
-              Locked by TestRunVerify_Valid.
+              With a valid v2 envelope and matching .pub, the actual command
+              exits 0 and reports signature validity and acceptance. Text output
+              surfaces the VALID status and any KeyRotation/KeyIDMismatch warnings.
+              Trust-dir defaults match kensa-keygen's output per C-03; --trust-dir
+              overrides it. With a valid v1 envelope, the actual command exits 1
+              by default and 0 only with --accept-legacy-v1; both paths emit to
+              stderr, even under --quiet, this exact warning:
+              Legacy v1 signature is valid; rollback results are not authenticated.
+              The flag never alters API VerifyResult.Valid.
           references_constraints: [C-01, C-02, C-03, C-07]
           priority: critical
         - id: AC-02
           description: |
-              `kensa verify <file>` with a tampered
-              envelope exits 1. Locked by
-              TestRunVerify_Tampered.
+              Tampering with content covered by the selected schema makes the
+              actual command exit 1, with or without --accept-legacy-v1. v1
+              rollback-only edits remain cryptographically undetectable: valid
+              v1 exits 1 by default, or 0 with explicit legacy acceptance and
+              the mandatory limitation warning. Do not claim raw JSON byte
+              integrity for inputs normalized to identical canonical content.
           references_constraints: [C-01]
           priority: critical
         - id: AC-03
@@ -214,29 +217,82 @@ spec:
           priority: critical
         - id: AC-06
           description: |
-              `KENSA_SIGNING_KEY=/path/to/key.priv kensa
-              check --store ...` produces envelopes
-              signed with the key at /path/to/key.priv.
-              Locked by TestKensaDefault_LoadsSigningKey.
+              With a real PEM private-key file and KENSA_SIGNING_KEY set,
+              pkg/kensa.Default() loads that signer. Exercise a signed engine
+              remediation path using fixture transport without contacting hosts,
+              then verify with the matching PEM public key. Unset-key behavior
+              remains ephemeral signing. Intentionally unsigned scan and failure
+              records remain unsigned; do not add scan signing to satisfy this test.
           references_constraints: [C-05]
           priority: high
         - id: AC-07
           description: |
-              Live verification: kensa-keygen produces
-              key.priv + key.pub; kensa check --store
-              with KENSA_SIGNING_KEY=key.priv writes a
-              signed envelope to the store; kensa
-              verify <envelope-file> against trust dir
-              with key.pub exits 0. End-to-end pipeline
-              works.
+              Under the PT-04.1-only signing-change testing exception, run the
+              actual kensa-keygen process to create PEM .priv/.pub files. Load
+              the private key via KENSA_SIGNING_KEY and generate a signed engine
+              result offline with fixture transport. Verify the returned record,
+              persist it through real SQLite, reopen/read/export it, and verify
+              again with the actual kensa verify process and matching trust dir.
+              Retain exit/stdout/stderr and unchanged historical-row evidence.
+              This proves signing and persistence, not host restoration. Any
+              execution or restoration change invalidates the exception.
           references_constraints: [C-01, C-02, C-05]
           priority: critical
         - id: AC-08
           description: |
-              No statement that evidence envelopes are
-              unsigned survives the merge, and no
-              noopSigner placeholder note remains.
+              Documentation accurately distinguishes signed remediation records
+              from intentionally unsigned scan and failure records. Verify help,
+              completion, man page and operator guide state v1/v2 policy, exact
+              legacy warning, exit statuses and verifier-before-producer migration.
+              Published CLI guidance using .valid alone to decide acceptance is
+              updated before v0.13.0 publication. Historical evidence stays intact.
           references_constraints: [C-06]
           priority: medium
+
+        - id: AC-09
+          description: |
+              Actual CLI-process tests check exit status, stdout and
+              stderr for text, JSON and quiet modes. JSON preserves
+              valid as cryptographic validity and adds CLI-owned
+              accepted and rollback_results_authenticated booleans:
+              valid v1 defaults to true/false/false, with the flag to
+              true/true/false; valid v2 is true/true/true. Invalid or
+              unverified evidence never reports authenticated rollback
+              results. Emit the exact v1 warning on stderr even in
+              quiet mode and include it in JSON warnings whenever a
+              JSON body is emitted; quiet may suppress the body.
+              Preserve existing key warnings.
+          references_constraints: [C-01, C-07]
+          priority: critical
+        - id: AC-10
+          description: |
+              --accept-legacy-v1 cannot bypass a bad signature,
+              missing trusted key, malformed key ID, unknown or empty
+              schema version, or unsigned record. These exit 1;
+              malformed JSON and bad invocation exit 2. Swapped v1/v2
+              labels fail their respective domain checks without a
+              fallback canonical form. Never emit a warning that claims a valid
+              legacy signature before cryptographic verification succeeds.
+              Repeated verification gives the same result and leaves the record
+              and store unchanged.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-11
+          description: |
+              A v0.12.0 verifier rejects a valid v2 fixture as an
+              unknown version. Before release, run the CLI matrix
+              against the extracted candidate artifact, retaining
+              exact exit, stdout and stderr evidence. Retain full
+              go test ./..., strict spec-coverage, actual-diff and
+              sibling review evidence. The planned
+              v0.13.0 is breaking pre-1.0. Test and upgrade each affected
+              integration verifier before its v2 producer is enabled. Complete
+              notice timing, migration guidance, known consumer dispositions and
+              an explicit founder disposition of unknown-consumer uncertainty
+              before separately authorized publication. These are rollout and
+              publication gates, not blanket isolated-development prerequisites.
+              v1.0.0 requires explicit founder acceptance of product stability.
+          references_constraints: [C-01]
+          priority: critical
 
     tags: [cli, verify, signing, evidence, phase-5b, c-060]

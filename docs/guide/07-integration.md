@@ -110,6 +110,52 @@ shelling out to the CLI:
   (the audit-truth-of-record a transaction produces) as OSCAL. This path
   is anchored on the envelope's Ed25519 signature.
 
+### Evidence migration for v0.13.0
+
+For planned breaking pre-1.0 v0.13.0, `api.VerifyResult.Valid` still reports
+cryptographic validity for both v1 and v2. Integrations must apply their own
+acceptance policy. Historical v1 does not authenticate rollback results;
+v2 does. CLI-only `accepted` and `rollback_results_authenticated` fields do
+not add fields to the Go API. Storage, rendering and OSCAL export do not by
+themselves prove that a signature was checked. Test and upgrade affected
+verifiers before enabling v2 producers; old verifiers reject v2. Preserve
+historical records and see [verify](09-reference.md#verify) for migration.
+
+CLI and SQLite audit-envelope reads select decoding by schema version. v1
+retains the released float64 normalization of generic `Data` numbers, including
+its rounding and large-integer limitations. v2 preserves exact numeric tokens
+with `json.Number`; consumers that inspect concrete Go number types must
+account for that when upgrading. There is no signature-based fallback to
+another numeric form. The signer and API verifier retain historical v1 bytes
+for caller-supplied values; API validity does not promise that the legacy CLI
+can represent every such value. The separate restoration-state decoder and
+stored historical rows are unchanged.
+
+Before upgrading a producer:
+
+1. Inventory every reader, verifier and export path that receives its evidence.
+   Test storage and export separately from signature verification. Include
+   historical v1, new v2, fractional/exponent numbers and large integers.
+2. Make a v2-capable verifier and the required public keys available first.
+   Update CLI automation to check process status and `accepted`, rather than
+   `.valid` alone. Intentional v1 acceptance needs `--accept-legacy-v1` and
+   retains the limitation warning.
+3. Preserve original records and keys. Keep the v2-capable verification path
+   available if the producer is reverted. Reverting only the producer does
+   not make its existing v2 records readable by an older verifier.
+4. Complete the applicable notice and migration steps before enabling the
+   producer. If a downstream path is unassessed, exclude it from that rollout
+   or complete its assessment first. Record the actual path and owner.
+
+OpenWatch's Kensa dependency remains at v0.10.0. Its v0.13.0 compatibility
+assessment and dependency upgrade are deferred. That disposition is not a
+compatibility certification and does not block independent Kensa preparation.
+Assess compatibility before any later OpenWatch upgrade. An unchanged
+module pin does not isolate OpenWatch from evidence sent by other Kensa
+installations. Such an exchange path must be assessed or excluded before
+those producers are enabled; deferral alone does not satisfy this condition.
+
+
 The OSCAL byte production is conformance-gated against the vendored NIST
 OSCAL 1.0.6 schema; these `pkg/kensa` functions are the importable entry
 points to it.

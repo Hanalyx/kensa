@@ -16,6 +16,34 @@ any pair).
 
 ## Unreleased
 
+### Breaking change planned for v0.13.0 (pre-1.0)
+
+- New production evidence uses schema v2. Its distinct signing domain
+  authenticates rollback results and every other declared envelope field
+  except the signature and signing key ID. Existing unsigned paths stay
+  unsigned. Historical v1 canonical bytes, signatures, hashes and stored
+  records are preserved.
+- `kensa verify` rejects v1 by default, even when its signature is valid.
+  `--accept-legacy-v1` permits explicit acceptance and always warns:
+  "Legacy v1 signature is valid; rollback results are not authenticated."
+  The warning remains on stderr under quiet mode. JSON `valid` remains
+  cryptographic; `accepted` reports CLI policy, and
+  `rollback_results_authenticated` is true only for verified v2. The Go API's
+  `Valid` semantics stay unchanged.
+- Upgrade affected verifiers before v2 producers; older verifiers reject v2.
+  Update exit-code and `.valid` automation to use CLI acceptance policy.
+  Keep historical evidence, public keys and a v2-capable verifier, including
+  after reverting a producer. Complete applicable notice and migration steps
+  before rollout. See [evidence migration](docs/guide/07-integration.md#evidence-migration-for-v0130).
+- V1 CLI and SQLite audit reads retain historical float64 normalization and
+  its precision limits. V2 uses `json.Number` in generic data maps and retains
+  numeric tokens. Assess concrete Go number-type assumptions and actual
+  storage/export behavior before upgrading consumers.
+- OpenWatch remains on Kensa v0.10.0; its v0.13.0 testing and dependency
+  upgrade are deferred, not certified compatible. Assess or exclude any path
+  that would deliver v2 evidence to it before enabling those producers.
+
+
 ## v0.12.0 (2026-09-27)
 
 A minor release for programs that link Kensa as a library. They can now load
