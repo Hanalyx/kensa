@@ -19,11 +19,14 @@ safe-harbor terms.
 ## Building and testing
 
 ```sh
-go build ./...        # build everything
-go test ./...         # unit tests (live-host tests skip without the env vars below)
+make build           # canonical build of all five binaries into bin/
+make test            # build first, then unit tests; live tests skip without opt-in
 golangci-lint run     # lint (CI pins the version)
 make spec-sync        # spec + coverage gate (see "Spec before code")
 ```
+
+`make test` runs `make build` first so subprocess tests use a freshly built
+`bin/kensa`. Build first before invoking `go test` directly.
 
 Every PR must pass all of these in CI (unit tests, lint, spec coverage, the
 build, and the codegen and portability gates) before it can merge. Branch off
@@ -49,7 +52,7 @@ The codegen-drift gate (`make proto-check` + `TestCodegenSync`) fails the build
 if the checked-in `wire.pb.go` differs from what `protoc` would produce today.
 Run `make proto` after editing `wire.proto`, and commit both files together.
 
-Without `protoc` installed locally, `go test ./...` skips `TestCodegenSync` (with
+Without `protoc` installed locally, `make test` skips `TestCodegenSync` (with
 a clear message). CI installs `protoc` and fails hard if it can't run the gate,
 so a missing-locally / passing-in-CI workflow is fine for everyday development.
 
@@ -68,7 +71,7 @@ vars below to opt in.
   direct-SSH and agent-mode paths, and asserts the results match (modulo
   timestamps and transaction IDs).
 
-Without these, `go test ./...` passes cleanly with the live tests shown as `SKIP`
+Without these, `make test` passes cleanly with the live tests shown as `SKIP`
 in `-v` output.
 
 ## How changes are reviewed
