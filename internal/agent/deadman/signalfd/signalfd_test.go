@@ -3,8 +3,6 @@ package signalfd
 import (
 	"context"
 	"errors"
-	"sync"
-	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -41,7 +39,7 @@ func TestSignalfd_DeliversSIGTERM(t *testing.T) {
 		t.Fatalf("Wait: %v", err)
 	}
 	elapsed := time.Since(start)
-	if elapsed > 500*time.Millisecond {
+	if elapsed > 200*time.Millisecond {
 		t.Errorf("Wait returned too late: %v", elapsed)
 	}
 }
@@ -108,23 +106,40 @@ func TestSignalfd_ConcurrentCloseDuringWait(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	var waitErr atomic.Value
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := s.Wait(context.Background())
-		waitErr.Store(err)
-	}()
-
-	time.Sleep(20 * time.Millisecond)
-	if err := s.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
+	entered, resume := make(chan struct{}), make(chan struct{})
+	s.poll = func(fds []unix.PollFd, timeout int) (int, error) {
+		close(entered)
+		<-resume
+		return unix.Poll(fds, timeout)
 	}
-	wg.Wait()
-	if err := waitErr.Load().(error); !errors.Is(err, ErrClosed) {
-		t.Errorf("concurrent Close during Wait: expected ErrClosed; got: %v", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	waited := make(chan error, 1)
+	go func() { waited <- s.Wait(ctx) }()
+	select {
+	case <-entered:
+	case <-ctx.Done():
+		t.Fatal("Wait never reached poll")
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- s.Close() }()
+	waitClosedFlag(t, s)
+	close(resume)
+	select {
+	case err := <-waited:
+		if !errors.Is(err, ErrClosed) {
+			t.Errorf("concurrent Close during Wait: got %v; want ErrClosed", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("Wait did not finish")
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("Close did not finish")
 	}
 }
 

@@ -89,7 +89,7 @@ merge.
 
 ## Building from source
 
-Requires Go 1.26+ and make.
+Requires Go 1.26.10+ and make.
 
 ```bash
 git clone git@github.com:Hanalyx/kensa.git
