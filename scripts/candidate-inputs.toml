@@ -1,0 +1,49 @@
+# Candidate verification inputs for the Ubuntu 24.04 amd64 runner.
+# Public release/package digests; update deliberately with source review.
+
+[ubuntu.rpm]
+version = "4.18.2+dfsg-2.1build2"
+url = "https://archive.ubuntu.com/ubuntu/pool/universe/r/rpm/rpm_4.18.2+dfsg-2.1build2_amd64.deb"
+sha256 = "aa01909d18eb036c641ba7707d0e5f32a3263e65430b730b0c55c2b2622463c3" # pragma: allowlist secret
+
+[ubuntu.rpm2cpio]
+version = "4.18.2+dfsg-2.1build2"
+url = "https://archive.ubuntu.com/ubuntu/pool/universe/r/rpm/rpm2cpio_4.18.2+dfsg-2.1build2_amd64.deb"
+sha256 = "c884b6ef5e353182d46a69a2af23fa1bdade597a59df0637f94cdc464add2f6a" # pragma: allowlist secret
+
+[ubuntu.cpio]
+version = "2.15+dfsg-1ubuntu2.1"
+url = "https://archive.ubuntu.com/ubuntu/pool/main/c/cpio/cpio_2.15+dfsg-1ubuntu2.1_amd64.deb"
+sha256 = "fbac731755302d218d785b4c391530e7773527f553e24946f9580636a47641b2" # pragma: allowlist secret
+
+[ubuntu.binutils]
+version = "2.42-4ubuntu2.10"
+url = "https://archive.ubuntu.com/ubuntu/pool/main/b/binutils/binutils_2.42-4ubuntu2.10_amd64.deb"
+sha256 = "b3b5a84181a38fd191820b2cdcc1a3eeb1cd6333ad472f2092f96e81047e9c74" # pragma: allowlist secret
+
+[ubuntu.python3-cryptography]
+version = "41.0.7-4ubuntu0.4"
+url = "https://archive.ubuntu.com/ubuntu/pool/main/p/python-cryptography/python3-cryptography_41.0.7-4ubuntu0.4_amd64.deb"
+sha256 = "8fa33b608a16df054bf26ea3a653b1d512ab745d01e56fa938673ebc8c727060" # pragma: allowlist secret
+
+[ubuntu.qemu-user-static]
+version = "1:8.2.2+ds-0ubuntu1.18"
+url = "https://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_8.2.2+ds-0ubuntu1.18_amd64.deb"
+sha256 = "5bb397f66063efa349f6fd5cb3b68cd96f29edd0994e4ba5115cf0859a716bf0" # pragma: allowlist secret
+
+[qemu]
+version = "8.2.2"
+binary_sha256 = "e4f8d99e9ff69c3cefffab71cee358ce2af1ecba1282d04c3eeb44ef76f5a71e" # pragma: allowlist secret
+
+[cryptography]
+version = "41.0.7"
+
+[legacy]
+repository = "Hanalyx/kensa"
+tag = "v0.12.0"
+revision = "97fcd7b4eaf9b3b53d4fc2776b19ae6011032f33" # pragma: allowlist secret
+asset_id = 593999838
+filename = "kensa_0.12.0_linux_amd64.tar.gz"
+url = "https://github.com/Hanalyx/kensa/releases/download/v0.12.0/kensa_0.12.0_linux_amd64.tar.gz"
+sha256 = "f5ad6f053cd6b04866c64e82578a802d601196d47cc78b6d7d0c98f28fe1783c" # pragma: allowlist secret
+binary_sha256 = "99ef2606e42376a015a38ea740d0796ff60bb58ea6d1f133c65845def817b01a" # pragma: allowlist secret

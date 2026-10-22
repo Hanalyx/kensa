@@ -345,7 +345,7 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-      # protoc + protoc-gen-go installed BEFORE `go test ./...` so
+      # protoc + protoc-gen-go installed BEFORE `make test` so
       # TestCodegenSync (the L-007 wire-protocol codegen-drift gate)
       # actually runs instead of self-skipping. The test fails hard
       # under CI when protoc is missing — that's the belt; running
@@ -373,7 +373,7 @@ jobs:
         # test refactor accidentally weakens the Go-side gate, the
         # Make target keeps wire-schema drift from landing silently.
         run: make proto-check
-      - run: go test ./...
+      - run: make test
 
   lint:
     name: Lint
@@ -707,7 +707,8 @@ jobs:
     # workflow (.github/workflows/release.yml) re-runs without the
     # skips and adds GPG + cosign signing.
     name: Release snapshot (no publish, no sign)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     # On a clock, not on our diff. See the `schedule` trigger above.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
@@ -742,95 +743,53 @@ jobs:
           mkdir -p "$syft_dir"
           ./scripts/install-syft.sh "$syft_dir"
           echo "$syft_dir" >> "$GITHUB_PATH"
+      - name: Prepare pinned artifact-verification inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B scripts/prepare_candidate_inputs.py --dest "$RUNNER_TEMP/candidate-inputs"
+      - name: Test candidate verification helpers and independent vectors
+        run: |
+          python3 -B -m unittest discover -s scripts -p 'test_candidate_*.py' -v
+          python3 -B -m unittest discover -s scripts -p 'test_verify_envelope_vectors.py' -v
+          python3 -B scripts/verify-envelope-vectors.py internal/evidence/testdata/v1-vectors.json internal/evidence/testdata/v2-vectors.json internal/evidence/testdata/numeric-vectors.json
       - name: goreleaser check
         run: goreleaser check
       - name: goreleaser release --snapshot --skip=publish,sign
-        run: goreleaser release --snapshot --clean --skip=publish,sign
-      - name: List artifacts
+        run: GORELEASER_CURRENT_TAG="v$(cat VERSION)" goreleaser release --snapshot --clean --skip=publish,sign
+      - name: Verify the snapshot output and bind retained bytes
         run: |
-          ls -lh dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null || true
-          echo "Artifact count: $(ls dist/*.{tar.gz,rpm,deb,sha256} 2>/dev/null | wc -l)"
-      - name: Verify expected artifact set (11 files)
+          python3 -B scripts/verify_candidate_artifacts.py \
+            --source "$GITHUB_WORKSPACE" --dist "$GITHUB_WORKSPACE/dist" \
+            --out "$RUNNER_TEMP/candidate-verification" \
+            --inputs "$RUNNER_TEMP/candidate-inputs/inputs.json" \
+            --sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-ref "$GITHUB_WORKFLOW_REF"
+      - name: Retain tested unsigned snapshot and verification evidence
+        id: candidate-upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kensa-snapshot-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate-verification/bundle/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          archive: true
+          overwrite: false
+          include-hidden-files: false
+      - name: Require retained artifact identity
+        env:
+          ARTIFACT_ID: ${{ steps.candidate-upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.candidate-upload.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.candidate-upload.outputs.artifact-url }}
         run: |
-          # 2 binary-only tarballs + 2 with-rules tarballs + 4 binary
-          # packages (rpm/deb × amd64/arm64) + 2 noarch packages (kensa-rules
-          # rpm/deb) + 1 checksum file = 11. Update this count if the
-          # archives or nfpms blocks in .goreleaser.yaml gain a new variant.
-          got=$(ls dist/*.tar.gz dist/*.rpm dist/*.deb dist/*.sha256 2>/dev/null | wc -l)
-          if [ "$got" != "11" ]; then
-            echo "::error::expected 11 release artifacts, got $got"
-            ls -lh dist/
-            exit 1
-          fi
-          echo "OK 11/11 expected artifacts present"
-      - name: Verify CycloneDX SBOM produced, non-empty, and in checksums
-        run: |
-          # The SBOM (kensa_<v>_sbom.cdx.json) is a CycloneDX document of
-          # the delivered artifact's module graph. It is not counted in
-          # the 11 above (the glob matches tar.gz/rpm/deb/sha256 only).
-          # Assert it exists, parses as CycloneDX with components, carries
-          # every SHIPPING direct dep, and is listed in the signed
-          # checksums file.
           set -euo pipefail
-          sbom=$(ls dist/*_sbom.cdx.json)
-          fmt=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('bomFormat',''))" "$sbom")
-          comps=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('components',[])))" "$sbom")
-          if [ "$fmt" != "CycloneDX" ] || [ "$comps" -lt 1 ]; then
-            echo "::error::SBOM is not a non-empty CycloneDX document (format=$fmt components=$comps)"
-            exit 1
-          fi
-          # Require every direct dep that is actually compiled into the
-          # binaries. Test-only direct deps (e.g. the JSON-schema
-          # validator behind the OSCAL conformance tests) are not in the
-          # delivered artifact, so they are legitimately absent from its
-          # SBOM — exclude them by intersecting with the production import
-          # graph (go list -deps ./..., which does not include test-only
-          # imports).
-          prod=" $(go list -deps ./... 2>/dev/null | tr '\n' ' ') "
-          shipped=0
-          for dep in $(go list -m -f '{{if not .Indirect}}{{.Path}}{{end}}' all | grep -v '^github.com/Hanalyx/kensa$' | grep .); do
-            case "$prod" in *" $dep "*|*" $dep/"*) ;; *) echo "  skip test-only dep: $dep"; continue ;; esac
-            grep -q "$dep" "$sbom" || { echo "::error::shipping dep $dep missing from SBOM"; exit 1; }
-            shipped=$((shipped+1))
-          done
-          grep -q "$(basename "$sbom")" dist/kensa_*_checksums.sha256 || {
-            echo "::error::SBOM not listed in the checksums file"; exit 1; }
-          echo "OK SBOM present ($comps components), $shipped shipping direct deps included, anchored in checksums"
-      - name: Verify sudoers fragment ships 0440 root:root (rpm + deb)
-        run: |
-          # packaging-sudoers-helper C-02 / AC-08: the sudoers.d file must
-          # ship mode 0440 owned by root:root AND be flagged a config file
-          # in BOTH formats. sudo silently ignores a group/world-writable
-          # OR non-root-owned sudoers.d file, so owner drift would disable
-          # the escalation path with no other signal. Assert against the
-          # actually-built artifacts, not just the .goreleaser.yaml tokens.
-          set -euo pipefail
-          sudo apt-get update -qq && sudo apt-get install -y -qq rpm >/dev/null
-          deb=$(ls dist/kensa_*_linux_amd64.deb | head -1)
-          rpm=$(ls dist/kensa_*_linux_amd64.rpm | head -1)
-          fail=0
-
-          echo "== deb: $deb =="
-          dline=$(dpkg-deb -c "$deb" | grep 'etc/sudoers.d/kensa-systemd-helper' || true)
-          echo "$dline"
-          echo "$dline" | grep -qE '^-r--r----- +root/root ' \
-            || { echo "::error::deb: sudoers fragment not 0440 root:root"; fail=1; }
-          dpkg-deb --ctrl-tarfile "$deb" | tar -xO ./conffiles 2>/dev/null \
-            | grep -qx /etc/sudoers.d/kensa-systemd-helper \
-            || { echo "::error::deb: sudoers fragment not registered as a conffile"; fail=1; }
-
-          echo "== rpm: $rpm =="
-          rline=$(rpm -qlvp "$rpm" 2>/dev/null | grep '/etc/sudoers.d/kensa-systemd-helper' || true)
-          echo "$rline"
-          echo "$rline" | grep -qE '^-r--r----- +[0-9]+ +root +root ' \
-            || { echo "::error::rpm: sudoers fragment not 0440 root:root"; fail=1; }
-          rpm -qcp "$rpm" 2>/dev/null | grep -qx /etc/sudoers.d/kensa-systemd-helper \
-            || { echo "::error::rpm: sudoers fragment not flagged as config"; fail=1; }
-
-          if [ "$fail" = "0" ]; then
-            echo "OK sudoers fragment is 0440 root:root + config in rpm and deb"
-          fi
-          exit "$fail"
+          [[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]]
+          [[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+          test -n "$ARTIFACT_URL"
+          echo "Candidate artifact ID: $ARTIFACT_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "ZIP SHA-256: $ARTIFACT_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          echo "Artifact URL: $ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
 
   vulnerability-scan:
     # Track S S-005: govulncheck against the binary call graph. Blocks

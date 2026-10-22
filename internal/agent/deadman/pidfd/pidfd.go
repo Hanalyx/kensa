@@ -37,7 +37,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -113,10 +112,14 @@ func ProbeSupport() error {
 // the current one. Use for race-free parent-death detection
 // in D-005's event loop.
 type Pidfd struct {
-	fd     int
-	pid    int
-	closed atomic.Bool
-	mu     sync.Mutex
+	fd        int
+	pid       int
+	closed    atomic.Bool
+	mu        sync.RWMutex
+	closeOnce sync.Once
+	closeErr  error
+	// Per-instance syscall seam for real-kernel lifetime controls.
+	poll func([]unix.PollFd, int) (int, error)
 }
 
 // Open opens a pidfd for the given PID.
@@ -144,7 +147,7 @@ func Open(pid int) (*Pidfd, error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("pidfd: set CLOEXEC on fd: %w", err)
 	}
-	return &Pidfd{fd: fd, pid: pid}, nil
+	return &Pidfd{fd: fd, pid: pid, poll: unix.Poll}, nil
 }
 
 // OpenParent opens a pidfd for the current process's parent
@@ -166,8 +169,11 @@ func OpenParent() (*Pidfd, error) {
 }
 
 // FD returns the underlying file descriptor for epoll
-// registration (D-004). Returns -1 if Close was called.
+// registration (D-004). Returns -1 once closure begins. The snapshot is not
+// a descriptor lease; external users must finish before Close.
 func (p *Pidfd) FD() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	if p.closed.Load() {
 		return -1
 	}
@@ -191,9 +197,6 @@ func (p *Pidfd) PID() int {
 // the Go-on-Linux fd-reuse footgun on parked blocking
 // reads.
 func (p *Pidfd) Wait(ctx context.Context) error {
-	if p.closed.Load() {
-		return ErrClosed
-	}
 	for {
 		if p.closed.Load() {
 			return ErrClosed
@@ -201,47 +204,53 @@ func (p *Pidfd) Wait(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		pollFds := []unix.PollFd{{Fd: int32(p.fd), Events: unix.POLLIN}}
-		n, err := unix.Poll(pollFds, pollInterval)
-		if err != nil {
-			if errors.Is(err, unix.EINTR) {
-				continue
-			}
-			if p.closed.Load() {
-				return ErrClosed
-			}
-			return fmt.Errorf("pidfd: poll: %w", err)
-		}
-		if n == 0 {
-			continue
-		}
-		if pollFds[0].Revents&unix.POLLNVAL != 0 {
-			return ErrClosed
-		}
-		if pollFds[0].Revents&unix.POLLIN != 0 {
-			// Parent exited.
-			return nil
+		ready, err := p.waitOnce(ctx)
+		if ready || err != nil {
+			return err
 		}
 	}
 }
 
-// Close releases the pidfd. Idempotent.
-//
-// Safe to call concurrently with a pending Wait — the poll
-// loop observes the closed flag and exits before this method's
-// unix.Close runs.
+// waitOnce retains descriptor ownership through poll and the closed-state check.
+func (p *Pidfd) waitOnce(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed.Load() {
+		return false, ErrClosed
+	}
+	fds := []unix.PollFd{{Fd: int32(p.fd), Events: unix.POLLIN}}
+	n, err := p.poll(fds, pollInterval)
+	if p.closed.Load() {
+		return false, ErrClosed
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if errors.Is(err, unix.EINTR) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("pidfd: poll: %w", err)
+	}
+	if n == 0 {
+		return false, nil
+	}
+	if fds[0].Revents&unix.POLLNVAL != 0 {
+		return false, ErrClosed
+	}
+	return fds[0].Revents&unix.POLLIN != 0, nil
+}
+
+// Close publishes closure, joins active descriptor operations and releases the
+// pidfd. Concurrent Close calls wait for the same completed teardown.
 func (p *Pidfd) Close() error {
-	if !p.closed.CompareAndSwap(false, true) {
-		return nil
-	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	// 2× pollInterval drain so any concurrent Wait observes
-	// closed=true and exits its poll loop before we close
-	// the fd.
-	time.Sleep(2 * pollInterval * time.Millisecond)
-	if err := unix.Close(p.fd); err != nil && !errors.Is(err, unix.EBADF) {
-		return fmt.Errorf("pidfd: close: %w", err)
-	}
-	return nil
+	p.closeOnce.Do(func() {
+		p.closed.Store(true)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if err := unix.Close(p.fd); err != nil && !errors.Is(err, unix.EBADF) {
+			p.closeErr = fmt.Errorf("pidfd: close: %w", err)
+		}
+	})
+	return p.closeErr
 }
