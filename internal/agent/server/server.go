@@ -31,13 +31,16 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent"
 	"github.com/Hanalyx/kensa/internal/agent/deadman"
 	"github.com/Hanalyx/kensa/internal/agent/footprint"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/agent/ownedexec"
 	"github.com/Hanalyx/kensa/internal/agent/transport/local"
 	"github.com/Hanalyx/kensa/internal/agent/wirev1"
 	"github.com/Hanalyx/kensa/internal/handler"
@@ -57,22 +60,63 @@ import (
 //   - Capturable-handler-but-not-CaptureHandler → envelope
 //     Error code "not_capturable" (defensive — registry
 //     consistency should prevent this)
-func Handle(req *wirev1.Request) *wirev1.Response {
+func Handle(req *wirev1.Request) *wirev1.Response { return handle(deadman.Default(), req) }
+
+// HandlerFor retains the existing wire handler while binding lifecycle ownership.
+func HandlerFor(armer *deadman.Armer) agent.Handler {
+	return func(req *wirev1.Request) *wirev1.Response { return handle(armer, req) }
+}
+
+func handle(armer *deadman.Armer, req *wirev1.Request) *wirev1.Response {
 	resp := &wirev1.Response{
 		SchemaVersion: req.GetSchemaVersion(),
 		CorrelationId: req.GetCorrelationId(),
 	}
+	if !armer.Admitting() {
+		setError(resp, "shutting_down", "agent is retaining shutdown recovery")
+		return resp
+	}
+	var operationCtx context.Context
+	var captureOutcome error
+	switch req.GetPayload().(type) {
+	case *wirev1.Request_Apply, *wirev1.Request_Rollback:
+		ctx, join, err := armer.BeginMutation()
+		if err != nil {
+			code := "shutting_down"
+			if errors.Is(err, deadman.ErrHandlerBusy) {
+				code = "busy"
+			}
+			setError(resp, code, err.Error())
+			return resp
+		}
+		defer join()
+		operationCtx = ctx
+	case *wirev1.Request_Capture:
+		ctx, join, err := armer.BeginCapture()
+		if err != nil {
+			code := "shutting_down"
+			if errors.Is(err, deadman.ErrHandlerBusy) {
+				code = "busy"
+			}
+			setError(resp, code, err.Error())
+			return resp
+		}
+		// dispatchCapture keeps its existing natural context/native helper waits.
+		// Its transport cleanup returns before this lifetime token is released.
+		operationCtx = ctx
+		defer func() { join(captureOutcome) }()
+	}
 	switch p := req.GetPayload().(type) {
 	case *wirev1.Request_Apply:
-		dispatchApply(p.Apply, resp)
+		dispatchApply(operationCtx, p.Apply, resp)
 	case *wirev1.Request_Capture:
-		dispatchCapture(p.Capture, resp)
+		captureOutcome = dispatchCapture(operationCtx, p.Capture, resp)
 	case *wirev1.Request_Rollback:
-		dispatchRollback(p.Rollback, resp)
+		dispatchRollback(operationCtx, p.Rollback, resp)
 	case *wirev1.Request_ArmDeadman:
-		dispatchArmDeadman(p.ArmDeadman, resp)
+		dispatchArmDeadman(armer, p.ArmDeadman, resp)
 	case *wirev1.Request_CancelDeadman:
-		dispatchCancelDeadman(p.CancelDeadman, resp)
+		dispatchCancelDeadman(armer, p.CancelDeadman, resp)
 	case *wirev1.Request_Handshake, *wirev1.Request_Heartbeat:
 		// Pass through to the existing echo handler — it
 		// already implements the L-012 handshake response
@@ -123,7 +167,7 @@ var immutableProbe = kernelio.IsImmutable
 // dispatchApply looks up the mechanism's handler, builds a
 // LocalTransport, runs Apply, populates resp with either
 // the ApplyResponse or an envelope Error.
-func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
+func dispatchApply(ctx context.Context, req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	mechanism := req.GetMechanism()
 	if mechanism == "" {
 		setError(resp, "invalid_request", "ApplyRequest.mechanism is empty")
@@ -184,7 +228,7 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 	// assert), so the kernel-IO path is unchanged.
 	rec := footprint.NewRecorder(tr)
 
-	sr, err := h.Apply(context.Background(), rec, params, pre)
+	sr, err := h.Apply(ctx, rec, params, pre)
 	if err != nil {
 		// Handler-returned error: convention from L-009
 		// package doc — wrap as envelope Error.
@@ -220,28 +264,28 @@ func dispatchApply(req *wirev1.ApplyRequest, resp *wirev1.Response) {
 
 // dispatchCapture mirrors dispatchApply for capturable
 // handlers' pre-state recording.
-func dispatchCapture(req *wirev1.CaptureRequest, resp *wirev1.Response) {
+func dispatchCapture(ctx context.Context, req *wirev1.CaptureRequest, resp *wirev1.Response) error {
 	mechanism := req.GetMechanism()
 	if mechanism == "" {
 		setError(resp, "invalid_request", "CaptureRequest.mechanism is empty")
-		return
+		return nil
 	}
 	h, ok := handler.Default().Get(mechanism)
 	if !ok {
 		setError(resp, "unknown_mechanism", fmt.Sprintf("no handler registered for mechanism %q", mechanism))
-		return
+		return nil
 	}
 	ch, ok := h.(api.CaptureHandler)
 	if !ok {
 		setError(resp, "not_capturable",
 			fmt.Sprintf("handler %q does not implement CaptureHandler", mechanism))
-		return
+		return nil
 	}
 
 	params, err := wirev1.WireParamsToAPI(req.GetParams())
 	if err != nil {
 		setError(resp, "invalid_request", fmt.Sprintf("decode params: %v", err))
-		return
+		return nil
 	}
 
 	// NewAuto enables sudo iff the agent process is NOT
@@ -251,30 +295,32 @@ func dispatchCapture(req *wirev1.CaptureRequest, resp *wirev1.Response) {
 	tr := local.NewAuto()
 	defer tr.Close()
 
-	pre, err := ch.Capture(context.Background(), tr, params)
+	pre, err := ch.Capture(ctx, tr, params)
+	err = errors.Join(err, ownedexec.NativeError(ctx))
 	if err != nil {
 		setError(resp, "handler_error", fmt.Sprintf("Capture(%s): %v", mechanism, err))
-		return
+		return err
 	}
 	if pre == nil {
 		setError(resp, "handler_error", fmt.Sprintf("Capture(%s) returned nil PreState", mechanism))
-		return
+		return nil
 	}
 	wirePre, err := wirev1.APIPreStateToWire(*pre)
 	if err != nil {
 		setError(resp, "handler_error", fmt.Sprintf("encode PreState: %v", err))
-		return
+		return nil
 	}
 	resp.Payload = &wirev1.Response_CaptureResp{
 		CaptureResp: &wirev1.CaptureResponse{
 			PreState: wirePre,
 		},
 	}
+	return nil
 }
 
 // dispatchRollback dispatches to the RollbackHandler. The
 // Request's PreState is the captured state to restore.
-func dispatchRollback(req *wirev1.RollbackRequest, resp *wirev1.Response) {
+func dispatchRollback(ctx context.Context, req *wirev1.RollbackRequest, resp *wirev1.Response) {
 	if req.GetPreState() == nil {
 		setError(resp, "invalid_request", "RollbackRequest.pre_state is nil")
 		return
@@ -304,7 +350,7 @@ func dispatchRollback(req *wirev1.RollbackRequest, resp *wirev1.Response) {
 	tr := local.NewAuto()
 	defer tr.Close()
 
-	rr, err := rh.Rollback(context.Background(), tr, &pre)
+	rr, err := rh.Rollback(ctx, tr, &pre)
 	if err != nil {
 		setError(resp, "handler_error", fmt.Sprintf("Rollback(%s): %v", pre.Mechanism, err))
 		return
@@ -336,7 +382,7 @@ func setError(resp *wirev1.Response, code, detail string) {
 // dispatchArmDeadman handles an ArmDeadmanRequest by
 // delegating to the package-level deadman.Armer singleton.
 // D-005 deliverable.
-func dispatchArmDeadman(req *wirev1.ArmDeadmanRequest, resp *wirev1.Response) {
+func dispatchArmDeadman(armer *deadman.Armer, req *wirev1.ArmDeadmanRequest, resp *wirev1.Response) {
 	if req.GetTxnId() == "" {
 		setError(resp, "invalid_request", "ArmDeadmanRequest.txn_id is empty")
 		return
@@ -345,9 +391,9 @@ func dispatchArmDeadman(req *wirev1.ArmDeadmanRequest, resp *wirev1.Response) {
 		setError(resp, "invalid_request", fmt.Sprintf("ArmDeadmanRequest.window_seconds must be positive: %d", req.GetWindowSeconds()))
 		return
 	}
-	firesAt, err := deadman.HandleArmDeadman(
+	firesAt, err := armer.ArmDeadman(
 		req.GetTxnId(),
-		req.GetWindowSeconds(),
+		time.Duration(req.GetWindowSeconds())*time.Second,
 		req.GetRollbackCommands(),
 	)
 	if err != nil {
@@ -362,12 +408,16 @@ func dispatchArmDeadman(req *wirev1.ArmDeadmanRequest, resp *wirev1.Response) {
 }
 
 // dispatchCancelDeadman handles a CancelDeadmanRequest.
-func dispatchCancelDeadman(req *wirev1.CancelDeadmanRequest, resp *wirev1.Response) {
+func dispatchCancelDeadman(armer *deadman.Armer, req *wirev1.CancelDeadmanRequest, resp *wirev1.Response) {
 	if req.GetTxnId() == "" {
 		setError(resp, "invalid_request", "CancelDeadmanRequest.txn_id is empty")
 		return
 	}
-	wasActive := deadman.HandleCancelDeadman(req.GetTxnId())
+	wasActive, err := armer.Cancel(req.GetTxnId())
+	if err != nil {
+		setError(resp, "shutting_down", err.Error())
+		return
+	}
 	resp.Payload = &wirev1.Response_CancelDeadmanResp{
 		CancelDeadmanResp: &wirev1.CancelDeadmanResponse{
 			WasActive: wasActive,

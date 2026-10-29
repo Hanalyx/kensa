@@ -46,7 +46,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
+	"os"
+
 	"sync"
 	"time"
 
@@ -54,6 +55,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/agent/deadman/pidfd"
 	"github.com/Hanalyx/kensa/internal/agent/deadman/signalfd"
 	"github.com/Hanalyx/kensa/internal/agent/deadman/timerfd"
+	"github.com/Hanalyx/kensa/internal/agent/ownedexec"
 
 	"golang.org/x/sys/unix"
 )
@@ -68,16 +70,30 @@ var ErrNotArmed = errors.New("deadman: txn_id not armed")
 
 // armedJob tracks one in-flight deadman.
 type armedJob struct {
-	cancel context.CancelFunc // cancels the watcher goroutine
-	done   chan struct{}      // closed when goroutine exits
+	cancel   context.CancelFunc // cancels the watcher goroutine
+	done     chan struct{}      // closed only after joined teardown
+	wake     context.CancelFunc
+	fired    bool
+	started  bool
+	canceled bool
 }
 
 // Armer is the agent-side deadman orchestrator. Construct
 // with New(); call ArmDeadman / CancelDeadman from the wire-
 // dispatcher (server.go).
 type Armer struct {
-	mu     sync.Mutex
-	active map[string]*armedJob // txn_id → job
+	mu             sync.Mutex
+	active         map[string]*armedJob // txn_id → job
+	closed         bool
+	recovering     int
+	mutations      map[*mutation]struct{}
+	captures       map[*capture]struct{}
+	changed        chan struct{}
+	failures       []error
+	beforeAllocate func() // deterministic instance-local test seam
+	commandTimeout time.Duration
+	commandQueued  func()       // instance-local queue-observation seam
+	afterTeardown  func() error // instance-local error propagation seam
 }
 
 // defaultArmer is the package-level singleton used by
@@ -91,7 +107,8 @@ var defaultArmer = New()
 // HandleCancelDeadman.
 func New() *Armer {
 	return &Armer{
-		active: make(map[string]*armedJob),
+		active:    make(map[string]*armedJob),
+		mutations: make(map[*mutation]struct{}), captures: make(map[*capture]struct{}), changed: make(chan struct{}), commandTimeout: 60 * time.Second,
 	}
 }
 
@@ -111,10 +128,9 @@ func New() *Armer {
 //     → wrapped error
 //   - window <= 0 → wrapped ErrInvalidDuration from timerfd
 //
-// Pidfd unavailability (kernel <5.3 or seccomp-blocked) does
-// NOT fail the Arm — the watcher uses prctl(PR_SET_PDEATHSIG)
-// fallback instead. The deadman won't get to run rollback
-// under parent SIGKILL (Q3.a accepted risk).
+// Command ownership first requires pidfd support for this agent. If that
+// prerequisite is unavailable, admission fails before mutation. Parent lookup
+// retains its existing best-effort behavior below.
 //
 // ErrParentGone from pidfd.OpenParent does NOT fail the Arm
 // either — the watcher proceeds with just timerfd + signalfd;
@@ -135,41 +151,51 @@ func (a *Armer) ArmDeadman(txnID string, window time.Duration, rollbackCommands 
 	// We insert a placeholder job under the lock; if any
 	// subsequent allocation fails, we delete the placeholder
 	// before returning.
-	jobCtx, jobCancel := context.WithCancel(context.Background())
-	job := &armedJob{
-		cancel: jobCancel,
-		done:   make(chan struct{}),
-	}
 	a.mu.Lock()
+	if a.closed {
+		a.mu.Unlock()
+		return 0, ErrShuttingDown
+	}
 	if _, exists := a.active[txnID]; exists {
 		a.mu.Unlock()
-		jobCancel() // drain the un-used ctx
 		return 0, ErrAlreadyArmed
 	}
+	jobCtx, jobCancel := context.WithCancel(context.Background())
+	waitCtx, wake := context.WithCancel(jobCtx)
+	job := &armedJob{cancel: jobCancel, done: make(chan struct{}), wake: wake}
 	a.active[txnID] = job
+	a.notifyLocked()
 	a.mu.Unlock()
-
-	// On any allocation failure below, clear the reservation.
-	cleanupOnFailure := func() {
-		a.removeArm(txnID)
-		jobCancel()
+	if a.beforeAllocate != nil {
+		a.beforeAllocate()
 	}
 
+	// On any allocation failure below, clear the reservation.
+	cleanupOnFailure := func(cause error) {
+		jobCancel()
+		wake()
+		a.finishJob(txnID, job, cause)
+	}
+
+	if err := ownedexec.Prepare(); err != nil {
+		cleanupOnFailure(err)
+		return 0, err
+	}
 	timer, err := timerfd.New()
 	if err != nil {
-		cleanupOnFailure()
+		cleanupOnFailure(err)
 		return 0, fmt.Errorf("deadman: timerfd: %w", err)
 	}
 	if err := timer.Arm(window); err != nil {
-		_ = timer.Close()
-		cleanupOnFailure()
+		closeErr := timer.Close()
+		cleanupOnFailure(errors.Join(err, closeErr))
 		return 0, fmt.Errorf("deadman: arm timer: %w", err)
 	}
 
 	sig, err := signalfd.New(unix.SIGTERM)
 	if err != nil {
-		_ = timer.Close()
-		cleanupOnFailure()
+		closeErr := timer.Close()
+		cleanupOnFailure(errors.Join(err, closeErr))
 		return 0, fmt.Errorf("deadman: signalfd: %w", err)
 	}
 
@@ -196,35 +222,31 @@ func (a *Armer) ArmDeadman(txnID string, window time.Duration, rollbackCommands 
 
 	loop, err := eventloop.New()
 	if err != nil {
-		_ = timer.Close()
-		_ = sig.Close()
-		if parent != nil {
-			_ = parent.Close()
-		}
-		cleanupOnFailure()
+		closeErr := teardown(nil, timer, sig, parent)
+		cleanupOnFailure(errors.Join(err, closeErr))
 		return 0, fmt.Errorf("deadman: eventloop: %w", err)
 	}
 	if err := loop.Register(timer.FD(), eventloop.EventTimer); err != nil {
-		teardown(loop, timer, sig, parent)
-		cleanupOnFailure()
+		closeErr := teardown(loop, timer, sig, parent)
+		cleanupOnFailure(errors.Join(err, closeErr))
 		return 0, fmt.Errorf("deadman: register timer: %w", err)
 	}
 	if err := loop.Register(sig.FD(), eventloop.EventSignal); err != nil {
-		teardown(loop, timer, sig, parent)
-		cleanupOnFailure()
+		closeErr := teardown(loop, timer, sig, parent)
+		cleanupOnFailure(errors.Join(err, closeErr))
 		return 0, fmt.Errorf("deadman: register signal: %w", err)
 	}
 	if parent != nil {
 		if err := loop.Register(parent.FD(), eventloop.EventParentDeath); err != nil {
-			teardown(loop, timer, sig, parent)
-			cleanupOnFailure()
+			closeErr := teardown(loop, timer, sig, parent)
+			cleanupOnFailure(errors.Join(err, closeErr))
 			return 0, fmt.Errorf("deadman: register pidfd: %w", err)
 		}
 	}
 
 	firesAt := time.Now().Add(window).Unix()
 
-	go a.watcherLoop(jobCtx, txnID, job, loop, timer, sig, parent, rollbackCommands)
+	go a.watcherLoop(jobCtx, waitCtx, txnID, job, loop, timer, sig, parent, rollbackCommands)
 
 	return firesAt, nil
 }
@@ -235,6 +257,7 @@ func (a *Armer) ArmDeadman(txnID string, window time.Duration, rollbackCommands 
 // removes the txn from activeArms.
 func (a *Armer) watcherLoop(
 	ctx context.Context,
+	waitCtx context.Context,
 	txnID string,
 	job *armedJob,
 	loop *eventloop.Loop,
@@ -243,48 +266,87 @@ func (a *Armer) watcherLoop(
 	parent *pidfd.Pidfd,
 	rollbackCommands []string,
 ) {
-	defer close(job.done)
-	defer teardown(loop, timer, sig, parent)
-	defer a.removeArm(txnID)
-
-	event, err := loop.Run(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			// CancelDeadman path — clean exit, no rollback.
+	var outcome error
+	defer func() {
+		closeErr := teardown(loop, timer, sig, parent)
+		if a.afterTeardown != nil {
+			closeErr = errors.Join(closeErr, a.afterTeardown())
+		}
+		job.cancel()
+		job.wake()
+		a.finishJob(txnID, job, errors.Join(outcome, closeErr))
+	}()
+	_, waitErr := loop.Run(waitCtx)
+	a.mu.Lock()
+	if job.canceled {
+		a.mu.Unlock()
+		return
+	}
+	// A shutdown wake is deliberately distinct from explicit cancellation.
+	job.fired = true
+	a.recovering++
+	for operation := range a.mutations {
+		operation.cancel()
+	}
+	a.notifyLocked()
+	a.mu.Unlock()
+	if waitErr != nil && !errors.Is(waitErr, context.Canceled) {
+		outcome = errors.Join(outcome, waitErr)
+	}
+	// Every trigger waits for native Capture waits as well as mutating work.
+	reportedCapture := false
+	for {
+		a.mu.Lock()
+		if len(a.mutations) == 0 && len(a.captures) == 0 {
+			a.mu.Unlock()
+			break
+		}
+		changed := a.changed
+		pendingCapture := len(a.captures) > 0
+		a.mu.Unlock()
+		if pendingCapture && !reportedCapture {
+			fmt.Fprintln(os.Stderr, "kensa agent: recovery waiting for natural Capture completion; UNRESOLVED until joined")
+			reportedCapture = true
+		}
+		<-changed
+	}
+	for index, command := range rollbackCommands {
+		a.mu.Lock()
+		if job.canceled {
+			if job.started {
+				outcome = errors.Join(outcome, errors.New("deadman: recovery aborted after execution began"))
+			}
+			a.mu.Unlock()
 			return
 		}
-		// P1-1 fix: any non-cancel error from the event loop
-		// (epoll error, ErrClosed during teardown race,
-		// internal) MUST be treated as a wakeup — the
-		// deadman's fail-safe-closed posture says "if
-		// uncertain, fire rollback." Silent-drop would leave
-		// the host in an indeterminate state with no recovery
-		// path. We fall through to the rollback-execute
-		// branch below; event.Kind stays zero, which is
-		// surfaced to operators via the kind logging stub
-		// once a logger is wired.
-		_ = err
-	}
-
-	// Wake-up: fire rollback commands. P1-3 fix: thread the
-	// watcher's ctx into exec.CommandContext so CancelDeadman
-	// can interrupt a mid-rollback exec. Per-command timeout
-	// kept liberal (60s) — federal-host rollback steps run
-	// apt / systemctl / chmod / etc.; 60s covers the slow-
-	// host case without leaving us indefinitely stuck on a
-	// single bad command.
-	_ = event // event.Kind diagnostics once a logger is wired
-	for _, cmd := range rollbackCommands {
-		execCtx, execCancel := context.WithTimeout(ctx, 60*time.Second)
-		c := exec.CommandContext(execCtx, "/bin/sh", "-c", cmd)
-		_ = c.Run()
-		execCancel()
-		// On ctx-cancel mid-rollback, stop processing the
-		// remaining commands; the operator decided to abort.
-		if errors.Is(ctx.Err(), context.Canceled) {
+		a.mu.Unlock()
+		_, _, err := ownedexec.RunRecovery(ctx, a.commandTimeout, func() {
+			a.mu.Lock()
+			job.started = true
+			a.notifyLocked()
+			a.mu.Unlock()
+		}, a.commandQueued, "/bin/sh", "-c", command)
+		if ctx.Err() != nil {
+			a.mu.Lock()
+			started := job.started
+			a.mu.Unlock()
+			if started {
+				outcome = errors.Join(outcome, err, errors.New("deadman: recovery aborted after execution began"))
+			} else if err != nil && err != context.Canceled {
+				// Only pure queued cancellation is clean. A simultaneous
+				// launch/accounting error must not disappear with cancellation.
+				outcome = errors.Join(outcome, fmt.Errorf("deadman: rollback command %d: %w", index, err))
+			}
+			// A canceled waiter that never launched is a clean pending cancel.
+			// Prior ordinary errors, if any, remain in outcome.
 			return
 		}
+		if err != nil {
+			outcome = errors.Join(outcome, fmt.Errorf("deadman: rollback command %d: %w", index, err))
+		}
+		// Ordinary failures continue only after ownedexec joins the failed work.
 	}
+
 }
 
 // CancelDeadman tears down the watcher goroutine for txn_id
@@ -292,44 +354,42 @@ func (a *Armer) watcherLoop(
 // was in flight; false if no matching arm (which is not an
 // error — the engine may double-cancel during teardown).
 func (a *Armer) CancelDeadman(txnID string) (wasActive bool) {
-	a.mu.Lock()
-	job, exists := a.active[txnID]
-	a.mu.Unlock()
-	if !exists {
-		return false
-	}
-	job.cancel()
-	// Wait for the goroutine to exit so the caller can
-	// reliably observe state (e.g., that fds are released)
-	// before returning.
-	<-job.done
-	return true
+	active, _ := a.Cancel(txnID)
+	return active
 }
 
-// removeArm clears txn from activeArms. Called from
-// watcherLoop's deferred cleanup, regardless of whether the
-// loop exited via fire-rollback or cancel.
-func (a *Armer) removeArm(txnID string) {
+// finishJob publishes completion only after actual watcher/descriptor teardown.
+func (a *Armer) finishJob(txnID string, job *armedJob, outcome error) {
 	a.mu.Lock()
+	defer a.mu.Unlock()
+	if outcome != nil {
+		a.failures = append(a.failures, outcome)
+	}
+	if job.fired {
+		a.recovering--
+	}
 	delete(a.active, txnID)
-	a.mu.Unlock()
+	close(job.done)
+	a.notifyLocked()
 }
 
 // teardown closes all the primitive fds. Helper to keep the
 // armer paths short.
-func teardown(loop *eventloop.Loop, timer *timerfd.Timer, sig *signalfd.SignalFD, parent *pidfd.Pidfd) {
+func teardown(loop *eventloop.Loop, timer *timerfd.Timer, sig *signalfd.SignalFD, parent *pidfd.Pidfd) error {
+	var result error
 	if loop != nil {
-		_ = loop.Close()
+		result = errors.Join(result, loop.Close())
 	}
 	if timer != nil {
-		_ = timer.Close()
+		result = errors.Join(result, timer.Close())
 	}
 	if sig != nil {
-		_ = sig.Close()
+		result = errors.Join(result, sig.Close())
 	}
 	if parent != nil {
-		_ = parent.Close()
+		result = errors.Join(result, parent.Close())
 	}
+	return result
 }
 
 // HandleArmDeadman / HandleCancelDeadman are the free-
