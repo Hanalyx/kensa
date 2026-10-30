@@ -30,6 +30,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/bootstrap"
@@ -54,7 +55,11 @@ type Options struct {
 
 	// Stderr is the operator-visible diagnostic sink for
 	// the agent-mode announce line and any bootstrap
-	// errors. Defaults to os.Stderr.
+	// errors. Defaults to os.Stderr. File sinks keep direct subprocess
+	// descriptor wiring. Other sinks serialize this session's writes,
+	// including subprocess forwarding. Callers sharing an unsafe sink with
+	// other sessions or writers must coordinate those accesses. Read it
+	// only after cleanup, or use a synchronized snapshot method.
 	Stderr io.Writer
 
 	// User is the SSH user for the target connection.
@@ -100,6 +105,12 @@ type Options struct {
 func OpenAgent(ctx context.Context, transport api.Transport, host string, opts Options) (*client.Client, func(), error) {
 	if opts.Stderr == nil {
 		opts.Stderr = os.Stderr
+	}
+	// os.File supports concurrent calls and preserves direct child descriptor
+	// wiring. Wrapping it would add a copying goroutine that could wait for an
+	// unrelated descendant to close inherited stderr during cleanup.
+	if _, direct := opts.Stderr.(*os.File); !direct {
+		opts.Stderr = &diagnosticWriter{out: opts.Stderr}
 	}
 	if opts.LocalBinary == "" {
 		opts.LocalBinary = os.Args[0]
@@ -169,6 +180,8 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 	if opts.SudoPassword != "" {
 		if _, err := io.WriteString(stdin, opts.SudoPassword+"\n"); err != nil {
 			_ = stdin.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
 			return nil, nil, fmt.Errorf("dispatcher: write sudo password to agent stdin: %w", err)
 		}
 	}
@@ -211,6 +224,19 @@ func OpenAgent(ctx context.Context, transport api.Transport, host string, opts O
 		}
 	}
 	return c, cleanup, nil
+}
+
+// diagnosticWriter gives one session a single write boundary for parent and
+// subprocess diagnostics. It does not own writes made independently by callers.
+type diagnosticWriter struct {
+	mu  sync.Mutex
+	out io.Writer
+}
+
+func (w *diagnosticWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.out.Write(p)
 }
 
 // controlSocketOf reports the live ControlMaster socket of an ssh transport.

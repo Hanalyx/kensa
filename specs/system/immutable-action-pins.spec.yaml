@@ -137,7 +137,7 @@ spec:
                   actions/upload-artifact:
                       sha: cf430e030ddbb5b0abf93d22962f4752f3646cd9  # pragma: allowlist secret
                       tag: v7.0.2
-                      count: 2
+                      count: 3
                   golangci/golangci-lint-action:
                       sha: ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a  # pragma: allowlist secret
                       tag: v9.3.0
@@ -146,7 +146,7 @@ spec:
                       sha: 398d4b0eeef1380460a10c8013a76f728fb906ac  # pragma: allowlist secret
                       tag: v3.9.1
                       count: 1
-              total_external_references: 36
+              total_external_references: 37
               exempt: the ./ reference itself, not the external actions inside it
               mutations:
                   restored_tag: a reference reverted to actions/checkout@v7
@@ -165,7 +165,7 @@ spec:
                   sha_charset: lowercase hexadecimal
                   comment: the approved release tag, same line
               per_action_counts: exactly as approved_pins
-              total_external_references: 36
+              total_external_references: 37
               local_reference: exempt from pinning
               external_actions_inside_local_actions: governed
               unreferenced_action_definitions: not governed until referenced, wherever they sit

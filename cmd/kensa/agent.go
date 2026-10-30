@@ -10,14 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/spf13/pflag"
 
 	"github.com/Hanalyx/kensa/internal/agent"
+	"github.com/Hanalyx/kensa/internal/agent/deadman"
 	"github.com/Hanalyx/kensa/internal/agent/server"
 )
 
 // shutdownGracePeriod is how long the agent waits between ctx
-// cancellation and forced os.Exit(0). Long enough for the
+// cancellation and idle blocked-read exit. Active recovery is joined first.
+// Long enough for the
 // between-frames ctx check to fire naturally if the loop wasn't
 // blocked; short enough that operators sending SIGTERM see the
 // process exit promptly. Standard production pattern.
@@ -67,52 +71,82 @@ func runAgent(args []string) error {
 		return NewUsageError("specify a mode: --stdio (other modes will land with the v1.1 agent surface)")
 	}
 
-	// L-008 echo loop. SIGTERM / SIGINT cancel the context.
-	//
-	// Shutdown protocol:
-	//   - agent.Run checks ctx between frames, so a cancellation
-	//     that arrives BETWEEN reads preempts cleanly (returns
-	//     ctx.Err(), which we intercept to exit 0).
-	//   - A cancellation that arrives while io.ReadFull is
-	//     blocked on stdin needs a forced exit. Go's runtime
-	//     poller does NOT reliably wake a blocked Read on a
-	//     pipe fd when another goroutine calls Close(); the
-	//     stdin-close trick is not portable across kernel +
-	//     Go-version combinations. We use a grace-period
-	//     timer instead: 500ms after ctx fires, os.Exit(0).
-	//     This is the standard production pattern for "agent
-	//     receives SIGTERM but is blocked on I/O."
-	//   - L-012's explicit shutdown-message type makes this
-	//     side-channel dependency obsolete by giving the
-	//     controller a way to tell the agent to drain cleanly.
+	// Keep protocol EOF semantics in agent.Run. The command owns admitted
+	// mutation/recovery lifetimes, including a blocked read during shutdown.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
-
+	// A closed output must be a returned I/O error, not fatal SIGPIPE before
+	// the recovery owner can drain. This changes no wire framing.
+	brokenPipe := make(chan os.Signal, 1)
+	signal.Notify(brokenPipe, syscall.SIGPIPE)
+	defer signal.Stop(brokenPipe)
+	armer := deadman.Default()
+	finished := make(chan error, 1)
+	loopReturned := make(chan struct{})
+	// A busy admitted handler cannot read stdin EOF itself. Observe pipe HUP
+	// without consuming frames, and only while handler admission is active.
+	// Buffered idle frames still retain the normal framing/EOF semantics.
+	pipeWatcherDone := make(chan struct{})
 	go func() {
-		<-ctx.Done()
-		// Grace period for the loop's between-frames ctx
-		// check to fire naturally. If the loop is in a Read
-		// at the moment of cancellation, the forced exit
-		// below terminates the process within bounded time.
-		time.Sleep(shutdownGracePeriod)
-		os.Exit(0)
-	}()
-
-	// L-014 flip: dispatch via server.Handle (real handler
-	// router) instead of HandleEcho (test-fixture echo).
-	// kensa agent --stdio in production routes Apply /
-	// Capture / Rollback to handler.Default() via a fresh
-	// LocalTransport per call. HandleEcho stays in the
-	// internal/agent package as the test fixture.
-	if err := agent.Run(ctx, os.Stdin, os.Stdout, os.Stderr, server.Handle); err != nil {
-		// ctx.Err() (cancellation via signal) is a clean
-		// shutdown, not a failure — operator-facing exit 0.
-		if errors.Is(err, context.Canceled) {
-			return nil
+		defer close(pipeWatcherDone)
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-loopReturned:
+				return
+			case <-ticker.C:
+			}
+			if !armer.Handling() {
+				continue
+			}
+			descriptors := []unix.PollFd{{Fd: int32(os.Stdin.Fd()), Events: unix.POLLIN}}
+			_, err := unix.Poll(descriptors, 0)
+			if err != nil && !errors.Is(err, unix.EINTR) {
+				armer.RecordError(fmt.Errorf("agent stdin observation: %w", err))
+				cancel()
+				return
+			}
+			if descriptors[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
+				if descriptors[0].Revents&(unix.POLLERR|unix.POLLNVAL) != 0 {
+					armer.RecordError(errors.New("agent stdin became unavailable"))
+				}
+				cancel()
+				return
+			}
 		}
-		return err
+	}()
+	defer func() { cancel(); <-pipeWatcherDone }()
+	go func() {
+		err := agent.Run(ctx, os.Stdin, os.Stdout, os.Stderr, server.HandlerFor(armer))
+		if err != context.Canceled {
+			armer.RecordError(err)
+		}
+		close(loopReturned)
+		finished <- err
+	}()
+	select {
+	case <-finished:
+		armer.StartShutdown(nil)
+		return armer.Drain()
+	case <-ctx.Done():
+		// This frontier includes initialization and synchronous handlers as well
+		// as watcher goroutines. It never cancels a recovery context.
+		armer.StartShutdown(nil)
+		grace := time.NewTimer(shutdownGracePeriod)
+		defer grace.Stop()
+		drainErr := armer.Drain()
+		select {
+		case <-finished:
+		case <-grace.C:
+			// Only a read-only frame waiter can remain: closed admission prevents
+			// it from launching a late request, and Drain joined every obligation.
+		}
+		return errors.Join(drainErr, armer.Drain())
 	}
-	return nil
+
 }
 
 // printAgentUsage describes the agent's wire-protocol surface.
