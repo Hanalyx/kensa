@@ -27,6 +27,20 @@ closed each one.
 
 ## PT: Protect the promise
 
+### PT-02 Scan architecture
+
+- **PT-02.1 Measure the commands that Go check methods build.** At v0.12.0
+  the corpus has 914 checks, one per implementation or `checks:` child. Its
+  397 shell bodies (390 `method: command` scripts and 7 `set_compare`
+  observed commands) were measured. None reads stdin. The largest is 5,972
+  bytes after three levels of shell quoting and a fixed prefix of under
+  1 KiB, against Linux's 128 KiB `MAX_ARG_STRLEN`. The other 517 checks use
+  14 methods that build a short command in Go from rule parameters. Their
+  longest parameter value is 578 bytes. Those commands were not measured.
+  Render each method's command template with its longest corpus parameters,
+  quote it the same way, and record the maximum length and any stdin use.
+  An enabler of about half a day.
+
 ### PT-03 Deadman guard
 
 Most of the scheduler redesign shipped in #368 (first tag v0.9.0): an absolute
