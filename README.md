@@ -117,8 +117,7 @@ ldd  bin/kensa   # "not a dynamic executable"
 
 ## Status
 
-`v0.13.0` release candidate, not yet published or signed. The 0.x line is
-the pre-1.0 development phase. The
+`v0.13.0`, released and signed. The 0.x line is the pre-1.0 development phase. The
 `api/` Go package is frozen under v1 semver for OpenWatch's consumption; the rest
 of the surface (CLI flags, rule schema additions, output formats) may change
 between MINOR versions with one release of deprecation warning, except for
