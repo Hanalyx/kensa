@@ -11,7 +11,7 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.11.1...v0.12.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.12.0...v0.13.0> (swap the tags for
 any pair).
 
 ## Unreleased
@@ -47,6 +47,65 @@ candidate preparation, not an approved publication date.
 - OpenWatch remains on Kensa v0.10.0; its v0.13.0 testing and dependency
   upgrade are deferred, not certified compatible. Assess or exclude any path
   that would deliver v2 evidence to it before enabling those producers.
+
+### Known limits
+
+- **The cached agent binary is trusted by path.** When the agent bootstrap
+  finds its cached binary already on the target, it uses that file without
+  hashing it again. A user with root on the target could replace the file.
+  Root on the target is the precondition. A fix is tracked for a later
+  release.
+
+### Changed
+
+- **Release candidates are verified from the CI snapshot.** The scheduled
+  release-snapshot job builds the packages and archives once, verifies them
+  and keeps those same unsigned bytes and their results for 90 days. The
+  checks cover the complete checksums, eight packaged CLI variants, the
+  legacy and v2 verification policy, numeric compatibility, the shipped
+  binaries, package and sudoers metadata, the corpus contents and the SBOM
+  dependencies. Their inputs are pinned. The scripts are under `scripts/`,
+  described in `scripts/CANDIDATE_VERIFICATION.md`. The release workflow is
+  unchanged.
+- **`make test` builds first.** It runs `make build` before the unit tests,
+  so subprocess tests use a freshly built `bin/kensa`. CI now runs
+  `make test`.
+- **CI action pins are updated.** `actions/setup-python` moves from v6.3.0 to
+  v7.0.0 and `actions/upload-artifact` from v7.0.1 to v7.0.2. Both stay
+  pinned by commit hash.
+
+### Fixed
+
+- **The agent no longer exits before recovery finishes.** An agent could exit
+  before its complete recovery sequence ended. It now keeps admitted changes,
+  Capture, native waits and recovery running through joined completion and
+  teardown. A native wait whose outcome is uncertain remains an error. It
+  blocks recovery exit and idle exit, even when a handler suppresses it.
+- **The recovery budget starts at ownership.** Entering the queue is now
+  distinct from a successful process launch. The 60-second execution budget
+  is unchanged. It starts after the agent takes ownership and earlier
+  operations have stopped. Queueing can therefore extend total recovery
+  beyond 60 seconds, and a completion that is never confirmed can keep the
+  agent alive indefinitely. Handler Capture and restoration, the frozen
+  `api/` package and evidence signing are unchanged by these fixes.
+- **Deadman descriptors are not used after close.** The pidfd, signalfd and
+  timerfd wrappers now hold each descriptor through every active wait. Close
+  waits for those operations before it releases the descriptor, and a wait
+  that sees closure returns an error. Concurrent Close calls return after the
+  same teardown. The SIGTERM wrapper's specification now describes its
+  actual mechanism: a nonblocking self-pipe fed by `os/signal.Notify`, not
+  signalfd(2), with no change to thread signal masks.
+- **Agent diagnostics for one session are serialized.** When the diagnostic
+  sink is not a file, parent and agent-subprocess diagnostics no longer
+  interleave. If writing the sudo password to the agent fails, the agent
+  process is now stopped and reaped.
+
+### Security
+
+- **Go 1.26.10 and golang.org/x/text v0.41.0.** This is a security update of
+  the toolchain and the indirect x/text module, with the required
+  module-graph changes. Building from source now requires Go 1.26.10 or
+  later.
 
 
 ## v0.12.0 (2026-09-27)
