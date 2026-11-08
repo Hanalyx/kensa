@@ -16,10 +16,13 @@ any pair).
 
 ## Unreleased
 
-## v0.13.0 (2026-10-20; release candidate)
+## v0.13.0 (2026-11-08)
 
-Candidate stamp only. This version has not been published. The date records
-candidate preparation, not an approved publication date.
+A minor release in which new evidence uses schema v2, which also signs
+rollback results. Upgrade every verifier before any producer, because older
+`kensa verify` rejects v2. `kensa verify` now rejects v1 by default; pass
+`--accept-legacy-v1` to accept it with a warning. Automation must check the
+exit status and `accepted`, not `.valid` alone.
 
 ### Breaking change (pre-1.0)
 
