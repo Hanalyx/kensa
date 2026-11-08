@@ -152,6 +152,19 @@ entry is kept so recovery still sees the transaction (`commit.go:179-185`).
 - **PT-05.3 Establish whether a later `kensa recover` re-runs a rollback that
   already happened** after a persistence failure on `partially_applied` or
   `rollback_failed`.
+- **PT-05.4 [Red, api] `Remediate` discards the partial result when it returns
+  an error.** `api.Kensa.Remediate` returns `nil, err` when the backend errors
+  (`api/kensa.go:326-329`), and `Service.RemediateWithProgress` in `pkg/kensa`
+  does the same (`pkg/kensa/kensa.go:66-69`). The scan runner does return a
+  partial `RemediationResult` with the error when a concurrent recover holds
+  the store lock (`internal/scan/scan.go:355-357`). Both callers drop it, so
+  the completed transactions and their evidence are missing from the result,
+  although the store keeps them. A caller that must record what was applied
+  before a mid-run failure, such as OpenWatch, cannot. Return the partial
+  result with the error on both paths. Keep the error authoritative, set
+  `HostID` on any non-nil result, never fabricate a result and preserve
+  `errors.Is` identity. This changes a frozen `api/` error contract, so it
+  targets v0.14.0 after full panel review.
 
 ### PT-06 Post-apply validation
 
