@@ -23,90 +23,51 @@ candidate preparation, not an approved publication date.
 
 ### Breaking change (pre-1.0)
 
-- New production evidence uses schema v2. Its distinct signing domain
-  authenticates rollback results and every other declared envelope field
-  except the signature and signing key ID. Existing unsigned paths stay
-  unsigned. Historical v1 canonical bytes, signatures, hashes and stored
-  records are preserved.
-- `kensa verify` rejects v1 by default, even when its signature is valid.
-  `--accept-legacy-v1` permits explicit acceptance and always warns:
-  "Legacy v1 signature is valid; rollback results are not authenticated."
-  The warning remains on stderr under quiet mode. JSON `valid` remains
-  cryptographic; `accepted` reports CLI policy, and
+- **New evidence uses schema v2, which also signs rollback results.**
+  Historical v1 records and their signatures are unchanged.
+- **Older `kensa verify` rejects v2.** v0.12.0 reports v2 evidence as an
+  unknown version.
+- **`kensa verify` rejects v1 by default,** even when its signature is valid.
+- **`--accept-legacy-v1` accepts v1 with a warning.** The warning reads
+  "Legacy v1 signature is valid; rollback results are not authenticated." It
+  still prints under `--quiet`.
+- **JSON output separates the signature from the decision.** `valid` is still
+  cryptographic validity. `accepted` is the CLI's decision.
   `rollback_results_authenticated` is true only for verified v2. The Go API's
-  `Valid` semantics stay unchanged.
-- Upgrade affected verifiers before v2 producers; older verifiers reject v2.
-  Update exit-code and `.valid` automation to use CLI acceptance policy.
-  Keep historical evidence, public keys and a v2-capable verifier, including
-  after reverting a producer. Complete applicable notice and migration steps
-  before rollout. See [evidence migration](docs/guide/07-integration.md#evidence-migration-for-v0130).
-- V1 CLI and SQLite audit reads retain historical float64 normalization and
-  its precision limits. V2 uses `json.Number` in generic data maps and retains
-  numeric tokens. Assess concrete Go number-type assumptions and actual
-  storage/export behavior before upgrading consumers.
-- OpenWatch remains on Kensa v0.10.0; its v0.13.0 testing and dependency
-  upgrade are deferred, not certified compatible. Assess or exclude any path
-  that would deliver v2 evidence to it before enabling those producers.
+  `Valid` is unchanged.
+- **Automation must not read `.valid` alone.** Check the exit status and
+  `accepted` instead.
+- **Upgrade verifiers before producers.** Keep a v2-capable verifier and its
+  public keys, even after reverting a producer.
+- **v2 keeps exact numeric tokens.** v1 reads still normalize numbers to
+  float64. Check any code that assumes a concrete Go number type.
+- See [evidence migration](docs/guide/07-integration.md#evidence-migration-for-v0130).
 
 ### Known limits
 
-- **The cached agent binary is trusted by path.** When the agent bootstrap
-  finds its cached binary already on the target, it uses that file without
-  hashing it again. A user with root on the target could replace the file.
-  Root on the target is the precondition. A fix is tracked for a later
-  release.
+- **The cached agent binary is not rehashed.** The agent bootstrap reuses a
+  cached agent binary on the target without hashing it again. Only root on
+  the target can replace that file.
 
 ### Changed
 
-- **Release candidates are verified from the CI snapshot.** The scheduled
-  release-snapshot job builds the packages and archives once, verifies them
-  and keeps those same unsigned bytes and their results for 90 days. The
-  checks cover the complete checksums, eight packaged CLI variants, the
-  legacy and v2 verification policy, numeric compatibility, the shipped
-  binaries, package and sudoers metadata, the corpus contents and the SBOM
-  dependencies. Their inputs are pinned. The scripts are under `scripts/`,
-  described in `scripts/CANDIDATE_VERIFICATION.md`. The release workflow is
-  unchanged.
-- **`make test` builds first.** It runs `make build` before the unit tests,
-  so subprocess tests use a freshly built `bin/kensa`. CI now runs
-  `make test`.
-- **CI action pins are updated.** `actions/setup-python` moves from v6.3.0 to
-  v7.0.0 and `actions/upload-artifact` from v7.0.1 to v7.0.2. Both stay
-  pinned by commit hash.
+- **`make test` builds first,** so contributors' subprocess tests use a
+  freshly built `bin/kensa`.
 
 ### Fixed
 
-- **The agent no longer exits before recovery finishes.** An agent could exit
-  before its complete recovery sequence ended. It now keeps admitted changes,
-  Capture, native waits and recovery running through joined completion and
-  teardown. A native wait whose outcome is uncertain remains an error. It
-  blocks recovery exit and idle exit, even when a handler suppresses it.
-- **The recovery budget starts at ownership.** Entering the queue is now
-  distinct from a successful process launch. The 60-second execution budget
-  is unchanged. It starts after the agent takes ownership and earlier
-  operations have stopped. Queueing can therefore extend total recovery
-  beyond 60 seconds, and a completion that is never confirmed can keep the
-  agent alive indefinitely. Handler Capture and restoration, the frozen
-  `api/` package and evidence signing are unchanged by these fixes.
-- **Deadman descriptors are not used after close.** The pidfd, signalfd and
-  timerfd wrappers now hold each descriptor through every active wait. Close
-  waits for those operations before it releases the descriptor, and a wait
-  that sees closure returns an error. Concurrent Close calls return after the
-  same teardown. The SIGTERM wrapper's specification now describes its
-  actual mechanism: a nonblocking self-pipe fed by `os/signal.Notify`, not
-  signalfd(2), with no change to thread signal masks.
-- **Agent diagnostics for one session are serialized.** When the diagnostic
-  sink is not a file, parent and agent-subprocess diagnostics no longer
-  interleave. If writing the sudo password to the agent fails, the agent
-  process is now stopped and reaped.
+- **The agent waits for recovery to finish.** An agent could exit before its
+  recovery finished. It now waits for recovery to complete. Recovery can take
+  longer than 60 seconds while earlier operations finish. An agent waiting
+  on an unconfirmed completion stays alive until it is confirmed.
+- **The deadman timer's descriptors are no longer used after close.**
+- **Agent and parent diagnostics for one session no longer interleave.** If
+  the sudo password cannot be sent to the agent, the agent process is stopped.
 
 ### Security
 
-- **Go 1.26.10 and golang.org/x/text v0.41.0.** This is a security update of
-  the toolchain and the indirect x/text module, with the required
-  module-graph changes. Building from source now requires Go 1.26.10 or
-  later.
-
+- **Go 1.26.10 and golang.org/x/text v0.41.0.** This is a security update.
+  Building from source needs Go 1.26.10 or later.
 
 ## v0.12.0 (2026-09-27)
 
