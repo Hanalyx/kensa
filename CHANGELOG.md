@@ -11,7 +11,7 @@ The CLI is governed by GNU/POSIX conventions. Long-form flags are
 the canonical names; short forms are listed in `cmd/kensa/flags.go`.
 
 Compare any two releases at
-<https://github.com/Hanalyx/kensa/compare/v0.11.1...v0.12.0> (swap the tags for
+<https://github.com/Hanalyx/kensa/compare/v0.12.0...v0.13.0> (swap the tags for
 any pair).
 
 ## Unreleased
@@ -23,31 +23,51 @@ candidate preparation, not an approved publication date.
 
 ### Breaking change (pre-1.0)
 
-- New production evidence uses schema v2. Its distinct signing domain
-  authenticates rollback results and every other declared envelope field
-  except the signature and signing key ID. Existing unsigned paths stay
-  unsigned. Historical v1 canonical bytes, signatures, hashes and stored
-  records are preserved.
-- `kensa verify` rejects v1 by default, even when its signature is valid.
-  `--accept-legacy-v1` permits explicit acceptance and always warns:
-  "Legacy v1 signature is valid; rollback results are not authenticated."
-  The warning remains on stderr under quiet mode. JSON `valid` remains
-  cryptographic; `accepted` reports CLI policy, and
+- **New evidence uses schema v2, which also signs rollback results.**
+  Historical v1 records and their signatures are unchanged.
+- **Older `kensa verify` rejects v2.** v0.12.0 reports v2 evidence as an
+  unknown version.
+- **`kensa verify` rejects v1 by default,** even when its signature is valid.
+- **`--accept-legacy-v1` accepts v1 with a warning.** The warning reads
+  "Legacy v1 signature is valid; rollback results are not authenticated." It
+  still prints under `--quiet`.
+- **JSON output separates the signature from the decision.** `valid` is still
+  cryptographic validity. `accepted` is the CLI's decision.
   `rollback_results_authenticated` is true only for verified v2. The Go API's
-  `Valid` semantics stay unchanged.
-- Upgrade affected verifiers before v2 producers; older verifiers reject v2.
-  Update exit-code and `.valid` automation to use CLI acceptance policy.
-  Keep historical evidence, public keys and a v2-capable verifier, including
-  after reverting a producer. Complete applicable notice and migration steps
-  before rollout. See [evidence migration](docs/guide/07-integration.md#evidence-migration-for-v0130).
-- V1 CLI and SQLite audit reads retain historical float64 normalization and
-  its precision limits. V2 uses `json.Number` in generic data maps and retains
-  numeric tokens. Assess concrete Go number-type assumptions and actual
-  storage/export behavior before upgrading consumers.
-- OpenWatch remains on Kensa v0.10.0; its v0.13.0 testing and dependency
-  upgrade are deferred, not certified compatible. Assess or exclude any path
-  that would deliver v2 evidence to it before enabling those producers.
+  `Valid` is unchanged.
+- **Automation must not read `.valid` alone.** Check the exit status and
+  `accepted` instead.
+- **Upgrade verifiers before producers.** Keep a v2-capable verifier and its
+  public keys, even after reverting a producer.
+- **v2 keeps exact numeric tokens.** v1 reads still normalize numbers to
+  float64. Check any code that assumes a concrete Go number type.
+- See [evidence migration](docs/guide/07-integration.md#evidence-migration-for-v0130).
 
+### Known limits
+
+- **The cached agent binary is not rehashed.** The agent bootstrap reuses a
+  cached agent binary on the target without hashing it again. Only root on
+  the target can replace that file.
+
+### Changed
+
+- **`make test` builds first,** so contributors' subprocess tests use a
+  freshly built `bin/kensa`.
+
+### Fixed
+
+- **The agent waits for recovery to finish.** An agent could exit before its
+  recovery finished. It now waits for recovery to complete. Recovery can take
+  longer than 60 seconds while earlier operations finish. An agent waiting
+  on an unconfirmed completion stays alive until it is confirmed.
+- **The deadman timer's descriptors are no longer used after close.**
+- **Agent and parent diagnostics for one session no longer interleave.** If
+  the sudo password cannot be sent to the agent, the agent process is stopped.
+
+### Security
+
+- **Go 1.26.10 and golang.org/x/text v0.41.0.** This is a security update.
+  Building from source needs Go 1.26.10 or later.
 
 ## v0.12.0 (2026-09-27)
 
