@@ -27,6 +27,8 @@ coverage.html
 
 # Local
 CLAUDE.md
+/AGENTS.md
+/.mcp.json
 inventory.ini
 
 # Internal docs surface — vision, roadmap, foundation contracts, AI
