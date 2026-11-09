@@ -38,7 +38,6 @@ import (
 	"os/signal"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -66,32 +65,57 @@ type SignalFD struct {
 	pumpCtx context.Context
 	pumpCxl context.CancelFunc
 
-	closed atomic.Bool
-	mu     sync.Mutex
+	closed    atomic.Bool
+	mu        sync.RWMutex
+	closeOnce sync.Once
+	closeErr  error
+	readNum   int
+	writeNum  int
+
+	// Per-instance syscall functions keep lifetime interleavings testable
+	// with real descriptors, without changing process-wide syscall behavior.
+	poll func([]unix.PollFd, int) (int, error)
+	read func(int, []byte) (int, error)
 }
 
 // New creates a SignalFD watching `sig`. A goroutine is
 // spawned to forward Go's signal.Notify deliveries to the
 // pipe's write end; the pipe's read end is exposed via FD().
 //
-// Returns an error only if the pipe creation fails (rare —
-// EMFILE / ENFILE).
+// Returns an error if pipe allocation or nonblocking configuration fails.
 func New(sig unix.Signal) (*SignalFD, error) {
 	r, w, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("signalfd: pipe: %w", err)
+	}
+	readNum, writeNum := int(r.Fd()), int(w.Fd())
+	// Raw reads and writes must never block while holding a lifetime lease.
+	// A full pipe already signals readiness, so another notification may coalesce.
+	if err := unix.SetNonblock(readNum, true); err != nil {
+		_ = r.Close()
+		_ = w.Close()
+		return nil, fmt.Errorf("signalfd: nonblocking read end: %w", err)
+	}
+	if err := unix.SetNonblock(writeNum, true); err != nil {
+		_ = r.Close()
+		_ = w.Close()
+		return nil, fmt.Errorf("signalfd: nonblocking write end: %w", err)
 	}
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, sig)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &SignalFD{
-		signal:  sig,
-		readFD:  r,
-		writeFD: w,
-		sigCh:   sigCh,
-		pumpCtx: ctx,
-		pumpCxl: cancel,
+		signal:   sig,
+		readFD:   r,
+		writeFD:  w,
+		sigCh:    sigCh,
+		pumpCtx:  ctx,
+		pumpCxl:  cancel,
+		readNum:  readNum,
+		writeNum: writeNum,
+		poll:     unix.Poll,
+		read:     unix.Read,
 	}
 	s.pumpWG.Add(1)
 	go s.pump()
@@ -99,8 +123,8 @@ func New(sig unix.Signal) (*SignalFD, error) {
 }
 
 // pump forwards channel sends from signal.Notify to the
-// pipe's write end. One byte per signal delivery — readers
-// drain the pipe to consume the event.
+// pipe's write end. Notifications may coalesce while the pipe is full;
+// readers drain the pipe to consume an event.
 func (s *SignalFD) pump() {
 	defer s.pumpWG.Done()
 	for {
@@ -108,21 +132,37 @@ func (s *SignalFD) pump() {
 		case <-s.pumpCtx.Done():
 			return
 		case <-s.sigCh:
-			// Write one byte. Best-effort — if the read end
-			// is closed (Close raced), drop the signal.
-			_, _ = s.writeFD.Write([]byte{1})
+			s.forwardSignal()
 		}
 	}
 }
 
-// FD returns the underlying file descriptor (the pipe's
-// read end) for epoll registration (D-004). Returns -1 if
-// Close was called.
+// forwardSignal writes without blocking when the pipe is full. The lifetime
+// lock prevents either descriptor from closing during this syscall.
+func (s *SignalFD) forwardSignal() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed.Load() {
+		return
+	}
+	for {
+		_, err := unix.Write(s.writeNum, []byte{1})
+		if !errors.Is(err, unix.EINTR) {
+			return
+		}
+	}
+}
+
+// FD returns a snapshot of the read descriptor, or -1 after closure begins.
+// Calling FD is concurrency-safe; the returned number is not a lifetime lease.
+// The external poll owner must stop using it before calling Close.
 func (s *SignalFD) FD() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed.Load() {
 		return -1
 	}
-	return int(s.readFD.Fd())
+	return s.readNum
 }
 
 // Signal returns the signal this SignalFD watches.
@@ -136,9 +176,6 @@ func (s *SignalFD) Signal() unix.Signal {
 // Same poll-based pattern as timerfd/pidfd to avoid the
 // Go-on-Linux fd-reuse footgun.
 func (s *SignalFD) Wait(ctx context.Context) error {
-	if s.closed.Load() {
-		return ErrClosed
-	}
 	for {
 		if s.closed.Load() {
 			return ErrClosed
@@ -146,71 +183,73 @@ func (s *SignalFD) Wait(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		pollFds := []unix.PollFd{{Fd: int32(s.readFD.Fd()), Events: unix.POLLIN}}
-		n, err := unix.Poll(pollFds, pollInterval)
-		if err != nil {
-			if errors.Is(err, unix.EINTR) {
-				continue
-			}
-			if s.closed.Load() {
-				return ErrClosed
-			}
-			return fmt.Errorf("signalfd: poll: %w", err)
-		}
-		if n == 0 {
-			continue
-		}
-		if pollFds[0].Revents&unix.POLLNVAL != 0 {
-			return ErrClosed
-		}
-		if pollFds[0].Revents&unix.POLLIN != 0 {
-			// Drain one byte from the pipe so the fd
-			// doesn't stay readable on subsequent epoll
-			// wakeups.
-			var buf [1]byte
-			_, err := unix.Read(int(s.readFD.Fd()), buf[:])
-			if err != nil {
-				if s.closed.Load() {
-					return ErrClosed
-				}
-				if errors.Is(err, unix.EAGAIN) {
-					continue
-				}
-				return fmt.Errorf("signalfd: read: %w", err)
-			}
-			return nil
+		ready, err := s.waitOnce()
+		if ready || err != nil {
+			return err
 		}
 	}
 }
 
-// Close stops the signal.Notify forwarding, releases the
-// pipe fds, and restores the default signal disposition.
-// Idempotent.
+// waitOnce holds a lifetime lease across both poll and drain. Close publishes
+// closure before waiting for leases, so it cannot close or recycle a borrowed fd.
+func (s *SignalFD) waitOnce() (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed.Load() {
+		return false, ErrClosed
+	}
+	fds := []unix.PollFd{{Fd: int32(s.readNum), Events: unix.POLLIN}}
+	n, err := s.poll(fds, pollInterval)
+	if s.closed.Load() {
+		return false, ErrClosed
+	}
+	if errors.Is(err, unix.EINTR) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("signalfd: poll: %w", err)
+	}
+	if n == 0 {
+		return false, nil
+	}
+	if fds[0].Revents&unix.POLLNVAL != 0 {
+		return false, ErrClosed
+	}
+	if fds[0].Revents&unix.POLLIN == 0 {
+		return false, nil
+	}
+	var buf [1]byte
+	_, err = s.read(s.readNum, buf[:])
+	if s.closed.Load() {
+		return false, ErrClosed
+	}
+	if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EINTR) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("signalfd: read: %w", err)
+	}
+	return true, nil
+}
+
+// Close unregisters this instance's notifications, joins the pump and active
+// descriptor operations, then releases the pipe. Other signal subscribers remain
+// registered. Concurrent Close calls wait for the same completed teardown.
 func (s *SignalFD) Close() error {
-	if !s.closed.CompareAndSwap(false, true) {
-		return nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		signal.Stop(s.sigCh)
+		s.pumpCxl()
+		s.pumpWG.Wait()
 
-	// Drain so concurrent Wait observes closed=true and exits
-	// its poll loop before we close the fds.
-	time.Sleep(2 * pollInterval * time.Millisecond)
-
-	// Stop forwarding signals (restores default disposition).
-	signal.Stop(s.sigCh)
-	// Cancel the pump goroutine; it may be blocked on sigCh
-	// reads, so we also close sigCh (signal.Stop allows it).
-	s.pumpCxl()
-	s.pumpWG.Wait()
-
-	// Close write end first so any future signal-pump
-	// drop-on-write is silent (no broken-pipe race).
-	_ = s.writeFD.Close()
-	if err := s.readFD.Close(); err != nil {
-		return fmt.Errorf("signalfd: close read end: %w", err)
-	}
-	return nil
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		_ = s.writeFD.Close()
+		if err := s.readFD.Close(); err != nil {
+			s.closeErr = fmt.Errorf("signalfd: close read end: %w", err)
+		}
+	})
+	return s.closeErr
 }
 
 // SetParentDeathSignal asks the kernel to deliver `sig` to

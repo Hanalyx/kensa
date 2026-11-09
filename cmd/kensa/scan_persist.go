@@ -91,7 +91,7 @@ func persistScanResult(ctx context.Context, s *store.SQLite, host string, rules 
 		// Envelope != nil and pulls RuleID / HostID / FleetID /
 		// Severity / FrameworkRefs / Signature from it.
 		txn.Envelope = &api.EvidenceEnvelope{
-			SchemaVersion: "v1",
+			SchemaVersion: "v2",
 			TransactionID: txn.TransactionID,
 			RuleID:        rl.ID,
 			HostID:        host,

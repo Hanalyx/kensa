@@ -108,10 +108,13 @@ spec:
         - id: C-01
           description: |
               `kensa agent --stdio` MUST read framed
-              messages from stdin, echo each one back
-              on stdout, and exit 0 cleanly when stdin
-              closes (EOF). Exit 1 on framing / protocol
-              error. Exit 2 was the placeholder-spec's
+              messages from stdin and dispatch each
+              response on stdout. Idle clean EOF exits 0.
+              With outstanding recovery, exit follows
+              C-08 through C-10; clean EOF alone does not
+              authorize process exit. Framing/protocol
+              errors remain exit 1 even if recovery
+              succeeds. Exit 2 was the placeholder-spec's
               bare-invocation contract; the live --stdio
               path no longer uses exit 1 for "not ready."
           type: business
@@ -183,29 +186,126 @@ spec:
           enforcement: error
         - id: C-07
           description: |
-              `agent.Run` MUST honor a cancelled context
-              by returning ctx.Err() at the next
-              between-frames check (top of each loop
-              iteration, before the next Read call).
-              SIGTERM / SIGINT handling at the CLI
-              layer cancels ctx via signal.NotifyContext.
-              For cancellations that arrive while the
-              loop is blocked in io.ReadFull, the CLI
-              wrapper also enforces a grace-period
-              forced exit (cmd/kensa/agent.go's
-              shutdownGracePeriod, 500ms) — Go's runtime
-              poller does not reliably wake a blocked
-              pipe Read when another goroutine calls
-              Close, and a select-based preemption
-              would leak the read goroutine until stdin
-              closes. The grace-period exit is the
-              standard production pattern for
-              "graceful-shutdown-with-timeout-fallback."
-              L-012 introduces an explicit
-              shutdown-message type that lets the
-              controller signal "drain and exit"
-              cleanly without depending on signal
-              delivery or the grace-period fallback.
+              agent.Run MUST preserve its between-frame
+              context checks and low-level EOF/error
+              distinction. SIGTERM/SIGINT request CLI
+              shutdown. With no admitted Capture,
+              mutation or recovery obligation, the
+              existing 500ms blocked-read forced-exit
+              fallback remains. It MUST NOT bypass C-08
+              recovery ownership or C-09 error status.
+              Its final idle/admission check MUST be
+              serialized with C-10 registration.
+          type: business
+          enforcement: error
+        - id: C-08
+          description: |
+              At connection termination or handled
+              shutdown, close admission and own admitted
+              Apply/handler-Rollback operations and their
+              mutating commands/processes, as well as every
+              reserved, initializing, recovering,
+              canceling and tearing-down Armer job.
+              Request stop via each mutation's own context
+              and confirm its handler and owned mutating
+              work stopped/joined before recovery commands
+              or idle exit. Cancellation requests, handler
+              return and parent-shell exit alone do not
+              prove quiescence. Unknown stop/overlap stays
+              owned and unresolved, potentially indefinitely.
+              All trigger paths and mutation admission share
+              this ordering barrier; a later mutation MUST
+              NOT overwrite recovery. Claim pending recovery
+              once, then execute after quiescence; join
+              recovery already running. Concurrent
+              timer/signal/parent/shutdown triggers MUST
+              share one execution owner. Do not use
+              CancelDeadman to drain a lost connection.
+              Completion requires command waits, watcher
+              join and owned-resource teardown; an empty
+              active map is insufficient. No new
+              supervisor or overall abort timer is added.
+          type: business
+          enforcement: error
+        - id: C-09
+          description: |
+              Keep each rollback command's 60s execution
+              deadline. Waiting for execution ownership and
+              predecessor quiescence does not consume it;
+              start that budget when ready to attempt launch.
+              Only successful process Start counts as begun
+              execution. A canceled queued command that never
+              launched is pending cancellation, not interrupted
+              execution; prior errors remain sticky.
+              Attempt the supplied sequence once in order,
+              continuing after ordinary failures only when
+              failed work and its owned mutating processes
+              are confirmed stopped/joined. A timeout alone
+              cannot authorize overlap with the next command.
+              An accepted pre-shutdown cancellation is the
+              exception: stop the remaining sequence and
+              join cleanup; execution already begun means
+              failed/aborted recovery. Launch, nonzero/signal exit,
+              timeout, aborted recovery and teardown
+              errors remain sticky. Unknown/unjoined work
+              remains owned and unresolved, not successful
+              exit. After all work joins, such failures
+              produce exit 1. Clean EOF/handled shutdown
+              permits exit 0 only with clean recovery and
+              cancellation outcomes. An earlier protocol
+              or I/O error stays exit 1 even if recovery
+              succeeds. The 500ms fallback cannot erase
+              errors or abandon recovery. Exit 0 alone is
+              not proof of restored host state.
+          type: business
+          enforcement: error
+        - id: C-10
+          description: |
+              Serialize shutdown with arm reservation
+              and explicit cancellation. Pre-frontier arm
+              reservations are included through allocation
+              failure/cleanup or recovery; later arms are
+              refused before reservation/allocation. A
+              pre-frontier explicit cancellation keeps
+              its existing operation and acknowledgment;
+              stop remaining commands rather than following
+              C-09 ordinary-failure continuation. Join its
+              owned work/cleanup and retain an interrupted
+              already-started rollback as failed/aborted.
+              A post-frontier cancellation cannot suppress
+              recovery or acknowledge cancellation success;
+              if returnable, use the existing error envelope
+              code shutting_down. Repeated cancellation
+              and shutdown join the same job owner. Do not
+              hold the state lock during execution/joins.
+          type: business
+          enforcement: error
+
+        - id: C-11
+          description: |
+              Capture admission MUST be atomic against
+              recovery and shutdown under the lifecycle
+              state lock. An admitted Capture retains its
+              existing natural-completion context and native
+              command/helper wait ownership until handler,
+              synchronous waits and cleanup have joined.
+              Shutdown MUST NOT cancel Capture. Recovery
+              claims immediately but MUST wait for that join;
+              later Capture is refused while recovery owns
+              execution and permanently after shutdown.
+              Supported dispatcher paths MUST prevent any
+              mutation/recovery child reaper from overlapping
+              Capture's native waits. Never hold the state
+              lock during execution or joins. Unconfirmed
+              completion stays owned and unresolved, possibly
+              indefinitely; the 500ms idle fallback cannot
+              abandon it or declare a failed wait successful.
+              Distinguish ordinary Capture errors from native
+              wait/ownership uncertainty. Completion must carry
+              that outcome; uncertainty stays sticky even when
+              a handler suppresses the native error. Natural
+              Capture context may carry wait accounting but
+              MUST NOT be canceled or mutation-owned.
           type: business
           enforcement: error
 
@@ -283,5 +383,56 @@ spec:
               during the merge workflow.
           references_constraints: [C-01]
           priority: medium
+        - id: AC-09
+          description: |
+              Actual candidate processes with pending and
+              executing recovery survive EOF/parent death
+              until admitted mutations stop and their
+              complete rollback sequence and teardown settle.
+              A delayed/uncertain admitted Apply or handler
+              Rollback cannot write after restoration or
+              permit idle exit. Multi-command captured-state
+              comparisons detect premature process exit.
+              A deterministic real Capture/native-child
+              schedule proves its original caller retains
+              Wait/status, recovery waits for Capture join,
+              and later Capture is refused. A supported-path
+              predecessor/mutation control detects missing
+              Capture accounting. Direct helper calls with
+              untracked children remain outside that proof.
+          references_constraints: [C-01, C-07, C-08, C-09, C-11]
+          priority: critical
+        - id: AC-10
+          description: |
+              Deterministic reservation-initialization,
+              cancellation and duplicate-trigger schedules
+              on both sides of shutdown demonstrate one
+              owner, no lost obligation and no late admission.
+              Accepted pre-shutdown cancellation stops later
+              commands and joins cleanup. Interrupted started
+              recovery is failed/aborted, not clean cancel.
+          references_constraints: [C-08, C-09, C-10]
+          priority: critical
+        - id: AC-11
+          description: |
+              Command failure/timeout and teardown failure
+              cannot produce exit 0 or mask an earlier
+              protocol/I/O error. Unjoined work is not
+              abandoned by an overall or 500ms exit timer.
+              Actual waits and child/state evidence detect
+              false completion and skipped later commands.
+              A timed-out command with surviving/unknown
+              mutating work prevents any later command;
+              ordinary continuation begins only after join.
+          references_constraints: [C-07, C-08, C-09]
+          priority: critical
+        - id: AC-12
+          description: |
+              Existing idle EOF, between-frame context,
+              truncated-frame and idle SIGTERM behavior
+              remains covered. Recovery has no 500ms exit
+              exemption while an obligation remains.
+          references_constraints: [C-01, C-06, C-07, C-09]
+          priority: high
 
     tags: [agent, stdio, framing, echo, ll-phase-1, l-008]

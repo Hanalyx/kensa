@@ -1,0 +1,618 @@
+{
+  "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "source": "v1: released v0.12.0 97fcd7b4eaf9b3b53d4fc2776b19ae6011032f33 Go signer; v2: PT-04.1 Go signer at main 04ac4c5 plus reviewed draft. RawMessage assembly preserves numeric tokens; generation evidence in correction submission.",
+  "vectors": [
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1000
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "ati9bZ54bmk+iscP9oY9CymY7GVEmzuaoZT8jtkVUT8LB/2DmEDwVH4PF4N4cUKBjzkE7pZiuLLgqquGC72FCQ=="
+      },
+      "hash": "0fa9e5418d72b871f6d7020d721e191f2e04e9e6e46e2e8f09977adb631edd53",
+      "name": "v1/integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "ati9bZ54bmk+iscP9oY9CymY7GVEmzuaoZT8jtkVUT8LB/2DmEDwVH4PF4N4cUKBjzkE7pZiuLLgqquGC72FCQ==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUtN30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e-7
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "UoQtGGfvML1pphfjmuKLd3vr1UfhUJCUAlNpcyJVRvpsPrHQ+oiI9JmCgO+RQh3IxKhgDD4B3wStJJwyze9nBg=="
+      },
+      "hash": "d13f720bd057a64f357a46a751102c885e77dd540d3910d2b602cc0f9168e9ad",
+      "name": "v1/float-tiny",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "UoQtGGfvML1pphfjmuKLd3vr1UfhUJCUAlNpcyJVRvpsPrHQ+oiI9JmCgO+RQh3IxKhgDD4B3wStJJwyze9nBg==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUtN30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMDAwMDAwMDAwMDAwMDAwMDAwfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MSIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0=",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 100000000000000000000
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "5tFOznjhPGdTIy0GZDvjRFa49jMPJjn5p/6LFc+62zINAGWBJRv6UO+wpPJHEU24h0+x54NRCvxms1WIl74SCw=="
+      },
+      "hash": "1d5ad26e65f5de133e1e963cf567bfe6639fc0108acaf40cc2db4b2e45150e77",
+      "name": "v1/float-large",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "5tFOznjhPGdTIy0GZDvjRFa49jMPJjn5p/6LFc+62zINAGWBJRv6UO+wpPJHEU24h0+x54NRCvxms1WIl74SCw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMDAwMDAwMDAwMDAwMDAwMDAwfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MSIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUrMjF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYxIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e+21
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "Vxskidj1dSfv3LzJ3+I9F+Je8u+P5L4+JzZ65PFkPv81lqdBFTzom+fbJYKxjfu5jW7+ObxGYHUxURG7FmPVBA=="
+      },
+      "hash": "16a7163670b34b5418c0557fb46a00cd7b51c94cec02afb19b0d5471e40ecfd2",
+      "name": "v1/float-exponent",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "Vxskidj1dSfv3LzJ3+I9F+Je8u+P5L4+JzZ65PFkPv81lqdBFTzom+fbJYKxjfu5jW7+ObxGYHUxURG7FmPVBA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUrMjF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYxIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MS4wfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MSIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0=",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1.0
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "RqC0u6L2S9z+2X8NEip/4uNkF0uur5vCVc7YNLNWSQcCCsML3DBO7JXmXIIryO9B8GTdx2DRmEkwxk1gIc02AA=="
+      },
+      "hash": "72da645f459300cce1eaf3e3a799cb7d6cb9cdf0e8d823abcf6bdbc7f5fe708a",
+      "name": "v1/decimal",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "RqC0u6L2S9z+2X8NEip/4uNkF0uur5vCVc7YNLNWSQcCCsML3DBO7JXmXIIryO9B8GTdx2DRmEkwxk1gIc02AA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MS4wfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MSIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MC4xMjM0NTY3ODkwMTIzNDU2Nzg5MDF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYxIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 0.123456789012345678901
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "nFIZGT01vFjaIn0XPURBDxkv4vyaSgjdFQjjWM8DHmfDXo/N+k/ZzEdQNsgc9FyyHSGVHJT0otBLWWJ1RtlnDQ=="
+      },
+      "hash": "ab32e5fd317fd203a962517235396ab9e382acccac4182c0acf0e4d3162f4dfe",
+      "name": "v1/precise-decimal",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "nFIZGT01vFjaIn0XPURBDxkv4vyaSgjdFQjjWM8DHmfDXo/N+k/ZzEdQNsgc9FyyHSGVHJT0otBLWWJ1RtlnDQ==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MC4xMjM0NTY3ODkwMTIzNDU2Nzg5MDF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYxIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUyMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e20
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "Q9VmZjT2ABA911XpXiT1C58e/c4pKDCJ2ID7+ljO+zA73O/qVUam6cTlUOCR77A8mRYFcJPn3WfBozmnNHajBw=="
+      },
+      "hash": "c48e14ccd4d8c129ef7d043637a68f62323d04da972b67aa71c92e13b4c3c9df",
+      "name": "v1/number-exponent",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "Q9VmZjT2ABA911XpXiT1C58e/c4pKDCJ2ID7+ljO+zA73O/qVUam6cTlUOCR77A8mRYFcJPn3WfBozmnNHajBw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUyMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5Mn0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 9007199254740992
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "Vr6h0qyDXSjTuXgmT66A/R+Nth7Rpq1cF/hJMt6BnRlxve9bRVOXb1KsxFCIaBKuHhr+3hw18QpABgAlchWnCw=="
+      },
+      "hash": "58fb7d82688cd6972affb19e9ad67c445aabff0ee6e8a1c9c77ee05088170a45",
+      "name": "v1/exact-large-integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "Vr6h0qyDXSjTuXgmT66A/R+Nth7Rpq1cF/hJMt6BnRlxve9bRVOXb1KsxFCIaBKuHhr+3hw18QpABgAlchWnCw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5Mn0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5M30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v1",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 9007199254740993
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "z3mryc7qOgecpLOL0rq4F7DeJSlyG5t08oflNTJYCAAIipTDmSXO0P2SX1psJKm5c5AWhV3zyNHQoY0XMq7uDQ=="
+      },
+      "hash": "d27ebf943179b3a2e92a7aa12ed99795787422a78109c7cd3128f3aa3921f984",
+      "name": "v1/inexact-large-integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "z3mryc7qOgecpLOL0rq4F7DeJSlyG5t08oflNTJYCAAIipTDmSXO0P2SX1psJKm5c5AWhV3zyNHQoY0XMq7uDQ==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjEAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5M30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjEiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1000
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "jLy2UjvPuB0MQZlv2TraiiJhRlfgxHA+7kvEU/eMitN5mIXHZE4XKika8ApL3BkWJzwwU6MoF7ZTbS+VgPgJCA=="
+      },
+      "hash": "59ee3aaa85a95464bf538c55ca4ea2020bfcbff2681075be1d21a2246ba83fdd",
+      "name": "v2/integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "jLy2UjvPuB0MQZlv2TraiiJhRlfgxHA+7kvEU/eMitN5mIXHZE4XKika8ApL3BkWJzwwU6MoF7ZTbS+VgPgJCA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUtN30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e-7
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "vpLTj23nqCwR2DIrCK48dzb5Kv2MJep66gVS7bt6jcJ9isxl3hfsp9/YdXZwL1lojkmvHHYD2nqAvSedaQHPDA=="
+      },
+      "hash": "0811b7c8ef95fd9fac1b3088badf7faec082264183a42c51ee8a3e2d7923c514",
+      "name": "v2/float-tiny",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "vpLTj23nqCwR2DIrCK48dzb5Kv2MJep66gVS7bt6jcJ9isxl3hfsp9/YdXZwL1lojkmvHHYD2nqAvSedaQHPDA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUtN30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMDAwMDAwMDAwMDAwMDAwMDAwfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJyb2xsYmFja19yZXN1bHRzIjpbXSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjIiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 100000000000000000000
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "8a/dIKC7w2IHtZY2t9J+aO7Prr9arAHj57OzQUMN2/EqlRuO4TUfLIWWyLzJf9Cl8lHpnRhMovdW3UEuCqjeAQ=="
+      },
+      "hash": "48b366951d90d7b5b1c9559b4459ae2a6efb43d76bca81b1d9247da77b291830",
+      "name": "v2/float-large",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "8a/dIKC7w2IHtZY2t9J+aO7Prr9arAHj57OzQUMN2/EqlRuO4TUfLIWWyLzJf9Cl8lHpnRhMovdW3UEuCqjeAQ==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MTAwMDAwMDAwMDAwMDAwMDAwMDAwfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJyb2xsYmFja19yZXN1bHRzIjpbXSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjIiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUrMjF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJvbGxiYWNrX3Jlc3VsdHMiOltdLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MiIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0=",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e+21
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "4r5ecnxFJIbot+uVSHap3CVlKljUoRyNTZksjR3YdIGW7xqkkoAReomUX1PmaK10/jKzV31k+mR8sEI6GrljCA=="
+      },
+      "hash": "3893404bd56525d902983ef1061b8aed42373f98f1637619972bce817dec5b4e",
+      "name": "v2/float-exponent",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "4r5ecnxFJIbot+uVSHap3CVlKljUoRyNTZksjR3YdIGW7xqkkoAReomUX1PmaK10/jKzV31k+mR8sEI6GrljCA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUrMjF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJvbGxiYWNrX3Jlc3VsdHMiOltdLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MiIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MS4wfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJyb2xsYmFja19yZXN1bHRzIjpbXSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjIiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1.0
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "OGXJPUEcoAY3z9TCDiOCCRo0vI0y+icV0bBGg/1GhfR440ADUm8x7SPYjsX2kgMlLNCDd8ROIHCoHxEF7b+QDA=="
+      },
+      "hash": "d5e23de154563067f04da091b3938e67f1e426536faa43ad60403d92f3a52ac5",
+      "name": "v2/decimal",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "OGXJPUEcoAY3z9TCDiOCCRo0vI0y+icV0bBGg/1GhfR440ADUm8x7SPYjsX2kgMlLNCDd8ROIHCoHxEF7b+QDA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MS4wfSwiTWVjaGFuaXNtIjoiZml4dHVyZSIsIlN0ZXBJbmRleCI6MH1dLCJyb2xsYmFja19yZXN1bHRzIjpbXSwicnVsZV9pZCI6Im51bWVyaWMtY29udHJvbCIsInNjaGVtYV92ZXJzaW9uIjoidjIiLCJzdGFydGVkX2F0IjoiMjAyNi0xMC0yMFQxMjowMDowMC4xMjM0NTY3ODlaIiwidHJhbnNhY3Rpb25faWQiOiIxMTExMTExMS0yMjIyLTMzMzMtNDQ0NC01NTU1NTU1NTU1NTUiLCJ2YWxpZGF0b3JfcmVzdWx0cyI6W119"
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MC4xMjM0NTY3ODkwMTIzNDU2Nzg5MDF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJvbGxiYWNrX3Jlc3VsdHMiOltdLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MiIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0=",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 0.123456789012345678901
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "k97iM8u8M7q3YCMBmv6v/Ydy6yY+N3FMD5HI9S049muCaeYZYJmvsylNb94wg8CeKV6dWi87BHk3oJCQAeJfDw=="
+      },
+      "hash": "cfd74dd436f6ca2212476d2646ef34ecfbe00aa94615320df92a06304df0202a",
+      "name": "v2/precise-decimal",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "k97iM8u8M7q3YCMBmv6v/Ydy6yY+N3FMD5HI9S049muCaeYZYJmvsylNb94wg8CeKV6dWi87BHk3oJCQAeJfDw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MC4xMjM0NTY3ODkwMTIzNDU2Nzg5MDF9LCJNZWNoYW5pc20iOiJmaXh0dXJlIiwiU3RlcEluZGV4IjowfV0sInJvbGxiYWNrX3Jlc3VsdHMiOltdLCJydWxlX2lkIjoibnVtZXJpYy1jb250cm9sIiwic2NoZW1hX3ZlcnNpb24iOiJ2MiIsInN0YXJ0ZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJ0cmFuc2FjdGlvbl9pZCI6IjExMTExMTExLTIyMjItMzMzMy00NDQ0LTU1NTU1NTU1NTU1NSIsInZhbGlkYXRvcl9yZXN1bHRzIjpbXX0="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUyMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 1e20
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "OLm+izk5bDL3SzO3xvYCV90EAQGxBNmQlYYQVG7uug088q1B+xl3FTIF+3tixK/90YZI4RvkpckF+8O2peCiAw=="
+      },
+      "hash": "53b5cf31b9947d57d44168ac785dda7d87cd6d1e2272382fa4c44fe80424ff21",
+      "name": "v2/number-exponent",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "OLm+izk5bDL3SzO3xvYCV90EAQGxBNmQlYYQVG7uug088q1B+xl3FTIF+3tixK/90YZI4RvkpckF+8O2peCiAw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6MWUyMH0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5Mn0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 9007199254740992
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "IrJABuXt8zBCWVNr2Y8go0bX63DaJVcCA4JarCn9Sbm1c2J0XvDGxAXZgs/3itErgEkXkK18r1Z3TgK+EtKbAw=="
+      },
+      "hash": "70f12805c99f4ea2de31ba9d140788d99c892c2d95069d9d23e31984fcaed465",
+      "name": "v2/exact-large-integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "IrJABuXt8zBCWVNr2Y8go0bX63DaJVcCA4JarCn9Sbm1c2J0XvDGxAXZgs/3itErgEkXkK18r1Z3TgK+EtKbAw==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5Mn0sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    },
+    {
+      "canonical": "eyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5M30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ==",
+      "envelope": {
+        "schema_version": "v2",
+        "transaction_id": "11111111-2222-3333-4444-555555555555",
+        "rule_id": "numeric-control",
+        "host_id": "offline-fixture",
+        "started_at": "2026-10-20T12:00:00.123456789Z",
+        "finished_at": "2026-10-20T12:00:00.123456789Z",
+        "pre_state_bundle": [
+          {
+            "StepIndex": 0,
+            "Mechanism": "fixture",
+            "Capturable": true,
+            "Data": {
+              "number": 9007199254740993
+            },
+            "CapturedAt": "2026-10-20T12:00:00.123456789Z"
+          }
+        ],
+        "apply_steps": null,
+        "validator_results": null,
+        "decision": "committed",
+        "post_state_bundle": null,
+        "framework_refs": null,
+        "signing_key_id": "56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
+        "signature": "HTK/VSEqfvwkH4kn9mmI4dDdDrDeypXhMELAaoMxt+lbAPGuOExqvLle7GlbA1gmJK9Hwf/LwwPhHUdGl8HZCA=="
+      },
+      "hash": "493cc7c7f0697ae68d7cbb158fc00653fb5efd4439385e75f665f43a9ed0542c",
+      "name": "v2/inexact-large-integer",
+      "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+      "signature": "HTK/VSEqfvwkH4kn9mmI4dDdDrDeypXhMELAaoMxt+lbAPGuOExqvLle7GlbA1gmJK9Hwf/LwwPhHUdGl8HZCA==",
+      "tagged": "a2Vuc2EtZXZpZGVuY2UtZW52ZWxvcGUtdjIAeyJhcHBseV9zdGVwcyI6W10sImRlY2lzaW9uIjoiY29tbWl0dGVkIiwiZmluaXNoZWRfYXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJmcmFtZXdvcmtfcmVmcyI6W10sImhvc3RfaWQiOiJvZmZsaW5lLWZpeHR1cmUiLCJwb3N0X3N0YXRlX2J1bmRsZSI6W10sInByZV9zdGF0ZV9idW5kbGUiOlt7IkNhcHR1cmFibGUiOnRydWUsIkNhcHR1cmVkQXQiOiIyMDI2LTEwLTIwVDEyOjAwOjAwLjEyMzQ1Njc4OVoiLCJEYXRhIjp7Im51bWJlciI6OTAwNzE5OTI1NDc0MDk5M30sIk1lY2hhbmlzbSI6ImZpeHR1cmUiLCJTdGVwSW5kZXgiOjB9XSwicm9sbGJhY2tfcmVzdWx0cyI6W10sInJ1bGVfaWQiOiJudW1lcmljLWNvbnRyb2wiLCJzY2hlbWFfdmVyc2lvbiI6InYyIiwic3RhcnRlZF9hdCI6IjIwMjYtMTAtMjBUMTI6MDA6MDAuMTIzNDU2Nzg5WiIsInRyYW5zYWN0aW9uX2lkIjoiMTExMTExMTEtMjIyMi0zMzMzLTQ0NDQtNTU1NTU1NTU1NTU1IiwidmFsaWRhdG9yX3Jlc3VsdHMiOltdfQ=="
+    }
+  ]
+}

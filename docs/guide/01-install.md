@@ -1,6 +1,6 @@
 # Install
 
-_Applies to: Kensa v0.9.0. Last updated 2026-08-03._
+_Applies to: Kensa v0.13.0. Last updated 2026-11-08._
 
 ## What you'll have when you're done
 
@@ -131,7 +131,7 @@ cron, packages, PAM) works as-is.
 
 ## Build from source
 
-For contributors and for customising the build. Requires Go 1.26.8+ (the
+For contributors and for customising the build. Requires Go 1.26.10+ (the
 version pinned in `go.mod`), GNU make, git:
 
 ```bash

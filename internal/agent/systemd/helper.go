@@ -29,6 +29,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/Hanalyx/kensa/internal/agent/ownedexec"
 )
 
 // geteuid is os.Geteuid, indirected so a test can drive both the
@@ -385,12 +387,18 @@ func execHelper(ctx context.Context, argv []string) ([]byte, []byte, int, error)
 	if len(argv) < 2 {
 		return nil, nil, 0, fmt.Errorf("execHelper: argv too short: %v", argv)
 	}
+	if err := ownedexec.NativeError(ctx); err != nil {
+		return nil, nil, 0, err
+	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Stdin = nil // No password prompt; sudoers fragment uses NOPASSWD.
-	err := cmd.Run()
+	err := cmd.Start()
+	if err == nil {
+		err = ownedexec.ObserveNativeWait(ctx, cmd, cmd.Wait())
+	}
 	exitCode := 0
 	if err != nil {
 		var exitErr *exec.ExitError

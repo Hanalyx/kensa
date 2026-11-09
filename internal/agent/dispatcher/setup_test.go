@@ -168,7 +168,7 @@ func TestOpenAgent_AnnounceLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenAgent: %v; stderr=%q", err, stderr.String())
 	}
-	defer cleanup()
+	cleanup()
 	_ = c
 
 	got := stderr.String()

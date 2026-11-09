@@ -74,22 +74,29 @@ type Timer struct {
 	fd     int
 	closed atomic.Bool
 
-	// mu serializes Arm/Cancel/Close. The fd itself is
-	// thread-safe for read but not for the timerfd_settime
-	// call sequence we want to keep linear.
-	mu sync.Mutex
+	// mu protects descriptor lifetime; changes serializes Arm and Cancel.
+	mu        sync.RWMutex
+	changes   sync.Mutex
+	closeOnce sync.Once
+	closeErr  error
+
+	// Per-instance syscall seams allow deterministic lifetime tests using
+	// real kernel operations, without changing process-wide syscall behavior.
+	poll    func([]unix.PollFd, int) (int, error)
+	read    func(int, []byte) (int, error)
+	settime func(int, int, *unix.ItimerSpec, *unix.ItimerSpec) error
 }
 
-// New creates a new Timer using CLOCK_BOOTTIME with TFD_CLOEXEC.
+// New creates a nonblocking Timer using CLOCK_BOOTTIME with TFD_CLOEXEC.
 // The Timer is unarmed; call Arm to schedule a fire.
 //
 // Spec C-01 (CLOCK_BOOTTIME), C-02 (TFD_CLOEXEC).
 func New() (*Timer, error) {
-	fd, err := unix.TimerfdCreate(unix.CLOCK_BOOTTIME, unix.TFD_CLOEXEC)
+	fd, err := unix.TimerfdCreate(unix.CLOCK_BOOTTIME, unix.TFD_CLOEXEC|unix.TFD_NONBLOCK)
 	if err != nil {
 		return nil, fmt.Errorf("timerfd: create: %w", err)
 	}
-	return &Timer{fd: fd}, nil
+	return &Timer{fd: fd, poll: unix.Poll, read: unix.Read, settime: unix.TimerfdSettime}, nil
 }
 
 // Arm schedules the timer to fire after d. Replaces any
@@ -106,8 +113,10 @@ func (t *Timer) Arm(d time.Duration) error {
 	if d <= 0 {
 		return ErrInvalidDuration
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	t.changes.Lock()
+	defer t.changes.Unlock()
 	if t.closed.Load() {
 		return ErrClosed
 	}
@@ -120,7 +129,7 @@ func (t *Timer) Arm(d time.Duration) error {
 			Nsec: int64(d % time.Second),
 		},
 	}
-	if err := unix.TimerfdSettime(t.fd, 0, &spec, nil); err != nil {
+	if err := t.settime(t.fd, 0, &spec, nil); err != nil {
 		return fmt.Errorf("timerfd: settime arm: %w", err)
 	}
 	return nil
@@ -137,14 +146,16 @@ func (t *Timer) Arm(d time.Duration) error {
 //
 // Returns ErrClosed if Close() has been called.
 func (t *Timer) Cancel() error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	t.changes.Lock()
+	defer t.changes.Unlock()
 	if t.closed.Load() {
 		return ErrClosed
 	}
 	// Zero itimerspec disarms.
 	spec := unix.ItimerSpec{}
-	if err := unix.TimerfdSettime(t.fd, 0, &spec, nil); err != nil {
+	if err := t.settime(t.fd, 0, &spec, nil); err != nil {
 		return fmt.Errorf("timerfd: settime cancel: %w", err)
 	}
 	return nil
@@ -153,9 +164,11 @@ func (t *Timer) Cancel() error {
 // FD returns the underlying file descriptor for epoll
 // registration (D-004 event loop will use this).
 //
-// Returns -1 if Close() has been called. Safe to call
-// concurrently with all other methods.
+// Returns -1 once closure begins. The snapshot is concurrency-safe, but it
+// does not grant a descriptor lease. External users must finish before Close.
 func (t *Timer) FD() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	if t.closed.Load() {
 		return -1
 	}
@@ -176,9 +189,6 @@ func (t *Timer) FD() int {
 // epoll integration won't use Wait — it'll register the fd
 // directly — so this overhead is unit-test-path only.
 func (t *Timer) Wait(ctx context.Context) error {
-	if t.closed.Load() {
-		return ErrClosed
-	}
 	for {
 		if t.closed.Load() {
 			return ErrClosed
@@ -186,66 +196,75 @@ func (t *Timer) Wait(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-
-		pollFds := []unix.PollFd{{Fd: int32(t.fd), Events: unix.POLLIN}}
-		n, err := unix.Poll(pollFds, pollInterval)
-		if err != nil {
-			if errors.Is(err, unix.EINTR) {
-				continue
-			}
-			if t.closed.Load() {
-				return ErrClosed
-			}
-			return fmt.Errorf("timerfd: poll: %w", err)
-		}
-		if n == 0 {
-			// Timeout — loop and recheck ctx/closed.
-			continue
-		}
-		if pollFds[0].Revents&unix.POLLNVAL != 0 {
-			// fd was closed under us — Close() ran.
-			return ErrClosed
-		}
-		if pollFds[0].Revents&unix.POLLIN != 0 {
-			var buf [8]byte
-			n, err := unix.Read(t.fd, buf[:])
-			if err != nil {
-				if t.closed.Load() {
-					return ErrClosed
-				}
-				return fmt.Errorf("timerfd: read: %w", err)
-			}
-			if n != 8 {
-				return fmt.Errorf("timerfd: read returned %d bytes, expected 8", n)
-			}
-			_ = binary.LittleEndian.Uint64(buf[:]) // expiration count; unused
-			return nil
+		ready, err := t.waitOnce(ctx)
+		if ready || err != nil {
+			return err
 		}
 	}
 }
 
-// Close releases the timerfd. Idempotent (spec C-06).
-//
-// Safe to call concurrently with a pending Wait — the poll
-// loop will observe the closed flag within pollInterval and
-// return ErrClosed before this method's unix.Close runs,
-// avoiding the fd-reuse race.
+// waitOnce retains the descriptor through poll and drain. A concurrent Cancel,
+// re-arm or external drain can remove readiness, so the read must not block.
+func (t *Timer) waitOnce(ctx context.Context) (bool, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.closed.Load() {
+		return false, ErrClosed
+	}
+	fds := []unix.PollFd{{Fd: int32(t.fd), Events: unix.POLLIN}}
+	n, err := t.poll(fds, pollInterval)
+	if t.closed.Load() {
+		return false, ErrClosed
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if errors.Is(err, unix.EINTR) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("timerfd: poll: %w", err)
+	}
+	if n == 0 {
+		return false, nil
+	}
+	if fds[0].Revents&unix.POLLNVAL != 0 {
+		return false, ErrClosed
+	}
+	if fds[0].Revents&unix.POLLIN == 0 {
+		return false, nil
+	}
+	var buf [8]byte
+	n, err = t.read(t.fd, buf[:])
+	if t.closed.Load() {
+		return false, ErrClosed
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EINTR) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("timerfd: read: %w", err)
+	}
+	if n != 8 {
+		return false, fmt.Errorf("timerfd: read returned %d bytes, expected 8", n)
+	}
+	_ = binary.LittleEndian.Uint64(buf[:])
+	return true, nil
+}
+
+// Close publishes closure, joins active descriptor operations and releases the
+// timer. Concurrent Close calls wait for the same completed teardown.
 func (t *Timer) Close() error {
-	if !t.closed.CompareAndSwap(false, true) {
-		return nil
-	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	// Wait briefly so a concurrent Wait observes the closed
-	// flag and exits its poll loop before we unix.Close.
-	// 2 * pollInterval gives the poll-loop one full iteration
-	// to see closed=true after returning from poll. Worst case
-	// this adds 100ms to Close; acceptable for a primitive
-	// used in test scaffolding + an event loop that doesn't
-	// call Wait.
-	time.Sleep(2 * pollInterval * time.Millisecond)
-	if err := unix.Close(t.fd); err != nil && !errors.Is(err, unix.EBADF) {
-		return fmt.Errorf("timerfd: close: %w", err)
-	}
-	return nil
+	t.closeOnce.Do(func() {
+		t.closed.Store(true)
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		if err := unix.Close(t.fd); err != nil && !errors.Is(err, unix.EBADF) {
+			t.closeErr = fmt.Errorf("timerfd: close: %w", err)
+		}
+	})
+	return t.closeErr
 }

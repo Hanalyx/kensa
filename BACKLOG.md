@@ -27,6 +27,20 @@ closed each one.
 
 ## PT: Protect the promise
 
+### PT-02 Scan architecture
+
+- **PT-02.1 Measure the commands that Go check methods build.** At v0.12.0
+  the corpus has 914 checks, one per implementation or `checks:` child. Its
+  397 shell bodies (390 `method: command` scripts and 7 `set_compare`
+  observed commands) were measured. None reads stdin. The largest is 5,972
+  bytes after three levels of shell quoting and a fixed prefix of under
+  1 KiB, against Linux's 128 KiB `MAX_ARG_STRLEN`. The other 517 checks use
+  14 methods that build a short command in Go from rule parameters. Their
+  longest parameter value is 578 bytes. Those commands were not measured.
+  Render each method's command template with its longest corpus parameters,
+  quote it the same way, and record the maximum length and any stdin use.
+  An enabler of about half a day.
+
 ### PT-03 Deadman guard
 
 Most of the scheduler redesign shipped in #368 (first tag v0.9.0): an absolute
@@ -138,6 +152,19 @@ entry is kept so recovery still sees the transaction (`commit.go:179-185`).
 - **PT-05.3 Establish whether a later `kensa recover` re-runs a rollback that
   already happened** after a persistence failure on `partially_applied` or
   `rollback_failed`.
+- **PT-05.4 [Red, api] `Remediate` discards the partial result when it returns
+  an error.** `api.Kensa.Remediate` returns `nil, err` when the backend errors
+  (`api/kensa.go:326-329`), and `Service.RemediateWithProgress` in `pkg/kensa`
+  does the same (`pkg/kensa/kensa.go:66-69`). The scan runner does return a
+  partial `RemediationResult` with the error when a concurrent recover holds
+  the store lock (`internal/scan/scan.go:355-357`). Both callers drop it, so
+  the completed transactions and their evidence are missing from the result,
+  although the store keeps them. A caller that must record what was applied
+  before a mid-run failure, such as OpenWatch, cannot. Return the partial
+  result with the error on both paths. Keep the error authoritative, set
+  `HostID` on any non-nil result, never fabricate a result and preserve
+  `errors.Is` identity. This changes a frozen `api/` error contract, so it
+  targets v0.14.0 after full panel review.
 
 ### PT-06 Post-apply validation
 

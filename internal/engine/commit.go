@@ -285,7 +285,7 @@ func (e *Engine) errored(ctx context.Context, txn *api.Transaction, startedAt ti
 // signature is the marker verification tooling keys on.
 func erroredEnvelope(txn *api.Transaction, startedAt, finishedAt time.Time) *api.EvidenceEnvelope {
 	return &api.EvidenceEnvelope{
-		SchemaVersion: "v1",
+		SchemaVersion: "v2",
 		TransactionID: txn.ID,
 		RuleID:        txn.RuleID,
 		HostID:        txn.HostID,
@@ -331,7 +331,7 @@ func evidenceEnvelope(
 	redactBundles(pre)
 	redactBundles(post)
 	return &api.EvidenceEnvelope{
-		SchemaVersion:    "v1",
+		SchemaVersion:    "v2",
 		TransactionID:    txn.ID,
 		RuleID:           txn.RuleID,
 		HostID:           txn.HostID,

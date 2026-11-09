@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -288,31 +287,40 @@ func TestTimerfd_ConcurrentCloseDuringWait(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	entered, resume := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	release := func() { once.Do(func() { close(resume) }) }
+	defer func() { release(); _ = tm.Close() }()
+	tm.poll = func(fds []unix.PollFd, timeout int) (int, error) {
+		close(entered)
+		<-resume
+		return unix.Poll(fds, timeout)
+	}
 	if err := tm.Arm(5 * time.Second); err != nil {
 		t.Fatal(err)
 	}
-
-	var waitErr atomic.Value
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := tm.Wait(context.Background())
-		waitErr.Store(err)
-	}()
-
-	// Give Wait a moment to enter the poll loop.
-	time.Sleep(20 * time.Millisecond)
-	if err := tm.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	waited := make(chan error, 1)
+	go func() { waited <- tm.Wait(ctx) }()
+	select {
+	case <-entered:
+	case <-ctx.Done():
+		t.Fatal("Wait did not reach poll")
 	}
-	wg.Wait()
-	if err := waitErr.Load().(error); !errors.Is(err, ErrClosed) {
-		t.Errorf("concurrent Close: expected ErrClosed; got: %v", err)
+	closed := make(chan error, 1)
+	go func() { closed <- tm.Close() }()
+	awaitTimerClosure(t, tm)
+	release()
+	if err := receiveTimerError(t, waited); !errors.Is(err, ErrClosed) {
+		t.Errorf("concurrent Close: got %v; want ErrClosed", err)
+	}
+	if err := receiveTimerError(t, closed); err != nil {
+		t.Fatal(err)
 	}
 }
 
-// TestTimerfd_ConcurrentArmCalls: serialize via t.mu — both
+// TestTimerfd_ConcurrentArmCalls: serialize state changes — both
 // Arm calls return without error, the LAST one wins.
 func TestTimerfd_ConcurrentArmCalls(t *testing.T) {
 	tm, err := New()

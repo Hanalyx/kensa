@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,8 @@ import (
 // always emits a 64-char lower-hex SHA-256 — anything else is
 // either tampered or from a different signer; either way, refuse.
 var validKeyID = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+const legacyV1Warning = "Legacy v1 signature is valid; rollback results are not authenticated."
 
 // runVerify implements `kensa verify <evidence-file>` (C-060).
 // Reads a JSON-encoded EvidenceEnvelope from disk, looks up the
@@ -49,15 +52,17 @@ func runVerify(args []string) error {
 	fs.SetOutput(io.Discard)
 
 	var (
-		showHelp bool
-		trustDir string
-		format   string
-		quiet    bool
+		showHelp       bool
+		trustDir       string
+		format         string
+		quiet          bool
+		acceptLegacyV1 bool
 	)
 	fs.BoolVarP(&showHelp, "help", ShortHelp, false, "show this help and exit")
 	fs.StringVar(&trustDir, "trust-dir", "", "directory of .pub files to look up signing_key_id (default matches kensa-keygen's output dir)")
 	fs.StringVarP(&format, "format", ShortFormat, "text", "output format: text or json")
 	fs.BoolVarP(&quiet, "quiet", ShortQuiet, false, "suppress default output (errors still go to stderr)")
+	fs.BoolVar(&acceptLegacyV1, "accept-legacy-v1", false, "accept a valid legacy v1 signature; rollback results remain unauthenticated")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -145,6 +150,24 @@ func runVerify(args []string) error {
 	}
 
 	result, verifyErr := verifier.Verify(envelope)
+	valid := verifyErr == nil && result != nil && result.Valid
+	accepted := valid && (envelope.SchemaVersion == "v2" || acceptLegacyV1)
+	rollbackAuthenticated := valid && envelope.SchemaVersion == "v2"
+	var warnings []string
+	if result != nil {
+		for _, warning := range result.Warnings {
+			warnings = append(warnings, string(warning))
+		}
+	}
+	// This warning describes a verified limitation, not a successful policy
+	// decision. It is mandatory even when quiet suppresses the output body.
+	if valid && envelope.SchemaVersion == "v1" {
+		fmt.Fprintln(os.Stderr, legacyV1Warning)
+		warnings = append(warnings, legacyV1Warning)
+		if !accepted {
+			verifyErr = errors.New("legacy v1 evidence is not accepted by default; use --accept-legacy-v1 to accept unauthenticated rollback results")
+		}
+	}
 
 	out := bodyOut(quiet)
 	if format == "json" {
@@ -152,16 +175,20 @@ func runVerify(args []string) error {
 		// jq parsing. verifyErr (if any) goes into the message
 		// field as a string.
 		payload := struct {
-			Valid    bool                `json:"valid"`
-			KeyID    string              `json:"key_id"`
-			Warnings []api.VerifyWarning `json:"warnings,omitempty"`
-			Error    string              `json:"error,omitempty"`
+			Valid                        bool     `json:"valid"`
+			Accepted                     bool     `json:"accepted"`
+			RollbackResultsAuthenticated bool     `json:"rollback_results_authenticated"`
+			KeyID                        string   `json:"key_id"`
+			Warnings                     []string `json:"warnings,omitempty"`
+			Error                        string   `json:"error,omitempty"`
 		}{
-			Valid: result != nil && result.Valid,
+			Valid:                        valid,
+			Accepted:                     accepted,
+			RollbackResultsAuthenticated: rollbackAuthenticated,
+			Warnings:                     warnings,
 		}
 		if result != nil {
 			payload.KeyID = result.KeyID
-			payload.Warnings = result.Warnings
 		}
 		if verifyErr != nil {
 			payload.Error = verifyErr.Error()
@@ -170,10 +197,16 @@ func runVerify(args []string) error {
 			return err
 		}
 	} else {
-		writeVerifyText(out, result, verifyErr, evidencePath, envelope, pubPath)
+		// Policy rejection must not relabel a matching signature INVALID.
+		textErr := verifyErr
+		if valid {
+			textErr = nil
+		}
+		writeVerifyText(out, result, textErr, evidencePath, envelope, pubPath)
+		fmt.Fprintf(out, "  accepted:        %t\n  rollback_results_authenticated: %t\n", accepted, rollbackAuthenticated)
 	}
 
-	if verifyErr != nil || result == nil || !result.Valid {
+	if verifyErr != nil || !accepted {
 		// Exit 1 (runtime: signature didn't validate). Wrap in
 		// a non-UsageError so runCLI maps to exit 1.
 		if verifyErr != nil {
@@ -192,8 +225,24 @@ func loadEnvelope(path string) (*api.EvidenceEnvelope, error) {
 		return nil, err
 	}
 	var env api.EvidenceEnvelope
-	if err := json.Unmarshal(data, &env); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&env); err != nil {
 		return nil, fmt.Errorf("malformed JSON: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return nil, errors.New("malformed JSON: expected exactly one envelope")
+	}
+	if env.SchemaVersion == "v1" {
+		// The released CLI decoded generic v1 numbers as float64 before
+		// canonicalization. Retain that exact historical behavior, including
+		// its precision limits. v2 keeps the lossless decode above. Select
+		// once by version; never retry a different form after verification.
+		env = api.EvidenceEnvelope{}
+		if err := json.Unmarshal(data, &env); err != nil {
+			return nil, fmt.Errorf("malformed JSON: %w", err)
+		}
 	}
 	return &env, nil
 }
@@ -257,8 +306,8 @@ Trust directory default (in priority order):
 Override with --trust-dir DIR.
 
 Exit codes:
-  0  signature is valid (envelope is authentic)
-  1  signature is INVALID (tampered, wrong key, missing key)
+  0  signature is valid and accepted by CLI policy
+  1  invalid/unverified signature or policy rejection (including v1 by default)
   2  usage error (missing file, bad flag, malformed JSON)
 
 Flags:
@@ -266,7 +315,17 @@ Flags:
 Examples:
   kensa verify evidence.json
   kensa verify evidence.json --trust-dir /etc/kensa/keys
-  kensa verify evidence.json --format json | jq -r .valid
+  kensa verify evidence.json --format json | jq -r .accepted
+  kensa verify historical-v1.json --accept-legacy-v1
+
+v2 authenticates rollback results. Historical v1 does not; accepting it
+requires --accept-legacy-v1 and always warns on stderr, even under --quiet:
+  Legacy v1 signature is valid; rollback results are not authenticated.
+JSON valid describes cryptographic validity; accepted describes CLI policy.
+rollback_results_authenticated is true only for a verified v2 record.
+Upgrade verifiers before producers: older verifiers reject v2. New
+production envelopes use v2, including paths that remain unsigned.
+Keep historical evidence unchanged. A signature does not prove restoration.
 
 CRITICAL FAILURE MODES (exit 1, not 2):
   - Signature mismatch: envelope was tampered after signing
@@ -274,7 +333,7 @@ CRITICAL FAILURE MODES (exit 1, not 2):
   - Wrong key: signature doesn't match the .pub file we found
   - Schema-version unknown: envelope is from a future kensa version
 
-VALIDATION SUCCESS WARNINGS (still exit 0):
+CRYPTOGRAPHIC WARNINGS (CLI acceptance policy still applies):
   - signed_by_rotated_key: matched against a non-active key in
     the rotation history (envelope is authentic but signed by
     a key that's been rotated out)

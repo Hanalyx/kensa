@@ -4,7 +4,7 @@ help:
 	@echo "Kensa — common targets"
 	@echo ""
 	@echo "  build           Build kensa, kensa-fuzz, kensa-validate, kensa-keygen binaries"
-	@echo "  test            Run unit tests"
+	@echo "  test            Build binaries and run unit tests"
 	@echo "  cli-smoke       Run CLI smoke tests (GNU/POSIX exit-code contract)"
 	@echo "  lint            Run golangci-lint"
 	@echo ""
@@ -80,7 +80,8 @@ build:
 	CGO_ENABLED=0 go build -tags netgo $(LDFLAGS) -o bin/kensa-keygen ./cmd/kensa-keygen
 	CGO_ENABLED=0 go build -tags netgo $(LDFLAGS) -o bin/kensa-systemd-helper ./cmd/kensa-systemd-helper
 
-test:
+# Subprocess tests require the current bin/kensa; use the canonical build first.
+test: build
 	go test ./...
 
 # vuln runs govulncheck against the binary call graph. Track S S-005.
@@ -216,7 +217,7 @@ spec-coverage:
 # spec-ingest: regenerate .specter-results.json from a fresh
 # `go test -json` run. Required before spec-coverage-strict so
 # the gate sees the current pass/fail state.
-spec-ingest:
+spec-ingest: build
 	@go test ./... -json > go-test.json 2>&1 || true
 	@specter ingest --go-test go-test.json --output .specter-results.json
 

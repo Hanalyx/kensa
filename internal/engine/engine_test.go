@@ -366,8 +366,8 @@ func TestEngine_AC09_EvidenceEnvelopeAttached(t *testing.T) {
 	if res.Envelope == nil {
 		t.Fatal("expected non-nil Envelope on committed transaction")
 	}
-	if res.Envelope.SchemaVersion != "v1" {
-		t.Errorf("got SchemaVersion=%q, want v1", res.Envelope.SchemaVersion)
+	if res.Envelope.SchemaVersion != "v2" {
+		t.Errorf("got SchemaVersion=%q, want v2", res.Envelope.SchemaVersion)
 	}
 	if res.Envelope.Decision != api.StatusCommitted {
 		t.Errorf("got Decision=%s, want Committed", res.Envelope.Decision)
