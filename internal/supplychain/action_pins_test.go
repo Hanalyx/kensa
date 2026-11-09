@@ -39,7 +39,7 @@ var approvedPins = map[string]actionPin{
 	"actions/setup-python":          {"5fda3b95a4ea91299a34e894583c3862153e4b97", "v7.0.0", 1},  // pragma: allowlist secret
 	"actions/upload-artifact":       {"cf430e030ddbb5b0abf93d22962f4752f3646cd9", "v7.0.2", 3},  // pragma: allowlist secret
 	"golangci/golangci-lint-action": {"ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a", "v9.3.0", 1},  // pragma: allowlist secret
-	"sigstore/cosign-installer":     {"398d4b0eeef1380460a10c8013a76f728fb906ac", "v3.9.1", 1},  // pragma: allowlist secret
+	"sigstore/cosign-installer":     {"6f9f17788090df1f26f669e9d70d6ae9567deba6", "v4.1.2", 1},  // pragma: allowlist secret
 }
 
 const totalExternalRefs = 37
