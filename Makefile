@@ -1,4 +1,4 @@
-.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline docs-check docs-style docs-style-all docs-style-sync parity-containers parity-containers-quick roundtrip roundtrip-check roundtrip-baseline viewer hooks status clean
+.PHONY: help build test lint comment-lint comment-lint-all cli-smoke spec-sync spec-parse spec-check spec-coverage spec-coverage-strict spec-ingest spec-graph spec-watch spec-doctor spec-explain manpage manpage-check proto proto-check vuln mod-tidy-check catalog catalog-check catalog-baseline docs-check docs-style docs-style-all docs-style-sync parity-containers parity-containers-quick roundtrip roundtrip-check roundtrip-baseline lab-gate-test viewer hooks status clean
 
 help:
 	@echo "Kensa — common targets"
@@ -35,9 +35,10 @@ help:
 	@echo "  parity-containers  Quick tier: scan ubi9/Rocky/AlmaLinux containers, diff verdicts (needs docker)"
 	@echo "  parity-containers-quick  Same, one rule subtree, for a fast loop"
 	@echo ""
-	@echo "  roundtrip          Run rules backwards on a live host: fail -> remediate -> pass -> rollback -> fail (RT_HOST=ip)"
+	@echo "  roundtrip          Run rules backwards on a live host: fail -> remediate -> pass -> rollback -> fail (RT_HOST=ip RT_GUEST_USER=user)"
 	@echo "  roundtrip-check    Gate the last round-trip run against scripts/roundtrip_baseline.json"
 	@echo "  roundtrip-baseline Record the last run as the new baseline (commit the diff)"
+	@echo "  lab-gate-test      Unit-test the Proxmox capacity gate and nightly round-trip wiring (no hypervisor contact)"
 	@echo ""
 	@echo "  hooks           Install git pre-commit hooks (conflict-marker/fmt/vet/lint/secret guards)"
 	@echo "  status          Print + write bin/STATUS.json — machine-readable current release/coverage state"
@@ -162,6 +163,7 @@ parity-containers-quick: ## same, one rule subtree, for a fast loop
 # not a container: audit_rule_set cannot capture pre-state in a container, so
 # the remediation half never runs there.
 RT_HOST ?=
+RT_GUEST_USER ?=
 RT_MECH ?= audit_rule_set
 RT_OUT ?= bin/roundtrip.json
 # One baseline per mechanism. A single shared file cannot work: the gate fails
@@ -170,14 +172,19 @@ RT_OUT ?= bin/roundtrip.json
 # original filename so existing runs and CI wiring are unaffected.
 RT_BASELINE = $(if $(filter audit_rule_set,$(RT_MECH)),scripts/roundtrip_baseline.json,scripts/roundtrip_baseline_$(RT_MECH).json)
 
-roundtrip: build ## round-trip every rule of one mechanism on a host (RT_HOST=ip [RT_MECH=...])
+roundtrip: build ## round-trip every rule of one mechanism on a host (RT_HOST=ip RT_GUEST_USER=user [RT_MECH=...])
 	@test -n "$(RT_HOST)" || { echo "set RT_HOST=<ip of a disposable host>"; exit 2; }
-	python3 scripts/roundtrip.py --host $(RT_HOST) --mechanism $(RT_MECH) --out $(RT_OUT)
+	@test -n "$(RT_GUEST_USER)" || { echo "set RT_GUEST_USER=<login user on that host>"; exit 2; }
+	python3 scripts/roundtrip.py --host $(RT_HOST) --user $(RT_GUEST_USER) --mechanism $(RT_MECH) --out $(RT_OUT)
+
+lab-gate-test: ## unit tests for the Proxmox capacity gate and the nightly round-trip wiring (no hypervisor contact)
+	python3 -m unittest scripts/test_lab_gate.py -v
 
 # A single-host run writes RT_OUT; the sharded runner writes one report per
-# shard under bin/roundtrip/. Accept whichever exists, so the same target works
-# after either, rather than failing on a path the caller did not choose.
-RT_REPORTS = $(wildcard bin/roundtrip/shard-*.json) $(wildcard $(RT_OUT))
+# shard under its own bin/roundtrip/run-<id>/, linked as bin/roundtrip/latest.
+# Accept whichever exists, so the same target works after either, rather than
+# failing on a path the caller did not choose.
+RT_REPORTS = $(wildcard bin/roundtrip/latest/shard-*.json) $(wildcard $(RT_OUT))
 
 roundtrip-check: ## gate the last round-trip run against the recorded baseline
 	@test -n "$(RT_REPORTS)" || { echo "no round-trip report found; run 'make roundtrip' first"; exit 2; }

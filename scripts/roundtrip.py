@@ -24,8 +24,8 @@ Nothing here is authored per rule. The mutation is the remediation run backwards
 so there is no second corpus to drift out of sync with the first. A rule that
 changes brings its own test along.
 
-    scripts/roundtrip.py --host 192.168.1.161 --rules-from list.txt --out rt.json
-    scripts/roundtrip.py --host H --mechanism audit_rule_set --rules-dir rules
+    scripts/roundtrip.py --host <guest-ip> --user <guest-user> --rules-from list.txt --out rt.json
+    scripts/roundtrip.py --host H --user U --mechanism audit_rule_set --rules-dir rules
 
 Outcomes per rule:
 
@@ -317,7 +317,10 @@ def collect(rules_dir: Path, mechanism: str | None, from_file: Path | None) -> l
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--host", required=True)
-    ap.add_argument("--user", default="owadmin")
+    # No default user: templates differ (a STIG template may have no cloud-init
+    # user at all), so the caller must say which login the guest accepts.
+    ap.add_argument("--user", default=os.environ.get("RT_GUEST_USER"),
+                    help="login user on the guest (default: $RT_GUEST_USER)")
     ap.add_argument("--key", default=str(Path.home() / ".ssh" / "id_ed25519"))
     ap.add_argument("--rules-dir", default=str(REPO / "rules"), type=Path)
     ap.add_argument("--mechanism", help="only rules whose remediation uses this")
@@ -337,6 +340,9 @@ def main() -> int:
         return 0
     if not a.out:
         print("--out is required unless --list is given", file=sys.stderr)
+        return 2
+    if not a.user:
+        print("--user (or RT_GUEST_USER) is required unless --list is given", file=sys.stderr)
         return 2
 
     if not KENSA.exists():
