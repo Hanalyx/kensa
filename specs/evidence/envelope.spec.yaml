@@ -1,6 +1,6 @@
 spec:
     id: evidence-envelope
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
 
@@ -9,14 +9,14 @@ spec:
         feature: evidence-envelope
         description: |
             The evidence envelope is the signed, structured record of a
-            Kensa transaction that auditors, OpenWatch's audit UI, and
-            third-party tools consume as proof of what happened on a
-            host. It contains timestamp, host context, pre-state, change
-            attempted, validation results, commit/rollback decision,
-            post-state, framework mappings, and an Ed25519 signature
-            over the canonicalized payload bytes. This spec is the
-            canonical schema OpenWatch's audit UI renders from without
-            reverse-engineering Go types.
+            Kensa per-rule transaction for auditors and downstream tools.
+            The searched OpenWatch adapter stores envelopes; its deployed
+            verification and audit UI behavior are not established here.
+            It contains host and time context, state bundles, steps,
+            validation, decision, rollback results and framework mappings.
+            A valid signature authenticates the fields covered by its
+            schema version; it does not establish that host restoration
+            actually succeeded. Consumer rendering is separately assessed.
         related_specs:
             - engine-transaction
             - transaction-log
@@ -24,8 +24,9 @@ spec:
     objective:
         summary: |
             Define the EvidenceEnvelope structure, its canonicalization
-            rules, its Ed25519 signature contract, and its JSON Schema
-            for consumers. This is the cross-system interface between
+            rules and its Ed25519 signature contract. JSON Schema
+            generation and cross-repository mirroring remain deferred.
+            This is the cross-system interface between
             Kensa's per-transaction attestation and every consumer that
             verifies, displays, or exports it.
         scope:
@@ -33,7 +34,7 @@ spec:
                 - EvidenceEnvelope Go struct and field contracts
                 - Canonicalization rules (field order, encoding, normalization)
                 - Ed25519 signature contract (what is signed, how verified)
-                - JSON Schema for envelope shape (shipped as evidence/envelope-v1.json)
+                - Versioned signature coverage and canonical vectors
                 - OSCAL export mapping
                 - VerifyResult shape returned by Kensa.VerifyEnvelope
                 - Key rotation and key history handling
@@ -41,24 +42,36 @@ spec:
                 - Signing key storage (handled by the signer subsystem)
                 - HSM integration (future)
                 - Aggregate audit export signing (OpenWatch concern)
+                - JSON Schema generation and cross-repository mirror (deferred AC-07/AC-10)
 
     constraints:
         - id: C-01
           description: |
-              Canonicalization MUST produce byte-identical output for
-              semantically equal envelopes. JSON serialization uses
-              sorted keys, RFC 3339 timestamps in UTC, and no trailing
-              whitespace. Signature verification depends on exact byte
-              reproducibility.
+              Canonicalization MUST reproduce the exact bytes defined by the
+              selected schema version, with sorted JSON keys and no trailing
+              whitespace. Freeze all historical v1 serialization, omission and
+              normalization rules from v0.12.0, including nested timestamp
+              encodings and number precision. v2 retains those rules for existing
+              fields and adds rollback_results per AC-02. Top-level StartedAt and
+              FinishedAt, and v2 rollback ExecutedAt, use UTC RFC3339Nano.
+              Do not reinterpret or re-normalize historical v1 records.
           type: security
           enforcement: error
         - id: C-02
           description: |
-              The Ed25519 signature covers the full canonicalized
-              payload bytes including every field EXCEPT the signature
-              itself and the signing_key_id. Signing the hash of the
-              payload is NOT acceptable — the algorithm signs the
-              bytes directly.
+              The v1 Ed25519 contract signs its historical canonical bytes under
+              kensa-evidence-envelope-v1 followed by a NUL byte. v1 excludes
+              RollbackResults as well as Signature and SigningKeyID. Preserve
+              v0.12.0 v1 canonical bytes, domain-prefixed bytes, signatures and
+              EnvelopeHash, including records with nonempty rollback results.
+              The v2 contract signs every declared EvidenceEnvelope field except
+              Signature and SigningKeyID, including Severity and all seven fields
+              of every RollbackResult. Its distinct domain is
+              kensa-evidence-envelope-v2 followed by a NUL byte. Sign the tagged
+              canonical bytes directly, never a hash. Select exactly one form and
+              domain from schema_version; never retry another form on failure.
+              Unknown JSON extension members are not part of the typed API contract
+              and are not claimed to be authenticated.
           type: security
           enforcement: error
         - id: C-03
@@ -93,27 +106,44 @@ spec:
     acceptance_criteria:
         - id: AC-01
           description: |
-              EvidenceEnvelope struct contains: schema_version,
-              transaction_id, rule_id, host_id, fleet_id, started_at,
-              finished_at, pre_state_bundle, apply_steps,
-              validator_results, decision (committed|rolled_back|
-              partially_applied|errored), post_state_bundle,
-              framework_refs, signing_key_id, signature.
+              EvidenceEnvelope contains the current API fields: SchemaVersion,
+              TransactionID, RuleID, HostID, FleetID, StartedAt, FinishedAt,
+              PreStateBundle, ApplySteps, ValidatorResults, RollbackResults,
+              Decision, Severity, PostStateBundle, FrameworkRefs, SigningKeyID
+              and Signature. The permitted Decision values are committed,
+              rolled_back, partially_applied, errored, rollback_failed,
+              recovered and staged. This criterion adds no API fields or statuses; check the
+              actual struct and wire tags, including optional field behavior.
           references_constraints: [C-01, C-03]
           priority: critical
         - id: AC-02
           description: |
-              Canonical serialization produces byte-identical output
-              for semantically equal envelopes across Go, Python, and
-              any future consumer. Verified by a cross-language
-              canonicalization test.
+              Fixed v0.12.0 v1 vectors and independent v2 vectors produce exact
+              matching canonical bytes, domain-prefixed bytes, signatures and
+              EnvelopeHash in Go and Python. Include empty and multiple rollback
+              entries, UTC/subsecond timestamps, escaping, integer precision and
+              actual nested wire field names. v2 canonical JSON always includes
+              rollback_results, normalizes nil to [], preserves entry order and
+              formats ExecutedAt in UTC RFC3339Nano. Preserve all historical v1
+              bytes and hashes. Two input encodings normalized to the same content
+              may share signed bytes; raw JSON byte identity is not promised.
           references_constraints: [C-01]
           priority: critical
         - id: AC-03
           description: |
-              Ed25519 signature covers the full canonicalized payload
-              bytes (excluding signature and signing_key_id). A tamper
-              of any field invalidates the signature.
+              First verify a valid v2 baseline. Editing each RollbackResult field
+              (StepIndex, Mechanism, Success, Detail, PartialRestore, Source and
+              ExecutedAt), adding or removing an entry, and reordering two distinct
+              entries each causes a signature mismatch. Tampering with every other
+              signed envelope field, including Severity, also fails. A field-set
+              guard detects any newly declared API field omitted from the v2 signed
+              form. Fixed v1 vectors with nonempty rollback results retain a valid
+              signature and the same EnvelopeHash when only those results change;
+              the v1 limitation must be reported to CLI callers. Removing rollback
+              results from the v2 canonical form makes the targeted tamper tests
+              fail after the valid baseline passes. Keep mutation diff and failure
+              output; an unknown version, absent key or unrelated error does not
+              count as the intended failure.
           references_constraints: [C-02]
           priority: critical
         - id: AC-04
@@ -128,8 +158,9 @@ spec:
           description: |
               VerifyEnvelope returns VerifyResult{Valid: false} with a
               specific error when the signature matches no known key.
-              The error identifies whether the envelope is tampered
-              vs signed by a foreign key.
+              The error reports that no known key matched. A mismatch alone
+              cannot establish whether the cause is tampering or a foreign
+              signing key; do not invent that diagnosis or change the API.
           references_constraints: [C-02, C-04]
           priority: critical
         - id: AC-06
@@ -139,6 +170,32 @@ spec:
               it does not understand — fail-closed.
           references_constraints: [C-03]
           priority: high
+        - id: AC-11
+          description: |
+              API VerifyResult.Valid remains cryptographic: true for a
+              matching v1 or v2 signature, regardless of CLI acceptance.
+              Unknown, empty or swapped schema versions fail closed;
+              changing a version label cannot authenticate with the
+              other version's domain. Bad signatures, absent matching trusted
+              keys and unsigned records never verify. Preserve the nonfatal
+              KeyIDMismatch warning after a signature matches a supplied key;
+              CLI key-ID validation must not change API Valid semantics.
+              Preserve key rotation, redaction and signature-length checks.
+          references_constraints: [C-02, C-03, C-04]
+          priority: critical
+        - id: AC-12
+          description: |
+              After upgrade all newly constructed production envelopes
+              identify v2, including engine and scan persistence paths.
+              Paths intentionally unsigned remain unsigned; a v2 label
+              alone makes no authenticity claim. Keep historical rows
+              untouched. Verify a signed engine result, then read it
+              through real SQLite and verify again. Preserve copy
+              ownership, redaction, persistence-demotion re-signing and
+              unsigned failure sentinels. Do not change execution or
+              restoration decisions.
+          references_constraints: [C-02, C-03]
+          priority: critical
         - id: AC-08
           description: |
               OSCAL export maps every EvidenceEnvelope to a valid
@@ -151,7 +208,7 @@ spec:
           description: |
               VerifyEnvelope is a pure function. Calling it repeatedly
               with the same arguments produces the same result and
-              no observable side effects.
+              no observable side effects, for both v1 and v2.
           references_constraints: [C-05]
           priority: high
 

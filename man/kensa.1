@@ -512,8 +512,8 @@ Trust directory default (in priority order):
 Override with \-\-trust\-dir DIR.
 
 Exit codes:
-  0  signature is valid (envelope is authentic)
-  1  signature is INVALID (tampered, wrong key, missing key)
+  0  signature is valid and accepted by CLI policy
+  1  invalid/unverified signature or policy rejection (including v1 by default)
   2  usage error (missing file, bad flag, malformed JSON)
 
 Flags:
@@ -521,11 +521,22 @@ Flags:
       \-\-trust\-dir string   directory of .pub files to look up signing_key_id (default matches kensa\-keygen's output dir)
       \-\-format string      output format: text or json (default "text")
   \-q, \-\-quiet              suppress default output (errors still go to stderr)
+      \-\-accept\-legacy\-v1   accept a valid legacy v1 signature; rollback results remain unauthenticated
 
 Examples:
   kensa verify evidence.json
   kensa verify evidence.json \-\-trust\-dir /etc/kensa/keys
-  kensa verify evidence.json \-\-format json | jq \-r .valid
+  kensa verify evidence.json \-\-format json | jq \-r .accepted
+  kensa verify historical\-v1.json \-\-accept\-legacy\-v1
+
+v2 authenticates rollback results. Historical v1 does not; accepting it
+requires \-\-accept\-legacy\-v1 and always warns on stderr, even under \-\-quiet:
+  Legacy v1 signature is valid; rollback results are not authenticated.
+JSON valid describes cryptographic validity; accepted describes CLI policy.
+rollback_results_authenticated is true only for a verified v2 record.
+Upgrade verifiers before producers: older verifiers reject v2. New
+production envelopes use v2, including paths that remain unsigned.
+Keep historical evidence unchanged. A signature does not prove restoration.
 
 CRITICAL FAILURE MODES (exit 1, not 2):
   \- Signature mismatch: envelope was tampered after signing
@@ -533,7 +544,7 @@ CRITICAL FAILURE MODES (exit 1, not 2):
   \- Wrong key: signature doesn't match the .pub file we found
   \- Schema\-version unknown: envelope is from a future kensa version
 
-VALIDATION SUCCESS WARNINGS (still exit 0):
+CRYPTOGRAPHIC WARNINGS (CLI acceptance policy still applies):
   \- signed_by_rotated_key: matched against a non\-active key in
     the rotation history (envelope is authentic but signed by
     a key that's been rotated out)

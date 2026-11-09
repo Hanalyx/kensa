@@ -1,6 +1,6 @@
 spec:
     id: deadman-signalfd
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 1
 
@@ -14,15 +14,11 @@ spec:
             helper that complements pidfd (D-002) as the
             fallback for kernels <5.3.
 
-            **Why signalfd not signal.Notify.** Go's
-            os/signal package handles signals via a goroutine
-            that converts them to channel sends. For the
-            deadman event loop (D-004), we want signal
-            delivery as an epoll-readable fd alongside
-            timerfd (D-001) and pidfd (D-002). signalfd(2)
-            gives us a fd that becomes readable on signal
-            delivery; the event loop integrates it
-            uniformly.
+            **Mechanism.** A self-pipe and os/signal.Notify expose
+            Go signal delivery as an epoll-readable descriptor. This
+            contract does not require Linux signalfd(2), thread signal
+            masks or process-wide sigprocmask changes. Pipe access is
+            nonblocking and protected until each active operation ends.
 
             **Signals handled:** SIGTERM only for v1.
             Operators stopping the agent cleanly send
@@ -54,13 +50,15 @@ spec:
 
     objective:
         summary: |
-            Wrap unix.Signalfd for SIGTERM delivery as a poll-
-            readable fd. Wrap unix.Prctl(PR_SET_PDEATHSIG, sig)
-            as a helper.
+            Expose SIGTERM delivery through a nonblocking self-pipe
+            registered with os/signal.Notify. Protect descriptor lifetime
+            during concurrent use and closure. Retain the
+            unix.Prctl(PR_SET_PDEATHSIG, sig) helper.
         scope:
             includes:
                 - "internal/agent/deadman/signalfd/signalfd.go: SignalFD type for SIGTERM + SetParentDeathSignal helper"
                 - "internal/agent/deadman/signalfd/signalfd_test.go: unit tests"
+                - "internal/agent/deadman/signalfd/lifetime_test.go: descriptor and signal lifecycle tests"
             excludes:
                 - "End-to-end PR_SET_PDEATHSIG fork-and-kill test (D-006)"
                 - "Multiple-signal support (only SIGTERM in v1)"
@@ -69,17 +67,17 @@ spec:
     constraints:
         - id: C-01
           description: |
-              SignalFD MUST use signalfd_create with
-              SFD_CLOEXEC so the fd doesn't leak across exec.
+              SignalFD MUST create a self-pipe with FD_CLOEXEC
+              and O_NONBLOCK on both ends. Neither end may leak
+              across exec or block a raw read/write operation.
           type: technical
           enforcement: error
         - id: C-02
           description: |
-              SignalFD MUST block the watched signals at the
-              process level via sigprocmask, otherwise the
-              default disposition (terminate) takes effect
-              before signalfd can deliver. This is the
-              standard signalfd usage pattern.
+              SignalFD MUST register its own buffered notification
+              channel with os/signal.Notify and forward delivery to
+              the pipe. It MUST NOT change thread signal masks or
+              replace other registered notification channels.
           type: technical
           enforcement: error
         - id: C-03
@@ -91,39 +89,82 @@ spec:
           enforcement: error
         - id: C-04
           description: |
-              SignalFD.Close MUST restore the prior signal
-              mask so the agent doesn't permanently mask
-              SIGTERM after teardown.
+              SignalFD.Close MUST unregister only its own notification
+              channel with signal.Stop, join its pump and active
+              descriptor operations, and release both pipe ends.
+              Concurrent Close calls MUST return after the same completed
+              teardown. Other subscribers MUST remain registered.
+              In a process with prior default SIGTERM handling, closing the
+              last subscriber MUST restore default termination. Close MUST NOT
+              globally reset signal handling.
+          type: technical
+          enforcement: error
+
+        - id: C-05
+          description: |
+              Wait MUST retain descriptor ownership across poll and drain.
+              Close MUST publish closure before waiting for active operations.
+              A pending Wait MUST finish with ErrClosed when closure is
+              observed, without accessing a closed or reused descriptor.
+              Cancellation MUST return ctx.Err() without leaking ownership.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              A full pipe MUST NOT block the pump or prevent Close.
+              Notifications may coalesce while the pipe is already readable.
+          type: technical
+          enforcement: error
+        - id: C-07
+          description: |
+              FD MUST return a concurrency-safe snapshot, or -1 once closure
+              begins. The returned integer is not a lifetime lease. External
+              epoll owners MUST finish using it before closing SignalFD.
           type: technical
           enforcement: error
 
     acceptance_criteria:
         - id: AC-01
           description: |
-              TestSignalfd_DeliversSIGTERM: New(SIGUSR1) +
-              syscall.Kill(getpid, SIGUSR1) → Wait returns
-              within 200ms. Verifies SFD_CLOEXEC and signal
-              mask via the self-pipe + signal.Notify design.
-          references_constraints: [C-01, C-02]
+              TestSignalfd_DeliversSIGTERM: New(SIGUSR1) and actual process
+              signal delivery make Wait return within 200ms.
+          references_constraints: [C-02]
         - id: AC-02
           description: |
-              TestSignalfd_ContextCancel: Wait(ctx) returns
-              ctx.Err() if ctx is canceled before signal.
-              Also locks the close-during-wait race via
-              TestSignalfd_ConcurrentCloseDuringWait, which
-              exercises the mask-restore path on Close.
-          references_constraints: [C-04]
+              TestSignalfd_ContextCancel returns ctx.Err() on cancellation.
+              TestSignalfd_ConcurrentCloseDuringWait uses a syscall rendezvous
+              and returns ErrClosed after concurrent closure begins.
+          references_constraints: [C-05]
         - id: AC-03
           description: |
-              TestSignalfd_CloseIdempotent: after Close,
-              the watched signal is unblocked (signal.Stop
-              restores the default disposition) and the fds
-              are released. Subsequent Close calls are no-ops.
-          references_constraints: [C-04]
+              TestSignalfd_CloseIdempotent verifies closed-state results.
+              TestSignalFD_ConcurrentCloseCompletesTeardown verifies that all
+              concurrent callers observe released descriptors on return.
+          references_constraints: [C-04, C-07]
         - id: AC-04
           description: |
-              TestPrctl_SetReturnsNoError +
-              TestPrctl_AcceptsSIGUSR1: SetParentDeathSignal
-              accepts any signal number; end-to-end
-              parent-death-kills-child test scoped to D-006.
+              TestPrctl_SetReturnsNoError and TestPrctl_AcceptsSIGUSR1 verify
+              accepted signal arguments. The end-to-end parent-death test
+              remains outside this wrapper's scope.
           references_constraints: [C-03]
+        - id: AC-05
+          description: |
+              TestSignalFD_LifetimeLease pauses real poll and drain operations
+              and verifies ownership, completed closure and ErrClosed results.
+          references_constraints: [C-05]
+        - id: AC-06
+          description: |
+              TestSignalFD_FullPipeDoesNotBlockPumpOrClose verifies pipe flags
+              and completed teardown while the real pipe is full.
+          references_constraints: [C-01, C-06]
+        - id: AC-07
+          description: |
+              TestSignalFD_SignalLifecycle uses isolated real processes to
+              verify delivery, preservation of another subscriber, and restored
+              default SIGTERM termination after the last subscriber closes.
+          references_constraints: [C-02, C-04]
+        - id: AC-08
+          description: |
+              TestSignalFD_ClosedWaitDoesNotReadReusedDescriptor forces real
+              descriptor reuse and verifies unrelated pipe bytes remain intact.
+          references_constraints: [C-05, C-07]

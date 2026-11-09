@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -99,10 +98,19 @@ type Event struct {
 type Loop struct {
 	epfd int
 
+	// life leases epfd across kernel operations; mu protects source registration.
+	// Register and Run share lifetime leases, so registration can wake a pending Run.
+	life    sync.RWMutex
 	mu      sync.Mutex
 	sources map[int]EventKind // fd → kind
 
-	closed atomic.Bool
+	closed    atomic.Bool
+	closeOnce sync.Once
+	closeErr  error
+
+	// Per-instance seam for deterministic tests around real kernel waits.
+	wait           func(int, []unix.EpollEvent, int) (int, error)
+	beforeRegister func()
 }
 
 // New creates a Loop with an epoll fd (EPOLL_CLOEXEC set).
@@ -114,6 +122,7 @@ func New() (*Loop, error) {
 	return &Loop{
 		epfd:    fd,
 		sources: make(map[int]EventKind),
+		wait:    unix.EpollWait,
 	}, nil
 }
 
@@ -126,14 +135,22 @@ func New() (*Loop, error) {
 //
 // Returns ErrClosed if Close has been called.
 func (l *Loop) Register(fd int, kind EventKind) error {
+	l.life.RLock()
+	defer l.life.RUnlock()
 	if l.closed.Load() {
 		return ErrClosed
 	}
 	if kind == EventUnknown {
 		return errors.New("eventloop: cannot register EventUnknown")
 	}
+	if l.beforeRegister != nil {
+		l.beforeRegister()
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.closed.Load() {
+		return ErrClosed
+	}
 	ev := &unix.EpollEvent{
 		Events: unix.EPOLLIN,
 		Fd:     int32(fd),
@@ -153,82 +170,68 @@ func (l *Loop) Register(fd int, kind EventKind) error {
 // case (fire rollback and exit) doesn't need persistent
 // dispatch.
 func (l *Loop) Run(ctx context.Context) (Event, error) {
-	if l.closed.Load() {
-		return Event{}, ErrClosed
-	}
 	events := make([]unix.EpollEvent, 8)
 	for {
-		if l.closed.Load() {
-			return Event{}, ErrClosed
+		event, err := l.waitOnce(ctx, events)
+		if err != nil || event.Kind != EventUnknown {
+			return event, err
 		}
-		if err := ctx.Err(); err != nil {
-			return Event{}, err
-		}
-		n, err := unix.EpollWait(l.epfd, events, pollInterval)
-		if err != nil {
-			if errors.Is(err, unix.EINTR) {
-				continue
-			}
-			if l.closed.Load() {
-				return Event{}, ErrClosed
-			}
-			return Event{}, fmt.Errorf("eventloop: epoll_wait: %w", err)
-		}
-		if n == 0 {
-			continue
-		}
-		// First-event-wins. If multiple fds fired in the
-		// same epoll batch, we return the first; the rest
-		// stay readable for a hypothetical re-Run call.
-		// The "first" is determined by kernel registration
-		// order, which is acceptable for D-005's deadman
-		// (any wakeup triggers rollback; which one fires
-		// first doesn't matter for fail-safe semantics).
-		//
-		// We don't inspect events[i].Events for POLLERR /
-		// POLLHUP — if a registered fd transitions to an
-		// error state, we still report the wakeup. The
-		// deadman's failure model is fail-safe: trip on
-		// suspicion, don't gate on "the fd looks healthy."
-		l.mu.Lock()
-		var found Event
-		for i := 0; i < n; i++ {
-			fd := int(events[i].Fd)
-			kind, ok := l.sources[fd]
-			if !ok {
-				continue
-			}
-			found = Event{Kind: kind, FD: fd}
-			break
-		}
-		l.mu.Unlock()
-		if found.Kind == EventUnknown {
-			// epoll returned an fd we don't know about
-			// (raced with concurrent Register/unregister?).
-			// Loop and re-poll.
-			continue
-		}
-		return found, nil
 	}
 }
 
-// Close releases the epoll fd. Idempotent.
-//
-// Safe to call concurrently with a pending Run — the run
-// loop observes the closed flag within pollInterval and
-// exits via ErrClosed before this method's unix.Close runs.
-func (l *Loop) Close() error {
-	if !l.closed.CompareAndSwap(false, true) {
-		return nil
+// waitOnce retains epfd through the kernel wait and interpretation of readiness.
+// Its shared lease allows concurrent Register calls; Close waits for its release.
+func (l *Loop) waitOnce(ctx context.Context, events []unix.EpollEvent) (Event, error) {
+	l.life.RLock()
+	defer l.life.RUnlock()
+	if l.closed.Load() {
+		return Event{}, ErrClosed
 	}
+	if err := ctx.Err(); err != nil {
+		return Event{}, err
+	}
+	n, err := l.wait(l.epfd, events, pollInterval)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	// Drain so a concurrent Run observes closed=true and
-	// exits before we close the epoll fd. Avoids the
-	// Go-on-Linux fd-reuse footgun.
-	time.Sleep(2 * pollInterval * time.Millisecond)
-	if err := unix.Close(l.epfd); err != nil && !errors.Is(err, unix.EBADF) {
-		return fmt.Errorf("eventloop: close: %w", err)
+	if l.closed.Load() {
+		return Event{}, ErrClosed
 	}
-	return nil
+	if err := ctx.Err(); err != nil {
+		return Event{}, err
+	}
+	if errors.Is(err, unix.EINTR) {
+		return Event{}, nil
+	}
+	if err != nil {
+		return Event{}, fmt.Errorf("eventloop: epoll_wait: %w", err)
+	}
+	if n == 0 {
+		return Event{}, nil
+	}
+	// First-event-wins, retaining the existing kernel batch order and source tags.
+	// Level-triggered sources remain readable until their owner drains them.
+	// Error/hangup readiness still counts as a wakeup, preserving fail-safe policy.
+	for i := 0; i < n; i++ {
+		fd := int(events[i].Fd)
+		if kind, ok := l.sources[fd]; ok {
+			return Event{Kind: kind, FD: fd}, nil
+		}
+	}
+	// Ignore unregistered sources and retry, as before.
+	return Event{}, nil
+}
+
+// Close publishes closure, joins active kernel operations and releases epfd once.
+// Concurrent Close calls wait for the same completed teardown. Source descriptor
+// ownership remains with callers, who must keep sources open while registered.
+func (l *Loop) Close() error {
+	l.closeOnce.Do(func() {
+		l.closed.Store(true)
+		l.life.Lock()
+		defer l.life.Unlock()
+		if err := unix.Close(l.epfd); err != nil && !errors.Is(err, unix.EBADF) {
+			l.closeErr = fmt.Errorf("eventloop: close: %w", err)
+		}
+	})
+	return l.closeErr
 }

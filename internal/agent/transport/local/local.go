@@ -32,6 +32,7 @@ import (
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/agent/fsatomic"
 	"github.com/Hanalyx/kensa/internal/agent/kernelio"
+	"github.com/Hanalyx/kensa/internal/agent/ownedexec"
 	"github.com/Hanalyx/kensa/internal/agent/systemd"
 )
 
@@ -115,13 +116,34 @@ func (t *Transport) Run(ctx context.Context, cmd string) (*api.CommandResult, er
 		// (same pattern as bootstrap.shellQuote).
 		shellCmd = "sudo -n sh -c " + shellQuote(cmd)
 	}
+	if ownedexec.IsOwned(ctx) {
+		start := time.Now()
+		stdout, stderr, err := ownedexec.Run(ctx, "sh", "-c", shellCmd)
+		result := &api.CommandResult{Stdout: strings.TrimRight(stdout, "\n"), Stderr: strings.TrimRight(stderr, "\n"), Duration: time.Since(start)}
+		if err != nil {
+			// Only an ordinary settled command exit is a CommandResult. Joined
+			// cancellation/accounting failures must remain errors to the caller.
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				result.ExitCode = exitErr.ExitCode()
+				return result, nil
+			}
+			return result, fmt.Errorf("local owned exec: %w", err)
+		}
+		return result, nil
+	}
+	if err := ownedexec.NativeError(ctx); err != nil {
+		return nil, err
+	}
 	c := exec.CommandContext(ctx, "sh", "-c", shellCmd)
 	var stdout, stderr bytes.Buffer
 	c.Stdout = &stdout
 	c.Stderr = &stderr
 
 	start := time.Now()
-	err := c.Run()
+	err := c.Start()
+	if err == nil {
+		err = ownedexec.ObserveNativeWait(ctx, c, c.Wait())
+	}
 	duration := time.Since(start)
 
 	result := &api.CommandResult{

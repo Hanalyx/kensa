@@ -379,6 +379,9 @@ type RollbackResult struct {
 // kensa-spec/specs/evidence/envelope-v1.yaml so polyglot consumers
 // share one source of truth.
 type EvidenceEnvelope struct {
+	// SchemaVersion selects the canonical signing and verification contract.
+	// v1 excludes RollbackResults; v2 includes it. Each version uses a distinct
+	// signature domain tag. Verifiers reject unknown versions.
 	SchemaVersion    string            `json:"schema_version"`
 	TransactionID    uuid.UUID         `json:"transaction_id"`
 	RuleID           string            `json:"rule_id"`

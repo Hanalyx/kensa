@@ -6,10 +6,9 @@
 //
 // The canonical bytes are produced by:
 //
-//  1. Building a struct of every signable field (every field of
-//     api.EvidenceEnvelope EXCEPT Signature and SigningKeyID per
-//     spec C-02 — INCLUDING the Severity field, peer-review-
-//     caught regression).
+//  1. Selecting the canonical form by SchemaVersion. Historical v1
+//     excludes RollbackResults, Signature and SigningKeyID. v2 signs
+//     every declared field except Signature and SigningKeyID.
 //  2. Marshaling that struct to JSON.
 //  3. Round-tripping through map[string]any to force alphabetical
 //     key order (spec C-01: "JSON serialization uses sorted keys").
@@ -62,6 +61,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -84,6 +84,8 @@ import (
 // MUST be cross-language stable. Python / OpenWatch implementations
 // of the verifier MUST use the same exact bytes.
 var sigDomainTag = []byte("kensa-evidence-envelope-v1\x00")
+
+var sigDomainTagV2 = []byte("kensa-evidence-envelope-v2\x00")
 
 // Signer implements engine.Signer with a live Ed25519 private key
 // (sign + verify) OR a public-only verifier (verify only, returned
@@ -159,8 +161,15 @@ func signedBytes(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]byte, 0, len(sigDomainTag)+len(canonical))
-	out = append(out, sigDomainTag...)
+	tag := sigDomainTag
+	if envelope.SchemaVersion == "v2" {
+		tag = sigDomainTagV2
+	}
+	if len(canonical) > math.MaxInt-len(tag) {
+		return nil, errors.New("evidence: canonical payload exceeds addressable size")
+	}
+	out := make([]byte, 0, len(tag)+len(canonical))
+	out = append(out, tag...)
 	out = append(out, canonical...)
 	return out, nil
 }
@@ -239,8 +248,8 @@ func (s *Signer) Verify(envelope *api.EvidenceEnvelope) (*api.VerifyResult, erro
 	if envelope.SchemaVersion == "" {
 		return nil, errors.New("evidence: envelope missing schema_version")
 	}
-	if envelope.SchemaVersion != "v1" {
-		return nil, fmt.Errorf("evidence: unknown schema_version %q; verifier only understands v1", envelope.SchemaVersion)
+	if envelope.SchemaVersion != "v1" && envelope.SchemaVersion != "v2" {
+		return nil, fmt.Errorf("evidence: unknown schema_version %q; verifier only understands v1 and v2", envelope.SchemaVersion)
 	}
 	// Defensive length pre-check. Stdlib ed25519.Verify also rejects
 	// wrong-size signatures cleanly, but pre-checking here makes the
@@ -328,8 +337,8 @@ func (s *Signer) Public() ed25519.PublicKey {
 func (s *Signer) KeyID() string { return s.keyID }
 
 // envelopeCanonical is the shape that is serialized for signing.
-// Contains every field of api.EvidenceEnvelope EXCEPT Signature
-// and SigningKeyID per spec C-02. Severity is INCLUDED — peer
+// This is the historical v1 shape, which excludes RollbackResults,
+// Signature and SigningKeyID. Severity is INCLUDED — peer
 // review caught its prior omission as a silent forgery vector
 // (an attacker mutating severity on disk would still pass
 // verification).
@@ -355,10 +364,57 @@ type envelopeCanonical struct {
 	FrameworkRefs    []api.FrameworkRef    `json:"framework_refs"`
 }
 
-// canonicalize returns the canonical JSON bytes of envelope per
-// spec C-01: alphabetically-sorted keys, nanosecond-precision UTC
-// RFC3339 timestamps, no `null` values for nil slices, and
-// Signature + SigningKeyID excluded.
+// canonicalize selects exactly one versioned canonical form. It never
+// retries another version when signing or verification fails.
+func canonicalize(envelope *api.EvidenceEnvelope) ([]byte, error) {
+	switch envelope.SchemaVersion {
+	case "v1":
+		return canonicalizeV1(envelope)
+	case "v2":
+		return canonicalizeV2(envelope)
+	case "":
+		return nil, errors.New("evidence: envelope missing schema_version")
+	default:
+		return nil, fmt.Errorf("evidence: unknown schema_version %q; canonicalizer only understands v1 and v2", envelope.SchemaVersion)
+	}
+}
+
+// canonicalizeV2 retains v1's serialization for existing fields and adds
+// rollback_results. UseNumber preserves integer precision while sorting
+// nested rollback keys by the same rules as the existing fields.
+// Copy entries before normalizing timestamps so verification stays pure.
+func canonicalizeV2(envelope *api.EvidenceEnvelope) ([]byte, error) {
+	base, err := canonicalizeV1(envelope)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(base))
+	decoder.UseNumber()
+	if err := decoder.Decode(&fields); err != nil {
+		return nil, err
+	}
+	rollbacks := make([]api.RollbackResult, len(envelope.RollbackResults))
+	copy(rollbacks, envelope.RollbackResults)
+	for i := range rollbacks {
+		rollbacks[i].ExecutedAt = rollbacks[i].ExecutedAt.UTC()
+	}
+	encoded, err := json.Marshal(rollbacks)
+	if err != nil {
+		return nil, err
+	}
+	var entries any
+	decoder = json.NewDecoder(bytes.NewReader(encoded))
+	decoder.UseNumber()
+	if err := decoder.Decode(&entries); err != nil {
+		return nil, err
+	}
+	fields["rollback_results"] = entries
+	return json.Marshal(fields)
+}
+
+// canonicalizeV1 preserves the released v1 byte contract. Top-level times
+// use UTC RFC3339Nano; nested timestamps retain their historical encoding.
 //
 // The sort step is a marshal → unmarshal-as-map → re-marshal
 // round-trip. Go's encoding/json sorts map keys when encoding;
@@ -369,7 +425,7 @@ type envelopeCanonical struct {
 //
 // Cost: roughly 2x the raw marshal time. Negligible vs the SSH
 // RTT that dominates per-transaction overhead.
-func canonicalize(envelope *api.EvidenceEnvelope) ([]byte, error) {
+func canonicalizeV1(envelope *api.EvidenceEnvelope) ([]byte, error) {
 	c := envelopeCanonical{
 		SchemaVersion: envelope.SchemaVersion,
 		TransactionID: envelope.TransactionID,

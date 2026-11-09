@@ -44,7 +44,8 @@ MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 | **PRERELEASE** | Pre-release identifier | `alpha.N`, `beta.N`, `rc.N` for testing phases                                                     |
 | **BUILD**      | Build metadata         | Optional: build date, commit SHA, CI build number (injected via `-ldflags`)                        |
 
-**Atomicity-contract changes are always MAJOR.** A change to the
+**Atomicity-contract changes are MAJOR by default.** Only the named,
+founder-approved pre-1.0 exceptions below change that release rule. A change to the
 `Capture → Apply → Validate → Commit/Rollback` semantics is a breaking
 change. That includes a change to which handler is `Capturable: true`, a
 change to what `PreState` records, and a change to evidence-envelope shape,
@@ -263,9 +264,39 @@ Current phase. Indicates:
   panic on an unregistered mechanism. This is an exception granted for the
   0.x line, not a reading of the atomicity rule; at 1.0 and later such a
   change is MAJOR.
+- **Pre-1.0 exception for authenticated rollback results, founder-approved
+  2026-10-19, one change.** The planned v0.13.0 is a **breaking pre-1.0
+  release** for PT-04.1. It may introduce evidence schema `"v2"` and reject
+  legacy v1 evidence by default in the CLI, without requiring v1.0.0.
+  The envelope schema version remains distinct from the Kensa release number.
+  v2 uses a distinct signature domain tag and authenticates rollback results;
+  historical v1 verification bytes and stored evidence remain unchanged.
+  Older verifiers reject v2. CLI legacy acceptance requires
+  `--accept-legacy-v1`, a valid signature and the mandatory warning that
+  rollback results are not authenticated. The API's cryptographic `Valid`
+  meaning is unchanged. Release notes must call v0.13.0 breaking, identify
+  assessed and unassessed consumers, and give verifier-before-producer
+  upgrade guidance. Keep historical evidence; do not rewrite or re-sign it.
+  This exception covers only this schema transition and CLI acceptance policy.
+  It permits no other frozen API or transaction-behavior change. Existing
+  notice requirements remain in force except for this PT-04.1-only advance
+  notice exception: v0.13.0 may introduce this schema and CLI-policy change
+  without a prior one-version or full-MINOR-cycle warning. Publish migration
+  guidance and notify the identified affected consumers before release and
+  producer upgrades. Record the audience, delivery channel, notice date and
+  earliest eligible release date before publication. This exception does not
+  waive the mandatory legacy warning, compatibility assessments, verifier-first
+  rollout, retained v2 verification after producer rollback, or any artifact
+  and release-authorization gate. V1 verification remains available through
+  explicit legacy acceptance; no later removal is authorized by this exception.
+  No review, verification, artifact or founder-acceptance gate is relaxed.
+  This designation authorizes neither product implementation nor publication.
 - No long-term support commitment for 0.x lines
 
 ### Production Phase (1.x.x+)
+
+Assigning v1.0.0 requires explicit founder acceptance of product stability.
+A breaking pre-1.0 release does not satisfy that gate.
 
 Indicates production-ready software:
 
@@ -391,11 +422,10 @@ BREAKING CHANGE: api.TransactionResult.Detail removed in v1.0.0.
 Callers must read per-step detail from TransactionResult.Steps[i].Detail.
 ```
 
-Atomicity-contract-affecting changes (engine, capture, rollback, or any
-handler's `Capturable: true` claim) require human-authored failure-mode
-analysis in the commit body per `CONTRIBUTING.md`. The commit type
-alone does not determine the version bump. A `fix:` commit that
-narrows the atomicity contract is still a MAJOR bump.
+For atomicity-contract-affecting changes (engine, capture, rollback, or any
+handler's `Capturable: true` claim), the commit type alone does not determine
+the version bump. A `fix:` commit that narrows the atomicity contract is still
+a MAJOR bump.
 
 ### Hotfix Process
 
@@ -440,15 +470,18 @@ deprecation notices. A kensa MAJOR bump signals that OpenWatch needs an
 explicit migration before consuming the new version.
 
 The CLI flag surface is **separately versioned** from `api/`. CLI
-breakages are also MAJOR but the `api/` package is the load-bearing
-external contract.
+breakages are MAJOR unless a named pre-1.0 exception above applies. The
+`api/` package remains the load-bearing external contract.
 
 ### Evidence Envelope
 
 The signed evidence envelope (`api.EvidenceEnvelope`) has its own
 schema-version field (`SchemaVersion`) which is independent of the
-kensa version. Today the envelope schema is `1`. A schema bump is a
-kensa MAJOR.
+Kensa version. In v0.12.0 the envelope schema is `"v1"`. A schema bump
+requires a Kensa MAJOR unless a named pre-1.0 exception applies. PT-04.1
+may introduce `"v2"` in the planned breaking pre-1.0 release v0.13.0 under
+the exception above. That release does not imply product stability or
+authorize v1.0.0.
 
 ### Rule Schema
 

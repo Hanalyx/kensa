@@ -38,7 +38,7 @@ var completionSpecs = []completionSpec{
 	{"info", "Rule/control lookup over the corpus", []string{"cis", "control", "format", "help", "limit", "list-controls", "nist", "quiet", "rhel", "rule", "rules-dir", "stig"}},
 	{"diff", "Compare two stored sessions and emit per-rule drift", []string{"format", "help", "quiet", "show-unchanged"}},
 	{"agent", "Run kensa as a stdio agent on the target host", []string{"help", "stdio"}},
-	{"verify", "Validate the Ed25519 signature on an evidence envelope", []string{"format", "help", "quiet", "trust-dir"}},
+	{"verify", "Verify an evidence signature and CLI acceptance policy", []string{"accept-legacy-v1", "format", "help", "quiet", "trust-dir"}},
 	{"migrate", "Apply pending schema migrations and backfill sessions", []string{"db", "help", "quiet"}},
 	{"version", "Print version and exit", []string{"help", "version"}},
 	{"completion", "Emit a shell completion script (bash|zsh|fish)", []string{"help"}},

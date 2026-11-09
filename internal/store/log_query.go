@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -86,8 +87,25 @@ func (s *SQLite) Get(ctx context.Context, txnID uuid.UUID, opts ...api.GetOption
 	includeEnv, includePre := applyGetOptions(opts)
 	if includeEnv {
 		var env api.EvidenceEnvelope
-		if err := json.Unmarshal([]byte(envJSON), &env); err != nil {
+		// Preserve v2 signed numbers in audit bundles. Operational pre-states
+		// still come from LoadPreStates below; their decoding is unchanged.
+		decoder := json.NewDecoder(strings.NewReader(envJSON))
+		decoder.UseNumber()
+		if err := decoder.Decode(&env); err != nil {
 			return nil, fmt.Errorf("store: unmarshal envelope for %s: %w", txnID, err)
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); err != io.EOF {
+			return nil, fmt.Errorf("store: unmarshal envelope for %s: expected exactly one envelope", txnID)
+		}
+		if env.SchemaVersion == "v1" {
+			// Match the released audit reader's float64 decoding, including
+			// its precision limits. This is version selection, not a fallback
+			// signature form; v2 retains exact numeric tokens above.
+			env = api.EvidenceEnvelope{}
+			if err := json.Unmarshal([]byte(envJSON), &env); err != nil {
+				return nil, fmt.Errorf("store: unmarshal envelope for %s: %w", txnID, err)
+			}
 		}
 		rec.Envelope = &env
 		// Populate rec.Steps from envelope.ApplySteps. Pre-this

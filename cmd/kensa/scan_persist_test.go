@@ -73,6 +73,16 @@ func TestPersistScanResult_Basic(t *testing.T) {
 		t.Errorf("returned session ID mismatch: got %v want %v", gotID, sess.ID)
 	}
 
+	for _, txn := range result.Transactions {
+		rec, err := s.Get(context.Background(), txn.TransactionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rec.Envelope == nil || rec.Envelope.SchemaVersion != "v2" || len(rec.Envelope.Signature) != 0 || rec.Envelope.SigningKeyID != "" {
+			t.Fatalf("scan metadata/signing policy changed: %+v", rec.Envelope)
+		}
+	}
+
 	// Verify session was created with correct denormalized counts.
 	got, err := s.GetSession(context.Background(), sess.ID)
 	if err != nil {
