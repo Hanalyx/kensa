@@ -386,7 +386,7 @@ func TestEngine_AC03_RolledBackWhenValidatorFails(t *testing.T) {
 	// engine.WithValidators (internal/engine/validators.go) now provides the
 	// injection hook this test needs; enabling it just requires a small
 	// failing-Validator fixture wired via engine.New(engine.WithValidators(...))
-	// asserting Status=RolledBack. Tracked in BACKLOG under the spec-coverage gaps.
+	// asserting Status=RolledBack.
 	t.Skip("pending: wire a failing-Validator fixture via engine.WithValidators to assert rollback-on-validator-failure")
 }
 

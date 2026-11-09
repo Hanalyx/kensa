@@ -36,6 +36,7 @@ inventory.ini
 /docs/*
 !/docs/guide/
 !/docs/.gitignore
+/BACKLOG.md
 
 # Local-only artifacts
 # Agent runtime config, session state, and skills are local-only. Skills carry
