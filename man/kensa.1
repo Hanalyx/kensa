@@ -80,19 +80,19 @@ Target options:
   \-k, \-\-key string                          SSH private key path
   \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
   \-P, \-\-port int                            SSH port (default 22)
-      \-\-sudo                                wrap commands in sudo
+      \-\-sudo[=true|false]                   wrap commands in sudo
       \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
-      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+      \-\-strict\-host\-keys[=true|false]       verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys[=true|false]    trust on first use (default today; explicit form for future config\-file override)
   \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
 
 Output options:
-      \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
-  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable (e.g., \-o json \-o csv:results.csv)
-  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+      \-\-format string        output format: table or json (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings       output destination FORMAT[:PATH], repeatable (e.g., \-o json \-o csv:results.csv)
+  \-q, \-\-quiet[=true|false]   suppress default output (errors still go to stderr)
 
 General:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Examples:
   kensa detect \-H 192.168.1.211 \-u owadmin \-\-sudo
@@ -111,10 +111,10 @@ Target options:
   \-k, \-\-key string                          SSH private key path
   \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
   \-P, \-\-port int                            SSH port (default 22)
-      \-\-sudo                                wrap commands in sudo
+      \-\-sudo[=true|false]                   wrap commands in sudo
       \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
-      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+      \-\-strict\-host\-keys[=true|false]       verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys[=true|false]    trust on first use (default today; explicit form for future config\-file override)
   \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
   \-i, \-\-inventory string                    Ansible\-style inventory.ini for multi\-host check
   \-l, \-\-limit string                        limit inventory hosts to glob/group pattern (ansible \-\-limit semantics)
@@ -132,16 +132,16 @@ Rule options:
       \-\-config\-dir string        directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. \-\-var wins over all of them.
 
 Output options:
-      \-\-format string    output format: table, json, or jsonl (deprecated; use \-\-output) (default "table")
-  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable
-  \-q, \-\-quiet            suppress default output (errors still go to stderr)
-  \-v, \-\-verbose          expand the compacted PASSED list (text format only)
+      \-\-format string          output format: table, json, or jsonl (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings         output destination FORMAT[:PATH], repeatable
+  \-q, \-\-quiet[=true|false]     suppress default output (errors still go to stderr)
+  \-v, \-\-verbose[=true|false]   expand the compacted PASSED list (text format only)
 
 Other options:
-      \-\-store   persist the scan as a session+transactions record in the SQLite store (default off; check is read\-only by default)
+      \-\-store[=true|false]   persist the scan as a session+transactions record in the SQLite store (default off; check is read\-only by default)
 
 General:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Examples:
   kensa check \-H 192.168.1.211 \-u owadmin \-\-sudo \-r /path/to/rules
@@ -166,32 +166,32 @@ Target options:
   \-k, \-\-key string                          SSH private key path
   \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
   \-P, \-\-port int                            SSH port (default 22)
-      \-\-sudo                                wrap commands in sudo
+      \-\-sudo[=true|false]                   wrap commands in sudo
       \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
-      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+      \-\-strict\-host\-keys[=true|false]       verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys[=true|false]    trust on first use (default today; explicit form for future config\-file override)
   \-C, \-\-capability stringArray              override a detected capability KEY=VALUE; repeatable (e.g. \-C apparmor=true \-C selinux=false). Duplicate KEYs: last value wins.
 
 Rule options:
-  \-r, \-\-rules\-dir string         directory to scan for *.yml rule files
-      \-\-rule stringArray         load this single rule YAML file (strict — parse errors fail the command); long\-only, repeatable, additive with \-\-rules\-dir and positional *.yml args
-  \-s, \-\-severity stringArray     filter rules by severity, repeatable (\-s critical \-s high); choices: critical|high|medium|low
-  \-t, \-\-tag stringArray          filter rules by tag, repeatable (\-t pci \-t cis); rules whose tags: array contains any of these match
-  \-c, \-\-category string          filter rules by category (\-c access\-control); single value (NOT repeatable like \-s/\-t — later \-c overrides earlier)
-  \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
-      \-\-control stringArray      filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
-  \-x, \-\-var stringArray          override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
-      \-\-config\-dir string        directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. \-\-var wins over all of them.
-      \-\-allow\-conflicts          apply even when the selected rules declare conflicts_with each other (default: refuse)
+  \-r, \-\-rules\-dir string               directory to scan for *.yml rule files
+      \-\-rule stringArray               load this single rule YAML file (strict — parse errors fail the command); long\-only, repeatable, additive with \-\-rules\-dir and positional *.yml args
+  \-s, \-\-severity stringArray           filter rules by severity, repeatable (\-s critical \-s high); choices: critical|high|medium|low
+  \-t, \-\-tag stringArray                filter rules by tag, repeatable (\-t pci \-t cis); rules whose tags: array contains any of these match
+  \-c, \-\-category string                filter rules by category (\-c access\-control); single value (NOT repeatable like \-s/\-t — later \-c overrides earlier)
+  \-f, \-\-framework \-f cis\-rhel9         filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
+      \-\-control stringArray            filter rules by FRAMEWORK:CONTROL (\-\-control cis\-rhel9:5.1.12); repeatable, OR across values; framework portion accepts hyphen or underscore
+  \-x, \-\-var stringArray                override a rule variable, KEY=VALUE; repeatable (e.g. \-x pam_faillock_deny=5). Wins over \-\-config\-dir/defaults.yml. VALUE is spliced literally into rule YAML and may flow into shell commands run by handlers — pass only trusted input.
+      \-\-config\-dir string              directory holding variable definitions. Read in priority order: hosts/<hostname>.yml, groups/<group>.yml (inventory mode only), conf.d/*.yml alphabetically, then defaults.yml. \-\-var wins over all of them.
+      \-\-allow\-conflicts[=true|false]   apply even when the selected rules declare conflicts_with each other (default: refuse)
 
 Output options:
-      \-\-format string    output format: table or json (deprecated; use \-\-output) (default "table")
-  \-o, \-\-output strings   output destination FORMAT[:PATH], repeatable
-      \-\-oscal string     write OSCAL Assessment Results to this file (deprecated; use \-\-output oscal:PATH)
-  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+      \-\-format string        output format: table or json (deprecated; use \-\-output) (default "table")
+  \-o, \-\-output strings       output destination FORMAT[:PATH], repeatable
+      \-\-oscal string         write OSCAL Assessment Results to this file (deprecated; use \-\-output oscal:PATH)
+  \-q, \-\-quiet[=true|false]   suppress default output (errors still go to stderr)
 
 General:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Examples:
   kensa remediate \-H 192.168.1.211 \-u owadmin \-\-sudo \-r /path/to/rules
@@ -220,28 +220,28 @@ To find session UUIDs first, run:
   kensa list sessions
 
 Mode (pick one):
-      \-\-list           list rollback\-able sessions
-      \-\-info string    show detail for SESSION_ID (txns + statuses)
-      \-\-start string   execute rollback for every committed txn in SESSION_ID
-  \-T, \-\-txn string     legacy: roll back a single transaction by UUID
-      \-\-detail         include per\-step breakdown (composes with \-\-list / \-\-info)
+      \-\-list[=true|false]     list rollback\-able sessions
+      \-\-info string           show detail for SESSION_ID (txns + statuses)
+      \-\-start string          execute rollback for every committed txn in SESSION_ID
+  \-T, \-\-txn string            legacy: roll back a single transaction by UUID
+      \-\-detail[=true|false]   include per\-step breakdown (composes with \-\-list / \-\-info)
 
 Target options (required for \-\-start and \-\-txn):
   \-H, \-\-host string                         target hostname (required for \-\-start and \-\-txn)
   \-u, \-\-user string                         SSH user (default: current user)
   \-k, \-\-key string                          SSH private key path
   \-P, \-\-port int                            SSH port (default 22)
-      \-\-sudo                                wrap commands in sudo
+      \-\-sudo[=true|false]                   wrap commands in sudo
       \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
-      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
+      \-\-strict\-host\-keys[=true|false]       verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys[=true|false]    trust on first use (default today; explicit form for future config\-file override)
 
 Output options:
-      \-\-format string   output format: text or json (default "text")
-  \-q, \-\-quiet           suppress default output (errors still go to stderr)
+      \-\-format string        output format: text or json (default "text")
+  \-q, \-\-quiet[=true|false]   suppress default output (errors still go to stderr)
 
 General:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Examples:
   kensa rollback \-\-list
@@ -257,18 +257,18 @@ Usage: kensa history [flags]
 Query the transaction log. Without filters, lists recent transactions.
 
 Flags:
-  \-h, \-\-help               show this help and exit
-  \-H, \-\-host string        filter by host ID
-  \-R, \-\-rule string        filter by rule ID
-  \-S, \-\-since string       filter since duration (e.g. 24h) or RFC3339 time
-  \-n, \-\-limit int          maximum rows to return (default 50)
-      \-\-format string      output format: table, json, or jsonl (jsonl is transaction\-list only) (default "table")
-  \-T, \-\-txn string         get a single transaction by UUID
-  \-a, \-\-aggregate string   aggregate key: by_host, by_rule, by_framework_control
-      \-\-stats              print summary stats (sessions, transactions, by status / severity / host) and exit
-      \-\-prune int          delete sessions and cascade older than N days (destructive; long\-only)
-      \-\-force              skip the confirmation prompt for \-\-prune (required in non\-interactive runs)
-  \-q, \-\-quiet              suppress default output (errors still go to stderr)
+  \-h, \-\-help[=true|false]    show this help and exit
+  \-H, \-\-host string          filter by host ID
+  \-R, \-\-rule string          filter by rule ID
+  \-S, \-\-since string         filter since duration (e.g. 24h) or RFC3339 time
+  \-n, \-\-limit int            maximum rows to return (default 50)
+      \-\-format string        output format: table, json, or jsonl (jsonl is transaction\-list only) (default "table")
+  \-T, \-\-txn string           get a single transaction by UUID
+  \-a, \-\-aggregate string     aggregate key: by_host, by_rule, by_framework_control
+      \-\-stats[=true|false]   print summary stats (sessions, transactions, by status / severity / host) and exit
+      \-\-prune int            delete sessions and cascade older than N days (destructive; long\-only)
+      \-\-force[=true|false]   skip the confirmation prompt for \-\-prune (required in non\-interactive runs)
+  \-q, \-\-quiet[=true|false]   suppress default output (errors still go to stderr)
 
 Examples:
   kensa history                                  # 50 most recent
@@ -290,18 +290,18 @@ Plan with captured pre\-state, apply steps, validators, rollback plan,
 and warnings.
 
 Flags:
-  \-h, \-\-help                                show this help and exit
+  \-h, \-\-help[=true|false]                   show this help and exit
   \-H, \-\-host string                         target hostname (required)
   \-u, \-\-user string                         SSH user (default: current user)
   \-P, \-\-port int                            SSH port (default 22)
   \-k, \-\-key string                          SSH private key path
   \-p, \-\-password string[="<prompt>"]        SSH password (omit value for TTY prompt; reserved literal: <prompt>)
-      \-\-strict\-host\-keys                    verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
-      \-\-no\-strict\-host\-keys                 trust on first use (default today; explicit form for future config\-file override)
-      \-\-sudo                                wrap commands in sudo
+      \-\-strict\-host\-keys[=true|false]       verify SSH host keys; reject unknown (overrides \-\-no\-strict\-host\-keys)
+      \-\-no\-strict\-host\-keys[=true|false]    trust on first use (default today; explicit form for future config\-file override)
+      \-\-sudo[=true|false]                   wrap commands in sudo
       \-\-sudo\-password string[="<prompt>"]   sudo password for non\-NOPASSWD hosts (omit value for TTY prompt; or set KENSA_SUDO_PASSWORD; requires \-\-sudo)
       \-\-format string                       output format: text, markdown, json, plain (default "text")
-  \-q, \-\-quiet                               suppress default output (errors still go to stderr)
+  \-q, \-\-quiet[=true|false]                  suppress default output (errors still go to stderr)
 
 Example:
   kensa plan \-H 192.168.1.211 \-u owadmin \-\-sudo \-\-format markdown rule.yml
@@ -316,7 +316,7 @@ marked capturable (participates in atomic transactions) or
 non\-capturable (transactional: false escape hatch).
 
 Flags:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Example:
   kensa mechanisms
@@ -346,12 +346,12 @@ enumerate its controls.
 To list handler mechanisms, run 'kensa mechanisms'.
 
 Flags:
-  \-h, \-\-help                     show this help and exit
+  \-h, \-\-help[=true|false]        show this help and exit
   \-f, \-\-framework \-f cis\-rhel9   filter rules to those mapping a control under FRAMEWORK (\-f cis_rhel9). Single value (NOT repeatable like \-s/\-t). Hyphen and underscore are interchangeable: \-f cis\-rhel9 == `\-f cis_rhel9`.
   \-r, \-\-rules\-dir string         directory of rule YAMLs to scan (required unless the framework ships an objective catalog)
       \-\-format string            output format: text or json (default "text")
-      \-\-full                     in text output, show every rule ID per control (default: truncate to first 3)
-  \-q, \-\-quiet                    suppress default output (errors still go to stderr)
+      \-\-full[=true|false]        in text output, show every rule ID per control (default: truncate to first 3)
+  \-q, \-\-quiet[=true|false]       suppress default output (errors still go to stderr)
       \-\-from\-scan string         scan report JSON; computes the 800\-171 denominator for that fleet
 
 Examples:
@@ -397,18 +397,18 @@ Mode (pick one):
   \-r, \-\-rules\-dir string       directory of rule YAMLs to scan (required)
 
 Filter options:
-      \-\-cis        filter to CIS family (cis_rhel8, cis_rhel9, cis_rhel10)
-      \-\-stig       filter to STIG family (stig_rhel8, stig_rhel9, stig_rhel10)
-      \-\-nist       filter to NIST family (nist_800_53; not RHEL\-versioned, so does NOT compose with \-\-rhel)
-      \-\-rhel int   filter by RHEL version (8, 9, or 10); composes with \-\-cis/\-\-stig (not \-\-nist)
+      \-\-cis[=true|false]    filter to CIS family (cis_rhel8, cis_rhel9, cis_rhel10)
+      \-\-stig[=true|false]   filter to STIG family (stig_rhel8, stig_rhel9, stig_rhel10)
+      \-\-nist[=true|false]   filter to NIST family (nist_800_53; not RHEL\-versioned, so does NOT compose with \-\-rhel)
+      \-\-rhel int            filter by RHEL version (8, 9, or 10); composes with \-\-cis/\-\-stig (not \-\-nist)
 
 Output options:
-      \-\-format string   output format: text, json, or jsonl (jsonl is QUERY mode only) (default "text")
-      \-\-limit int       cap text output rows (search + list\-controls modes); 0 = unlimited (default 100)
-  \-q, \-\-quiet           suppress default output (errors still go to stderr)
+      \-\-format string        output format: text, json, or jsonl (jsonl is QUERY mode only) (default "text")
+      \-\-limit int            cap text output rows (search + list\-controls modes); 0 = unlimited (default 100)
+  \-q, \-\-quiet[=true|false]   suppress default output (errors still go to stderr)
 
 General:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 
 Examples:
   kensa info ssh \-\-rules\-dir /path/to/rules                   # search "ssh" in titles + descriptions
@@ -439,10 +439,10 @@ the cross\-host scope). To find candidate session IDs run:
   kensa list sessions
 
 Flags:
-  \-h, \-\-help             show this help and exit
-      \-\-format string    output format: text or json (default "text")
-      \-\-show\-unchanged   include rules whose status is identical between the two sessions
-  \-q, \-\-quiet            suppress default output (errors still go to stderr)
+  \-h, \-\-help[=true|false]             show this help and exit
+      \-\-format string                 output format: text or json (default "text")
+      \-\-show\-unchanged[=true|false]   include rules whose status is identical between the two sessions
+  \-q, \-\-quiet[=true|false]            suppress default output (errors still go to stderr)
 
 Examples:
   kensa list sessions                          # find session IDs first
@@ -491,8 +491,8 @@ L\-011 replaces HandleEcho with the real handler dispatcher
 a local\-syscall Transport on the target host).
 
 Flags:
-  \-h, \-\-help    show this help and exit
-      \-\-stdio   read framed Requests from stdin, return typed Responses on stdout (L\-009 typed echo; L\-011 swaps in real Engine dispatcher)
+  \-h, \-\-help[=true|false]    show this help and exit
+      \-\-stdio[=true|false]   read framed Requests from stdin, return typed Responses on stdout (L\-009 typed echo; L\-011 swaps in real Engine dispatcher)
 .fi
 .PP
 .SS VERIFY
@@ -517,11 +517,11 @@ Exit codes:
   2  usage error (missing file, bad flag, malformed JSON)
 
 Flags:
-  \-h, \-\-help               show this help and exit
-      \-\-trust\-dir string   directory of .pub files to look up signing_key_id (default matches kensa\-keygen's output dir)
-      \-\-format string      output format: text or json (default "text")
-  \-q, \-\-quiet              suppress default output (errors still go to stderr)
-      \-\-accept\-legacy\-v1   accept a valid legacy v1 signature; rollback results remain unauthenticated
+  \-h, \-\-help[=true|false]               show this help and exit
+      \-\-trust\-dir string                directory of .pub files to look up signing_key_id (default matches kensa\-keygen's output dir)
+      \-\-format string                   output format: text or json (default "text")
+  \-q, \-\-quiet[=true|false]              suppress default output (errors still go to stderr)
+      \-\-accept\-legacy\-v1[=true|false]   accept a valid legacy v1 signature; rollback results remain unauthenticated
 
 Examples:
   kensa verify evidence.json
@@ -569,9 +569,9 @@ CLI\-invocation sessions in subsequent kensa history / kensa diff
 runs.
 
 Flags:
-  \-h, \-\-help        show this help and exit
-      \-\-db string   override the default store path
-  \-q, \-\-quiet       suppress the migration summary (errors still go to stderr)
+  \-h, \-\-help[=true|false]    show this help and exit
+      \-\-db string            override the default store path
+  \-q, \-\-quiet[=true|false]   suppress the migration summary (errors still go to stderr)
 
 Examples:
   kensa migrate
@@ -588,7 +588,7 @@ the canonical GNU/POSIX form; this subcommand is preserved for
 backward compatibility and is planned for removal in v0.2.
 
 Flags:
-  \-h, \-\-help   show this help and exit
+  \-h, \-\-help[=true|false]   show this help and exit
 .fi
 .PP
 .SH FILES

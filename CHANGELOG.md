@@ -16,6 +16,12 @@ any pair).
 
 ## Unreleased
 
+### Changed
+
+- **Boolean flags show `[=true|false]` in help and the man page.** The flag
+  library, `spf13/pflag`, moved to v1.1.0, which prints the explicit value
+  syntax it accepts, for example `--sudo[=true|false]`. Parsing is unchanged.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs
