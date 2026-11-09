@@ -39,7 +39,7 @@ func (e *Engine) preflight(txn *api.Transaction) error {
 //
 // The current heuristic is the mechanism allowlist below. As more
 // mechanisms land, this evolves into a per-handler ControlChannelRisk
-// query (TODO: tracked in BACKLOG).
+// query.
 func shouldArmDeadman(txn *api.Transaction, _ *handler.Registry) bool {
 	for _, step := range txn.Steps {
 		if controlChannelMechanisms[step.Mechanism] {
