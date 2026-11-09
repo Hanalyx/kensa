@@ -1,7 +1,7 @@
 # Specter Feature Requests
 
 Feature requests for the Specter tool itself. Kensa implementation gaps
-that surfaced during Specter integration are tracked in BACKLOG.md.
+that surfaced during Specter integration are tracked internally.
 
 ---
 
@@ -25,12 +25,12 @@ before running `specter sync`.
 **Status:** Proposed
 **Discovered:** 2026-07-01 (during the v0.7.0 release work)
 
-Specter computes spec coverage from `go test -json` via `specter ingest` — i.e.
+Specter computes spec coverage from `go test -json` via `specter ingest`, that is,
 from **unit-test** results only. It has no notion that a spec was also **proven on
 a live host**. For atomicity-critical Tier-1 specs this is a real gap: "the unit
 test passed" is not the same guarantee as "remediate→rollback was byte-perfect on
 a real RHEL 9.6 host, and the injection was confirmed inert against the vulnerable
-control" — which is the evidence that actually gates a release like the
+control". That is the evidence that actually gates a release like the
 file_permissions RCE fix.
 
 Kensa already keeps that evidence in a ledger (`catalog/sources/verifications.json`:
@@ -49,7 +49,7 @@ column / tier rule for it.
 
 **Why this is Specter's job, not Kensa's:** Kensa's job is to *produce* the
 evidence (the `kensa verify --record` byproduct is tracked as a Kensa backlog
-item). Deciding whether a spec is adequately *covered* — and gating on it — is
+item). Deciding whether a spec is adequately *covered*, and gating on it, is
 Specter's domain. Today Specter's coverage model can't see the strongest evidence
 Kensa produces.
 

@@ -141,8 +141,6 @@ FK_MIN_SENTENCES = 25     # below this, one long sentence dominates and the scor
 READABILITY_EXEMPT = {
     "CHANGELOG.md": "release notes for shipped versions are a historical record; entries are "
                     "not rewritten for style after a tag (grade 12.1)",
-    "BACKLOG.md": "pre-existing at gate adoption, grade 12.6; drain by rewriting, not by "
-                  "raising the gate",
     "docs/guide/07-integration.md": "pre-existing at gate adoption, grade 12.1; public operator "
                                     "manual, so a rewrite needs re-verification against the "
                                     "binary before it lands",
