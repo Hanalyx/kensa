@@ -131,8 +131,8 @@ spec:
                       tag: v7.0.0
                       count: 14
                   actions/setup-python:
-                      sha: 5fda3b95a4ea91299a34e894583c3862153e4b97  # pragma: allowlist secret
-                      tag: v7.0.0
+                      sha: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # pragma: allowlist secret
+                      tag: v7.1.0
                       count: 1
                   actions/upload-artifact:
                       sha: cf430e030ddbb5b0abf93d22962f4752f3646cd9  # pragma: allowlist secret
@@ -143,8 +143,8 @@ spec:
                       tag: v9.3.0
                       count: 1
                   sigstore/cosign-installer:
-                      sha: 6f9f17788090df1f26f669e9d70d6ae9567deba6  # pragma: allowlist secret
-                      tag: v4.1.2
+                      sha: 756fe2d284c7292c4e9b62c8a28f1e5629c59532  # pragma: allowlist secret
+                      tag: v4.1.3
                       count: 1
               total_external_references: 37
               exempt: the ./ reference itself, not the external actions inside it

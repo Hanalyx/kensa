@@ -36,10 +36,10 @@ type actionPin struct {
 var approvedPins = map[string]actionPin{
 	"actions/checkout":              {"3d3c42e5aac5ba805825da76410c181273ba90b1", "v7.0.1", 17}, // pragma: allowlist secret
 	"actions/setup-go":              {"b7ad1dad31e06c5925ef5d2fc7ad053ef454303e", "v7.0.0", 14}, // pragma: allowlist secret
-	"actions/setup-python":          {"5fda3b95a4ea91299a34e894583c3862153e4b97", "v7.0.0", 1},  // pragma: allowlist secret
+	"actions/setup-python":          {"6d4fd22b20465ccc0f7354476588e8df7c9ca0e0", "v7.1.0", 1},  // pragma: allowlist secret
 	"actions/upload-artifact":       {"cf430e030ddbb5b0abf93d22962f4752f3646cd9", "v7.0.2", 3},  // pragma: allowlist secret
 	"golangci/golangci-lint-action": {"ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a", "v9.3.0", 1},  // pragma: allowlist secret
-	"sigstore/cosign-installer":     {"6f9f17788090df1f26f669e9d70d6ae9567deba6", "v4.1.2", 1},  // pragma: allowlist secret
+	"sigstore/cosign-installer":     {"756fe2d284c7292c4e9b62c8a28f1e5629c59532", "v4.1.3", 1},  // pragma: allowlist secret
 }
 
 const totalExternalRefs = 37
