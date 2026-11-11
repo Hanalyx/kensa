@@ -41,6 +41,12 @@ any pair).
   fail with the variable named. The new `kensa.CheckVarValue(name, raw)` runs
   the same check on one value.
 
+- **Ubuntu framework labels name the release.** `pkg/kensa.FrameworkFromID`
+  labeled the four Ubuntu framework ids with the raw key, for example
+  "CIS (ubuntu22)". It now returns "CIS (Ubuntu 22.04)" and
+  "STIG (Ubuntu 24.04)", in the same way it returns "CIS (RHEL 9)". The
+  `Version` field still holds the raw key.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs
