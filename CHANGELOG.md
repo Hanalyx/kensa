@@ -22,6 +22,17 @@ any pair).
   library, `spf13/pflag`, moved to v1.1.0, which prints the explicit value
   syntax it accepts, for example `--sudo[=true|false]`. Parsing is unchanged.
 
+### Fixed
+
+- **A host without `modprobe` no longer passes the module checks.** The
+  `kernel_module_state` check with `state: disabled` passed when the output of
+  `modprobe -n --show-depends` contained "not found". A shell prints the same
+  words when it cannot find `modprobe`, so every module passed on such a host.
+  The check now reports an error when `modprobe` cannot run (exit 126 or 127).
+  It counts a module as absent only when `modprobe` itself says so and exits
+  non-zero. Eight rules use this check, `kmod-disable-atm`, `-bluetooth`,
+  `-can`, `-dccp`, `-firewire`, `-rds`, `-sctp` and `-tipc`.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs
