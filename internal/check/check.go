@@ -873,14 +873,33 @@ func checkServiceState(ctx context.Context, transport api.Transport, params api.
 }
 
 // checkAuditRuleExists verifies that an audit rule is present in the
-// effective kernel ruleset loaded by auditd. The check uses auditctl -l
-// and matches on the -k key field extracted from the rule string, falling
-// back to a full normalised-string search when no -k field is present.
-// Params: rule (full audit rule string).
+// effective kernel ruleset loaded by auditd, read with auditctl -l.
+//
+// The action decides compliance, not the -k key label. A line passes when the
+// loaded ruleset audits the same action: the path and permissions of a watch,
+// or the arch, syscalls and filters of a syscall rule. That is the predicate
+// the audit_rule_set remediation guard uses to refuse a duplicate
+// (AuditActionLoaded), with one addition: the check also requires the same
+// set of -C comparisons and -F filters on both lines, some of which that
+// matcher skips (auditActionUnderOtherKey). A host
+// that audits writes to /etc/passwd under another key is compliant; a rule
+// that needs its own key says so with key_required.
+//
+// Params: rule (full audit rule string, one or more lines); key_required
+// (optional bool, default false: when true, every line must also be loaded
+// under its own -k key).
 func checkAuditRuleExists(ctx context.Context, transport api.Transport, params api.Params) (bool, string, error) {
 	rule, err := stringParam(params, "rule")
 	if err != nil {
 		return false, "", err
+	}
+	keyRequired := false
+	if v, ok := params["key_required"]; ok {
+		b, isBool := v.(bool)
+		if !isBool {
+			return false, "", fmt.Errorf("check audit_rule_exists: key_required must be a boolean, got %T", v)
+		}
+		keyRequired = b
 	}
 
 	res, err := transport.Run(ctx, "auditctl -l")
@@ -911,16 +930,84 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 
 	// A rule may carry several lines — e.g. a syscall control's b32 + b64
 	// variants, or EPERM + EACCES pairs. Every line must be present.
+	//
+	// The exact line (key included) is tried first, so every line that passed
+	// under the key-strict match still passes. Only a line missing as written
+	// falls back to the action match, which keeps AuditLineLoaded's full-line
+	// compare for a bare keyed rule with no distinguishing field.
+	var otherKey []string
 	for _, line := range strings.Split(rule, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !AuditLineLoaded(line, loaded) {
-			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
+		if AuditLineLoaded(line, loaded) {
+			continue
 		}
+		if !keyRequired {
+			if got := auditActionUnderOtherKey(line, loaded); got != "" {
+				otherKey = append(otherKey, got)
+				continue
+			}
+		}
+		if keyRequired {
+			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded under its own key (key_required): %s", normaliseAuditRule(line)), nil
+		}
+		return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
+	}
+	if len(otherKey) > 0 {
+		return true, fmt.Sprintf("audit_rule_exists: all rule actions present in loaded ruleset; %d line(s) audited under another key: %s",
+			len(otherKey), strings.Join(otherKey, "; ")), nil
 	}
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
+}
+
+// auditActionUnderOtherKey returns a loaded line that audits the same action
+// as rule under any key, or "" if none does. It is AuditActionLoaded plus a
+// two-way compare of every filter except the key: the -C comparisons, and
+// every -F field, including fields such as euid that AuditActionLoaded skips.
+// Without it, `-S execve -C uid!=euid -F euid=0` (privileged execs only)
+// would be satisfied by a loaded `-S execve` that audits a different set of
+// events, and a loaded line narrowed by a filter the rule does not carry
+// would count as the rule's action.
+func auditActionUnderOtherKey(rule string, loaded []string) string {
+	want := auditFilterSet(rule)
+	for _, l := range loaded {
+		if AuditActionLoaded(rule, []string{l}) == "" {
+			continue
+		}
+		if sameStringSet(want, auditFilterSet(l)) {
+			return strings.TrimSpace(l)
+		}
+	}
+	return ""
+}
+
+// auditFilterSet lists a syscall rule line's -C comparisons and -F fields
+// other than the key, as "-C uid!=euid" and "-F euid=0" tokens. auid!=unset
+// is written as auid!=-1, the form auditctl -l prints. A watch line has none.
+func auditFilterSet(line string) map[string]bool {
+	out := map[string]bool{}
+	if strings.HasPrefix(strings.TrimSpace(line), "-w") {
+		return out
+	}
+	fields := strings.Fields(line)
+	for i := 0; i+1 < len(fields); i++ {
+		tok := fields[i+1]
+		switch fields[i] {
+		case "-C":
+			out["-C "+tok] = true
+		case "-F":
+			if strings.HasPrefix(tok, "key=") {
+				continue
+			}
+			if tok == "auid!=unset" {
+				tok = "auid!=-1"
+			}
+			out["-F "+tok] = true
+		}
+	}
+	return out
 }
 
 // AuditLineLoaded reports whether a single audit rule line is present in the

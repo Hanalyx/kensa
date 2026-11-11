@@ -189,6 +189,120 @@ func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
 	}
 }
 
+// TestCheckAuditRuleExists_ActionDecides locks the rule that the audited
+// action decides compliance, not the -k key label. A RHEL 9 host that watches
+// writes to /etc/passwd under audit_rules_usergroup_modification failed
+// audit-file-passwd, whose rule names the key identity, while the
+// audit_rule_set guard refused to add the rule because the action was already
+// audited. The check now gives the guard's answer. A rule that needs its own
+// key sets key_required. Loaded lines are auditctl -l output.
+func TestCheckAuditRuleExists_ActionDecides(t *testing.T) {
+	loaded := "-w /etc/passwd -p wa -k audit_rules_usergroup_modification\n" +
+		"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F key=perm_mod"
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)}}
+	chk := func(rule string, extra api.Params) api.Check {
+		p := api.Params{"rule": rule}
+		for k, v := range extra {
+			p[k] = v
+		}
+		return api.Check{Method: "audit_rule_exists", Params: p}
+	}
+	keyRequired := api.Params{"key_required": true}
+
+	cases := []struct {
+		name   string
+		rule   string
+		params api.Params
+		want   bool
+		detail string
+	}{
+		{"watch under another key passes", "-w /etc/passwd -p wa -k identity", nil, true, "under another key"},
+		{"watch under its own key passes", "-w /etc/passwd -p wa -k audit_rules_usergroup_modification", nil, true, "all rule lines present"},
+		{"syscall under another key passes",
+			"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_chng", nil, true, "under another key"},
+		{"watch with other perms fails", "-w /etc/passwd -p rwa -k identity", nil, false, "rule line not loaded"},
+		{"watch on another path fails", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", nil, false, "rule line not loaded"},
+		{"syscall on another arch fails",
+			"-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod", nil, false, "rule line not loaded"},
+		{"key_required refuses another key", "-w /etc/passwd -p wa -k identity", keyRequired, false, "key_required"},
+		{"key_required accepts its own key", "-w /etc/passwd -p wa -k audit_rules_usergroup_modification", keyRequired, true, "all rule lines present"},
+		{"key_required false behaves as unset", "-w /etc/passwd -p wa -k identity", api.Params{"key_required": false}, true, "under another key"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			passed, detail, err := runForTest(context.Background(), ft, chk(c.rule, c.params))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if passed != c.want {
+				t.Errorf("passed=%v want %v (detail: %s)", passed, c.want, detail)
+			}
+			if !strings.Contains(detail, c.detail) {
+				t.Errorf("detail %q does not say %q", detail, c.detail)
+			}
+			// Without key_required the check and the remediation guard must give
+			// the same answer for a single-line rule.
+			if c.params == nil {
+				guard := AuditActionLoaded(c.rule, strings.Split(loaded, "\n")) != ""
+				if passed != guard {
+					t.Errorf("check passed=%v but the guard says action present=%v", passed, guard)
+				}
+			}
+		})
+	}
+
+	t.Run("key_required must be a boolean", func(t *testing.T) {
+		_, _, err := runForTest(context.Background(), ft, chk("-w /etc/passwd -p wa -k identity", api.Params{"key_required": "true"}))
+		if err == nil || !strings.Contains(err.Error(), "key_required must be a boolean") {
+			t.Errorf("a string key_required was not refused: %v", err)
+		}
+	})
+
+	// The remediation guard's matcher skips -C comparisons and fields such as
+	// euid. A loaded line under another key passes only when those match too,
+	// so a plain execve rule does not satisfy the privileged-exec rule.
+	t.Run("filters the guard skips must match", func(t *testing.T) {
+		rule := "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"
+		cases := []struct {
+			name, loaded string
+			want         bool
+		}{
+			{"plain execve under no key", "-a always,exit -F arch=b64 -S execve", false},
+			{"user emulation comparison", "-a always,exit -F arch=b64 -S execve -C euid!=uid -F auid!=-1 -F key=user_emulation", false},
+			{"same filters under another key", "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -F key=setuid", true},
+		}
+		for _, c := range cases {
+			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.loaded)}}
+			passed, detail, err := runForTest(context.Background(), ft, chk(rule, nil))
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", c.name, err)
+			}
+			if passed != c.want {
+				t.Errorf("%s: passed=%v want %v (detail: %s)", c.name, passed, c.want, detail)
+			}
+		}
+
+		// A loaded line narrowed by a filter the rule does not carry audits
+		// fewer events, so it is not the rule's action.
+		narrowed := "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F success=0 -F key=perm_fail"
+		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, narrowed)}}
+		chown := "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_chng"
+		if passed, detail, _ := runForTest(context.Background(), ft, chk(chown, nil)); passed {
+			t.Errorf("a loaded line narrowed by success=0 passed the broader rule: %s", detail)
+		}
+	})
+
+	// Every line of a multi-line rule is still required; one line present
+	// under another key does not carry a missing line.
+	t.Run("multi-line rule still needs every action", func(t *testing.T) {
+		rule := "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_chng\n" +
+			"-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_chng"
+		if passed, detail, _ := runForTest(context.Background(), ft, chk(rule, nil)); passed {
+			t.Errorf("b32 line is not loaded under any key, but the rule passed: %s", detail)
+		}
+	})
+}
+
 // TestCheckConfigValue_Pass verifies that config_value passes when the
 // grep returns a matching key=value line.
 func TestCheckConfigValue_Pass(t *testing.T) {

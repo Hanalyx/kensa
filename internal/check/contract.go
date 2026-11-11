@@ -61,7 +61,7 @@ var CheckContracts = map[string]CheckContract{
 	"service_enabled":       {Required: []string{"name"}},
 	"service_active":        {Required: []string{"name"}},
 	"service_state":         {Required: []string{"name"}, Optional: []string{"enabled", "active"}},
-	"audit_rule_exists":     {Required: []string{"rule"}},
+	"audit_rule_exists":     {Required: []string{"rule"}, Optional: []string{"key_required"}},
 	"sshd_effective_config": {Required: []string{"key", "expected"}},
 	"mount_option":          {Required: []string{"mount_point", "options"}},
 	"kernel_module_state":   {Required: []string{"name"}, Optional: []string{"state"}},
