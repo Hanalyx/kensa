@@ -87,6 +87,22 @@ else
 	ok "no stale prior-release version in README/CONTRIBUTING/SECURITY"
 fi
 
+# 8. rules/.corpus-version == VERSION. The marker is what tells a consumer which
+#    corpus produced a verdict, and it is a second copy of the version, so it
+#    drifts unless something checks it. A stale marker is reported with the same
+#    confidence as a correct one, which is worse than reporting none.
+marker_file="rules/.corpus-version"
+if [ ! -f "$marker_file" ]; then
+	note "missing $marker_file — the rule corpus carries no version marker; write VERSION into it"
+else
+	marker="$(tr -d '[:space:]' < "$marker_file")"
+	if [ "$marker" = "$version" ]; then
+		ok "$marker_file ($marker) matches VERSION ($version)"
+	else
+		note "$marker_file ($marker) != VERSION ($version) — bump both in the release commit, or run: cp VERSION $marker_file"
+	fi
+fi
+
 if [ "$fail" -ne 0 ]; then
 	echo "docs-check: FAILED"
 	exit 1
