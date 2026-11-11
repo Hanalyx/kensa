@@ -22,6 +22,31 @@ any pair).
   library, `spf13/pflag`, moved to v1.1.0, which prints the explicit value
   syntax it accepts, for example `--sudo[=true|false]`. Parsing is unchanged.
 
+### Fixed
+
+- **A host without `modprobe` no longer passes the module checks.** The
+  `kernel_module_state` check with `state: disabled` passed when the output of
+  `modprobe -n --show-depends` contained "not found". A shell prints the same
+  words when it cannot find `modprobe`, so every module passed on such a host.
+  The check now reports an error when `modprobe` cannot run (exit 126 or 127).
+  It counts a module as absent only when `modprobe` itself says so and exits
+  non-zero. Eight rules use this check, `kmod-disable-atm`, `-bluetooth`,
+  `-can`, `-dccp`, `-firewire`, `-rds`, `-sctp` and `-tipc`.
+
+- **Library callers get the variable type check.** v0.10.0 said variable
+  values are checked against a declared type before a host is contacted, but
+  only the CLI did so. `pkg/kensa.LoadRules(dir, nil, vars)` accepted
+  `pam_faillock_deny = three` and returned the full corpus. `LoadRules` and
+  `LoadRulesFS` now check every value in `vars` by the rules `--var` uses and
+  fail with the variable named. The new `kensa.CheckVarValue(name, raw)` runs
+  the same check on one value.
+
+- **Ubuntu framework labels name the release.** `pkg/kensa.FrameworkFromID`
+  labeled the four Ubuntu framework ids with the raw key, for example
+  "CIS (ubuntu22)". It now returns "CIS (Ubuntu 22.04)" and
+  "STIG (Ubuntu 24.04)", in the same way it returns "CIS (RHEL 9)". The
+  `Version` field still holds the raw key.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs

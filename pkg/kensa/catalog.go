@@ -104,13 +104,20 @@ func FrameworkFromID(id string) Framework {
 	return Framework{ID: id, Family: id, Version: "", Label: id}
 }
 
-// humanizeVersion renders a version discriminator for display. It special-cases
-// the "rhelN" OS-version form the corpus uses ("rhel9" -> "RHEL 9"); anything
+// humanizeVersion renders a version discriminator for display. It handles the
+// two OS-version forms the corpus uses: "rhelN" ("rhel9" -> "RHEL 9") and
+// "ubuntuNN" ("ubuntu22" -> "Ubuntu 22.04"). Every Ubuntu benchmark in the
+// corpus targets an LTS release, and LTS releases are always NN.04. Anything
 // else is returned verbatim.
 func humanizeVersion(v string) string {
 	if rest, ok := strings.CutPrefix(v, "rhel"); ok {
 		if _, err := strconv.Atoi(rest); err == nil {
 			return "RHEL " + rest
+		}
+	}
+	if rest, ok := strings.CutPrefix(v, "ubuntu"); ok && len(rest) == 2 {
+		if _, err := strconv.Atoi(rest); err == nil {
+			return "Ubuntu " + rest + ".04"
 		}
 	}
 	return v

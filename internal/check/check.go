@@ -1292,25 +1292,50 @@ func checkKernelModuleState(ctx context.Context, transport api.Transport, params
 		//   - `install /bin/true` or `install /bin/false` — an install override
 		//     redirects the load to a no-op (both forms are used by CIS/STIG
 		//     hardening; this check must accept EITHER), or
-		//   - a "... not found ..." error — the module is absent from the kernel
-		//     tree and cannot be loaded at all, which satisfies "not available",
+		//   - a `modprobe: ... not found` error with a non-zero exit — the module
+		//     is absent from the kernel tree and cannot be loaded at all, which
+		//     satisfies "not available",
 		//   - `insmod /lib/modules/.../<mod>.ko` lines — the module IS loadable.
 		// Match in Go (not a shell `grep`) so both no-op forms and the not-found
 		// case are recognized and the logic is unit-testable.
+		//
+		// The shell reports a missing or unrunnable modprobe as "not found" too
+		// (dash: `sh: 1: modprobe: not found`, bash: `sh: line 1: modprobe:
+		// command not found`), with exit 127 or 126. That says nothing about the
+		// module, so it is a check error, never a verdict.
 		cmd := fmt.Sprintf("modprobe -n --show-depends %s 2>&1", shellQuote(name))
 		res, err := transport.Run(ctx, cmd)
 		if err != nil {
 			return false, "", fmt.Errorf("check kernel_module_state: transport error: %w", err)
 		}
 		out := res.Stdout
+		if res.ExitCode == 126 || res.ExitCode == 127 {
+			return false, "", fmt.Errorf("check kernel_module_state: modprobe could not run (exit %d): %s",
+				res.ExitCode, strings.TrimSpace(out))
+		}
 		if strings.Contains(out, "install /bin/true") || strings.Contains(out, "install /bin/false") {
 			return true, fmt.Sprintf("kernel_module_state: %s is disabled (install no-op) and not loaded", name), nil
 		}
-		if strings.Contains(out, "not found") {
+		if res.ExitCode != 0 && modprobeModuleNotFound(out) {
 			return true, fmt.Sprintf("kernel_module_state: %s is not available (module not present) and not loaded", name), nil
 		}
 		return false, fmt.Sprintf("kernel_module_state: module %s is loadable (no install /bin/true|/bin/false override)", name), nil
 	}
+}
+
+// modprobeModuleNotFound reports whether out holds modprobe's own
+// module-not-found message, for example `modprobe: FATAL: Module atm not
+// found in directory /lib/modules/<release>`. Only a line that modprobe
+// itself printed counts; a shell's `modprobe: not found` starts with the
+// shell's name instead.
+func modprobeModuleNotFound(out string) bool {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "modprobe: ") && strings.Contains(line, "Module ") && strings.Contains(line, " not found") {
+			return true
+		}
+	}
+	return false
 }
 
 // checkGrubParameter checks that a kernel command-line parameter is set

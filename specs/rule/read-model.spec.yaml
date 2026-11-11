@@ -1,6 +1,6 @@
 spec:
     id: rule-read-model
-    version: 0.2.0
+    version: 0.2.1
     status: draft
     tier: 2
 
@@ -110,9 +110,11 @@ spec:
           description: |
               FrameworkFromID parses a framework id into {ID, Family, Version,
               Label}: versioned ("cis_rhel9" -> family cis, version rhel9, label
-              "CIS (RHEL 9)") and flat ("nist_800_53" -> "NIST 800-53"). An
-              unknown framework degrades gracefully (Family=id, Label=id) rather
-              than erroring.
+              "CIS (RHEL 9)"; "stig_ubuntu22" -> "STIG (Ubuntu 22.04)") and flat
+              ("nist_800_53" -> "NIST 800-53"). No framework id in the corpus
+              yields a label holding its raw version discriminator. An unknown
+              framework degrades gracefully (Family=id, Label=id) rather than
+              erroring.
           references_constraints: [C-01]
           priority: high
         - id: AC-03

@@ -1,6 +1,6 @@
 spec:
     id: rule-public-loader
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 2
 
@@ -145,6 +145,16 @@ spec:
               visits directories.
           type: technical
           enforcement: error
+        - id: C-08
+          description: |
+              LoadRules and LoadRulesFS check every value in their vars
+              argument by the rules the CLI applies to --var, before any file
+              is parsed, and fail the load with the variable named when a
+              value does not fit its declared type. CheckVarValue exposes the
+              same check for one value. An empty value, and any value for a
+              variable with no built-in default, is accepted.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -195,6 +205,10 @@ spec:
           description: RuleVariablesFS reports an undefined variable, lists an undecodable file under its file-name stem, sorts ids, returns an empty map without error for a tree with no rule files, and errors on a nil tree.
           references_constraints: [C-06]
           priority: critical
+        - id: AC-13
+          description: LoadRules and LoadRulesFS refuse pam_faillock_deny=three, pam_faillock_deny=3.5 and authorized_listening_ports="22, 443" with an error naming the variable and no rules, and accept pam_faillock_deny=5, an empty value and an unknown variable; CheckVarValue gives the same answer for each value.
+          references_constraints: [C-08]
+          priority: high
 
     depends_on:
         - spec_id: rule-default-path-resolution

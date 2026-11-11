@@ -2,6 +2,7 @@ package kensa
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
@@ -73,6 +74,10 @@ func TestFrameworkFromID(t *testing.T) {
 	}{
 		{"cis_rhel9", "cis", "rhel9", "CIS (RHEL 9)"},
 		{"stig_rhel10", "stig", "rhel10", "STIG (RHEL 10)"},
+		{"cis_ubuntu22", "cis", "ubuntu22", "CIS (Ubuntu 22.04)"},
+		{"stig_ubuntu24", "stig", "ubuntu24", "STIG (Ubuntu 24.04)"},
+		// A form outside the two known OS shapes stays verbatim.
+		{"cis_ubuntu2404", "cis", "ubuntu2404", "CIS (ubuntu2404)"},
 		{"nist_800_53", "nist_800_53", "", "NIST 800-53"},
 		{"pci_dss_4", "pci_dss_4", "", "PCI DSS 4.0"},
 		// Unknown framework degrades gracefully to the raw id.
@@ -83,6 +88,34 @@ func TestFrameworkFromID(t *testing.T) {
 		if got.Family != c.family || got.Version != c.version || got.Label != c.label {
 			t.Errorf("FrameworkFromID(%q) = %+v, want family=%q version=%q label=%q",
 				c.id, got, c.family, c.version, c.label)
+		}
+	}
+}
+
+// TestFrameworkFromID_CorpusLabels runs every framework id the corpus carries
+// through FrameworkFromID. None may come back with its raw version
+// discriminator in the label ("CIS (ubuntu22)"), which is what a consumer
+// would otherwise have to transform itself.
+//
+// @spec rule-read-model
+// @ac AC-02
+func TestFrameworkFromID_CorpusLabels(t *testing.T) {
+	t.Log("// @spec rule-read-model")
+	t.Log("// @ac AC-02")
+	rules, err := LoadRules(corpusDir(t), nil, nil)
+	if err != nil {
+		t.Fatalf("LoadRules: %v", err)
+	}
+	fws := Frameworks(rules)
+	if len(fws) == 0 {
+		t.Fatal("corpus yielded no frameworks")
+	}
+	for _, f := range fws {
+		if f.Version != "" && strings.Contains(f.Label, "("+f.Version+")") {
+			t.Errorf("framework %q label %q carries the raw version %q", f.ID, f.Label, f.Version)
+		}
+		if f.Label == f.ID {
+			t.Errorf("framework %q has no label of its own", f.ID)
 		}
 	}
 }
