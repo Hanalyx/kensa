@@ -33,6 +33,14 @@ any pair).
   non-zero. Eight rules use this check, `kmod-disable-atm`, `-bluetooth`,
   `-can`, `-dccp`, `-firewire`, `-rds`, `-sctp` and `-tipc`.
 
+- **Library callers get the variable type check.** v0.10.0 said variable
+  values are checked against a declared type before a host is contacted, but
+  only the CLI did so. `pkg/kensa.LoadRules(dir, nil, vars)` accepted
+  `pam_faillock_deny = three` and returned the full corpus. `LoadRules` and
+  `LoadRulesFS` now check every value in `vars` by the rules `--var` uses and
+  fail with the variable named. The new `kensa.CheckVarValue(name, raw)` runs
+  the same check on one value.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs

@@ -38,7 +38,9 @@ import (
 // [BuiltInVars]) merged with the caller's vars — caller values win on
 // collision. This is how an orchestrator injects operator-configured
 // values (e.g. ssh_max_sessions) per scan; pass nil to use the
-// built-in defaults alone.
+// built-in defaults alone. Each caller value is checked with
+// [CheckVarValue] first, and a value that does not fit its declared type
+// fails the load with the variable named.
 //
 // Strictness: unlike the CLI's directory walk (which warns on stderr
 // and skips unparseable draft rules), LoadRules is STRICT — any file
@@ -236,13 +238,45 @@ func ruleVariables(files []string, read func(string) ([]byte, error), base func(
 	return out, nil
 }
 
-// effectiveVars merges kensa's embedded built-in defaults with the
-// caller's overrides (caller wins). The chain matches the CLI's
-// lowest tier + operator override; intermediate file tiers
-// (config-dir defaults.yml, conf.d, per-group, per-host) are the
-// CLI's concern — a library caller owns its own storage and passes
-// the already-merged result.
+// CheckVarValue reports whether raw is an acceptable override for the
+// variable name, by the same rules the CLI applies to --var. The value is
+// checked as text: "5" is a whole number, while "three", "3.5" and "600s" are
+// not; a list is comma-separated members with no surrounding whitespace. An
+// empty value is accepted, as on the command line, and so is any value for a
+// variable Kensa ships no default for, because such a variable has no
+// declared type.
+//
+// LoadRules and LoadRulesFS apply this to every value in their vars argument.
+// A caller can also use it to refuse one value as it is entered.
+func CheckVarValue(name, raw string) error {
+	if raw == "" {
+		return nil
+	}
+	types, err := varsub.BuiltInTypes()
+	if err != nil {
+		return fmt.Errorf("built-in variable types: %w", err)
+	}
+	return varsub.CheckCLIValue(name, raw, types)
+}
+
+// effectiveVars checks the caller's overrides with [CheckVarValue], then
+// merges kensa's embedded built-in defaults with them (caller wins). The
+// chain matches the CLI's lowest tier + operator override; intermediate file
+// tiers (config-dir defaults.yml, conf.d, per-group, per-host) are the CLI's
+// concern — a library caller owns its own storage and passes the
+// already-merged result. Overrides are checked in name order, so the error
+// for a map with two bad values is always the same one.
 func effectiveVars(vars map[string]string) (varsub.Variables, error) {
+	names := make([]string, 0, len(vars))
+	for name := range vars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if err := CheckVarValue(name, vars[name]); err != nil {
+			return nil, fmt.Errorf("variable %w", err)
+		}
+	}
 	embedded, err := varsub.BuiltInDefaults()
 	if err != nil {
 		return nil, fmt.Errorf("built-in variable defaults: %w", err)

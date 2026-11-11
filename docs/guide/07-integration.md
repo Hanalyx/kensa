@@ -37,8 +37,14 @@ Loading the rule corpus from a consuming program is public surface too
   `/usr/share/kensa/rules`), and substitutes `{{ name }}` rule templates
   against kensa's embedded defaults merged with the caller's `vars`
   (caller wins). That `vars` map is where an orchestrator injects
-  operator-configured values. Strict: a bad file or undefined variable
-  fails the load with the file named; nothing is skipped silently.
+  operator-configured values. Each value is type checked first, by the
+  same rules as `--var`, and a value that does not fit fails the load with
+  the variable named. Strict: a bad file or undefined variable fails the
+  load with the file named; nothing is skipped silently.
+- `kensa.CheckVarValue(name, raw)`: the same type check for one value, so
+  an operator form can refuse `three` where a whole number belongs before
+  anything is saved. An empty value, and a variable Kensa ships no default
+  for, are accepted.
 - `kensa.BuiltInVars()`: the embedded variable defaults (name → value),
   for rendering an operator configuration UI. Review
   `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`: their
