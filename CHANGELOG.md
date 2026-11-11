@@ -22,6 +22,16 @@ any pair).
   library, `spf13/pflag`, moved to v1.1.0, which prints the explicit value
   syntax it accepts, for example `--sudo[=true|false]`. Parsing is unchanged.
 
+- **`audit_rule_exists` grades the audited action, not the key.** A host that
+  watched writes to `/etc/passwd` under `audit_rules_usergroup_modification`
+  failed `audit-file-passwd`, whose rule names the key `identity`. Yet
+  `audit_rule_set` refused to add the rule, because the action was already
+  audited. The check now passes a line when the same action is loaded under
+  any key: the path and permissions of a watch, or the arch, syscalls and
+  filters of a syscall rule. The detail names the line found under another
+  key. A rule that needs its own key sets the new optional `key_required:
+  true`.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs
