@@ -1043,7 +1043,7 @@ type auditRuleForm struct {
 // AuditActionLoaded for the equivalences it applies.
 func parseAuditRule(line string) auditRuleForm {
 	form := auditRuleForm{keys: map[string]bool{}}
-	fields := strings.Fields(line)
+	fields := splitAuditFlags(strings.Fields(line))
 	var (
 		isWatch, isSyscall     bool
 		watchPath, watchPerm   string
@@ -1060,7 +1060,7 @@ func parseAuditRule(line string) auditRuleForm {
 		}
 		switch f {
 		case "-w":
-			isWatch, watchPath = true, next
+			isWatch, watchPath = true, canonAuditPath(next)
 			i++
 		case "-p":
 			watchPerm = canonAuditPerm(next)
@@ -1105,10 +1105,6 @@ func parseAuditRule(line string) auditRuleForm {
 		case "-k":
 			form.keys[next] = true
 			i++
-		default:
-			if strings.HasPrefix(f, "-k") && len(f) > 2 {
-				form.keys[f[2:]] = true
-			}
 		}
 	}
 
@@ -1164,8 +1160,35 @@ func canonAuditFilter(tok string) (string, string) {
 		value = "-1"
 	case name == "perm":
 		value = canonAuditPerm(value)
+	case name == "path" || name == "dir":
+		value = canonAuditPath(value)
 	}
 	return name, "-F " + name + op + value
+}
+
+// canonAuditPath drops trailing slashes from a watched path, so
+// /etc/sudoers.d/ and /etc/sudoers.d compare equal. auditctl -l may print a
+// watch without the slash it was written with. The root path stays "/".
+func canonAuditPath(p string) string {
+	if t := strings.TrimRight(p, "/"); t != "" {
+		return t
+	}
+	return p
+}
+
+// splitAuditFlags separates a flag from an argument written against it,
+// such as -Farch=b64, -Sexecve or -pwa, which auditctl's option parser
+// accepts, into the two tokens the parser below expects.
+func splitAuditFlags(fields []string) []string {
+	out := make([]string, 0, len(fields))
+	for _, f := range fields {
+		if len(f) > 2 && f[0] == '-' && strings.IndexByte("wpaASFCk", f[1]) >= 0 {
+			out = append(out, f[:2], f[2:])
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // canonAuditCompare orders the two sides of a -C comparison. libaudit parses

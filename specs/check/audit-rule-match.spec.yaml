@@ -42,7 +42,10 @@ spec:
               never) and list are equal, their syscall sets are equal, and
               their sets of -C comparisons and -F filters other than the key
               are equal in both directions. A loaded never rule never
-              satisfies an always rule.
+              satisfies an always rule written in syscall form. A never
+              path rule over every syscall with only a perm filter prints in
+              auditctl -l exactly as a watch, so against auditctl -l output
+              it cannot be told from one (C-06).
           type: security
           enforcement: error
         - id: C-02
@@ -54,7 +57,10 @@ spec:
               libaudit parses euid!=uid and uid!=euid to one comparison;
               "exit,always" and "always,exit" are one action and list, and -A
               is read as -a; syscall lists and permission letters are sets; an
-              exit rule with no -S is "-S all". The same canonical form is
+              exit rule with no -S is "-S all"; a watched path, path= or dir=
+              value drops trailing slashes; and an argument written against
+              its flag (-Farch=b64, -Sexecve, -pwa, -kname) is read as if
+              separated. The same canonical form is
               applied to both sides of every comparison.
           type: technical
           enforcement: error
@@ -98,7 +104,12 @@ spec:
               Known limits. The match is equality, so a loaded rule that
               audits strictly more than the required one does not satisfy it.
               The loaded ruleset is read as a set, so rule order is not
-              modeled. Numeric exit values are compared as written.
+              modeled. Values are compared as written, so a numeric exit
+              value, a user name for a uid field (auid=root), or an arch
+              alias (arch=x86_64) does not match the number or b32/b64 form
+              auditctl prints. A never path rule that prints as a watch
+              satisfies the matching always watch, because the listing does
+              not show its action.
           type: technical
           enforcement: warning
 

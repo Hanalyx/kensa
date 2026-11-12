@@ -107,3 +107,32 @@ func TestRollback_Shell_StagedVerdictUsesKernelRule(t *testing.T) {
 		}
 	})
 }
+
+// A staged watch written with a trailing slash reads as loaded when auditctl
+// -l prints it without the slash; a clean restore there would over-claim.
+//
+// @spec check-audit-rule-match
+// @ac AC-06
+func TestRollback_Shell_StagedWatchTrailingSlash(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-06", func(t *testing.T) {
+		tp := engine.NewFakeTransport()
+		tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{Stdout: "-w /etc/sudoers.d -p wa -k identity\n"}
+		pre := &api.PreState{
+			Mechanism: "audit_rule_set",
+			Data: map[string]interface{}{
+				"path":             auditPath,
+				"file_existed":     false,
+				"prior_content":    "",
+				"file_added_lines": []string{"-w /etc/sudoers.d/ -p wa -k identity"},
+				"immutable_staged": true,
+			},
+		}
+		rb, err := auditruleset.New().Rollback(context.Background(), tp, pre)
+		if err != nil {
+			t.Fatalf("Rollback: %v", err)
+		}
+		if rb.Success || !rb.PartialRestore {
+			t.Errorf("Success=%v PartialRestore=%v, want PartialRestore (detail: %q)", rb.Success, rb.PartialRestore, rb.Detail)
+		}
+	})
+}

@@ -128,6 +128,18 @@ func TestAuditMatch_EquivalentForms(t *testing.T) {
 			{"watch perms in another order",
 				"-w /etc/passwd -p aw -k identity",
 				"-w /etc/passwd -p wa -k identity"},
+			{"watch written with a trailing slash",
+				"-w /etc/sudoers.d/ -p wa -k identity",
+				"-w /etc/sudoers.d -p wa -k identity"},
+			{"path rule written with a trailing slash",
+				"-a always,exit -F arch=b64 -F path=/etc/sudoers.d/ -F perm=wa -k identity",
+				"-a always,exit -F arch=b64 -S all -F path=/etc/sudoers.d -F perm=wa -F key=identity"},
+			{"flag arguments written against the flag",
+				"-a always,exit -Farch=b64 -Sexecve -kexec",
+				"-a always,exit -F arch=b64 -S execve -F key=exec"},
+			{"watch perms written against the flag",
+				"-w /etc/passwd -pwa -k identity",
+				"-w /etc/passwd -p wa -k identity"},
 		}
 		for _, c := range cases {
 			if got, detail := auditCheck(t, c.rule, c.loaded); !got {
@@ -156,6 +168,9 @@ func TestAuditMatch_DifferentFiltersStayDifferent(t *testing.T) {
 			{"egid=0 is not euid=0",
 				"-a always,exit -F arch=b64 -S execve -C gid!=egid -F egid=0 -k execpriv",
 				"-a always,exit -F arch=b64 -S execve -C gid!=egid -F euid=0 -F key=other"},
+			{"attached arch is still compared",
+				"-a always,exit -Farch=b32 -Sexecve -k exec",
+				"-a always,exit -F arch=b64 -S execve -F key=exec"},
 			{"auid=0 is not auid!=-1",
 				"-a always,exit -F arch=b64 -S setxattr -F auid=0 -k perm_mod",
 				"-a always,exit -F arch=b64 -S setxattr -F auid!=-1 -F key=other"},
