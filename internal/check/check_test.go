@@ -1020,50 +1020,57 @@ func TestCheckMulti_AllFail(t *testing.T) {
 // and the CIS-standard `install /bin/false` no-op overrides, and must treat a
 // module that is absent from the kernel tree ("... not found ...") as "not
 // available" (compliant). Only a genuinely loadable module (insmod lines) fails.
+//
+// @spec check-kernel-module-state
+// @ac AC-01
 func TestCheckKernelModuleState_DisabledFormsAndNotFound(t *testing.T) {
-	mod := "atm"
-	lsmod := "lsmod 2>/dev/null | grep -qw '" + mod + "'" // exit!=0 => not loaded
-	depends := "modprobe -n --show-depends '" + mod + "' 2>&1"
-	chk := api.Check{Method: "kernel_module_state", Params: api.Params{"name": mod, "state": "disabled"}}
+	t.Run("check-kernel-module-state/AC-01", func(t *testing.T) {
+		// @spec check-kernel-module-state
+		// @ac AC-01
+		mod := "atm"
+		lsmod := "lsmod 2>/dev/null | grep -qw '" + mod + "'" // exit!=0 => not loaded
+		depends := "modprobe -n --show-depends '" + mod + "' 2>&1"
+		chk := api.Check{Method: "kernel_module_state", Params: api.Params{"name": mod, "state": "disabled"}}
 
-	// Exit statuses are kmod's: 0 for a dependency listing, 1 when the module
-	// is not in the tree.
-	cases := []struct {
-		name   string
-		exit   int
-		stdout string
-		want   bool
-	}{
-		{"install-bin-true", 0, "install /bin/true", true},
-		{"install-bin-false", 0, "install /bin/false", true}, // CIS-standard form; was a false-FAIL
-		{"module-not-found", 1, "modprobe: FATAL: Module atm not found in directory /lib/modules/x", true},
-		{"loadable", 0, "insmod /lib/modules/x/kernel/net/atm/atm.ko.xz", false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
+		// Exit statuses are kmod's: 0 for a dependency listing, 1 when the module
+		// is not in the tree.
+		cases := []struct {
+			name   string
+			exit   int
+			stdout string
+			want   bool
+		}{
+			{"install-bin-true", 0, "install /bin/true", true},
+			{"install-bin-false", 0, "install /bin/false", true}, // CIS-standard form; was a false-FAIL
+			{"module-not-found", 1, "modprobe: FATAL: Module atm not found in directory /lib/modules/x", true},
+			{"loadable", 0, "insmod /lib/modules/x/kernel/net/atm/atm.ko.xz", false},
+		}
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+					lsmod:   result(1, ""), // not currently loaded
+					depends: result(c.exit, c.stdout),
+				}}
+				passed, detail, err := runForTest(context.Background(), ft, chk)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if passed != c.want {
+					t.Errorf("%s: passed=%v want=%v (detail: %s)", c.name, passed, c.want, detail)
+				}
+			})
+		}
+
+		// A loaded module always fails regardless of modprobe output.
+		t.Run("loaded", func(t *testing.T) {
 			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
-				lsmod:   result(1, ""), // not currently loaded
-				depends: result(c.exit, c.stdout),
+				lsmod:   result(0, mod), // currently loaded
+				depends: result(0, "install /bin/false"),
 			}}
-			passed, detail, err := runForTest(context.Background(), ft, chk)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if passed != c.want {
-				t.Errorf("%s: passed=%v want=%v (detail: %s)", c.name, passed, c.want, detail)
+			if passed, _, _ := runForTest(context.Background(), ft, chk); passed {
+				t.Errorf("a currently-loaded module must fail the disabled check")
 			}
 		})
-	}
-
-	// A loaded module always fails regardless of modprobe output.
-	t.Run("loaded", func(t *testing.T) {
-		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
-			lsmod:   result(0, mod), // currently loaded
-			depends: result(0, "install /bin/false"),
-		}}
-		if passed, _, _ := runForTest(context.Background(), ft, chk); passed {
-			t.Errorf("a currently-loaded module must fail the disabled check")
-		}
 	})
 }
 
@@ -1074,69 +1081,76 @@ func TestCheckKernelModuleState_DisabledFormsAndNotFound(t *testing.T) {
 // says nothing about the module, so the check must return an error, not a
 // verdict. Outputs are what the transport returns: stderr merged, trailing
 // newline trimmed.
+//
+// @spec check-kernel-module-state
+// @ac AC-02
 func TestCheckKernelModuleState_ModprobeMissingIsAnError(t *testing.T) {
-	mod := "atm"
-	lsmod := "lsmod 2>/dev/null | grep -qw '" + mod + "'"
-	depends := "modprobe -n --show-depends '" + mod + "' 2>&1"
-	chk := api.Check{Method: "kernel_module_state", Params: api.Params{"name": mod, "state": "disabled"}}
+	t.Run("check-kernel-module-state/AC-02", func(t *testing.T) {
+		// @spec check-kernel-module-state
+		// @ac AC-02
+		mod := "atm"
+		lsmod := "lsmod 2>/dev/null | grep -qw '" + mod + "'"
+		depends := "modprobe -n --show-depends '" + mod + "' 2>&1"
+		chk := api.Check{Method: "kernel_module_state", Params: api.Params{"name": mod, "state": "disabled"}}
 
-	cases := []struct {
-		name   string
-		exit   int
-		stdout string
-	}{
-		{"dash", 127, "sh: 1: modprobe: not found"},
-		{"bash", 127, "sh: line 1: modprobe: command not found"},
-		{"bash-older", 127, "sh: modprobe: command not found"},
-		{"not-executable", 126, "sh: 1: modprobe: Permission denied"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
-				lsmod:   result(1, ""),
-				depends: result(c.exit, c.stdout),
-			}}
-			passed, detail, err := runForTest(context.Background(), ft, chk)
-			if passed {
-				t.Fatalf("missing modprobe reported PASS (detail: %s)", detail)
-			}
-			if err == nil {
-				t.Fatalf("missing modprobe must be a check error, got a FAIL verdict (detail: %s)", detail)
-			}
-			if !strings.Contains(err.Error(), "modprobe could not run") {
-				t.Errorf("error does not say modprobe could not run: %v", err)
-			}
-		})
-	}
-
-	// "not found" text is not enough on its own: modprobe exits non-zero when
-	// the module is absent, so a zero exit with that text is not that case.
-	t.Run("not-found-text-with-zero-exit", func(t *testing.T) {
-		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
-			lsmod:   result(1, ""),
-			depends: result(0, "modprobe: FATAL: Module atm not found in directory /lib/modules/x"),
-		}}
-		if passed, detail, _ := runForTest(context.Background(), ft, chk); passed {
-			t.Errorf("not-found text with exit 0 reported PASS (detail: %s)", detail)
+		cases := []struct {
+			name   string
+			exit   int
+			stdout string
+		}{
+			{"dash", 127, "sh: 1: modprobe: not found"},
+			{"bash", 127, "sh: line 1: modprobe: command not found"},
+			{"bash-older", 127, "sh: modprobe: command not found"},
+			{"not-executable", 126, "sh: 1: modprobe: Permission denied"},
 		}
-	})
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+					lsmod:   result(1, ""),
+					depends: result(c.exit, c.stdout),
+				}}
+				passed, detail, err := runForTest(context.Background(), ft, chk)
+				if passed {
+					t.Fatalf("missing modprobe reported PASS (detail: %s)", detail)
+				}
+				if err == nil {
+					t.Fatalf("missing modprobe must be a check error, got a FAIL verdict (detail: %s)", detail)
+				}
+				if !strings.Contains(err.Error(), "modprobe could not run") {
+					t.Errorf("error does not say modprobe could not run: %v", err)
+				}
+			})
+		}
 
-	// Another tool's "not found" line, with a non-zero exit, is not
-	// modprobe's module-not-found message.
-	for _, out := range []string{
-		"sh: 1: /etc/profile.d/x.sh: not found",
-		"/usr/local/sbin/modprobe: line 2: Module atm not found",
-	} {
-		t.Run("foreign-not-found-line", func(t *testing.T) {
+		// "not found" text is not enough on its own: modprobe exits non-zero when
+		// the module is absent, so a zero exit with that text is not that case.
+		t.Run("not-found-text-with-zero-exit", func(t *testing.T) {
 			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
 				lsmod:   result(1, ""),
-				depends: result(1, out),
+				depends: result(0, "modprobe: FATAL: Module atm not found in directory /lib/modules/x"),
 			}}
 			if passed, detail, _ := runForTest(context.Background(), ft, chk); passed {
-				t.Errorf("a foreign not-found line %q reported PASS (detail: %s)", out, detail)
+				t.Errorf("not-found text with exit 0 reported PASS (detail: %s)", detail)
 			}
 		})
-	}
+
+		// Another tool's "not found" line, with a non-zero exit, is not
+		// modprobe's module-not-found message.
+		for _, out := range []string{
+			"sh: 1: /etc/profile.d/x.sh: not found",
+			"/usr/local/sbin/modprobe: line 2: Module atm not found",
+		} {
+			t.Run("foreign-not-found-line", func(t *testing.T) {
+				ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+					lsmod:   result(1, ""),
+					depends: result(1, out),
+				}}
+				if passed, detail, _ := runForTest(context.Background(), ft, chk); passed {
+					t.Errorf("a foreign not-found line %q reported PASS (detail: %s)", out, detail)
+				}
+			})
+		}
+	})
 }
 
 // TestAuditActionLoaded covers the key-agnostic duplicate-action matcher that
