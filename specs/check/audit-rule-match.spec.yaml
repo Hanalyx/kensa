@@ -109,8 +109,9 @@ spec:
               alias (arch=x86_64) does not match the number or b32/b64 form
               auditctl prints. In the check that is a false FAIL. In the
               duplicate guard it is a missed duplicate: a rules.d line
-              written euid=root and a new rule written euid=0 load as one
-              kernel rule, and the guard lets the second write through. A never path rule that prints as a watch
+              written euid=root and a new rule written euid=0 are expected to
+              load as one kernel rule (not yet verified on a host), and the
+              guard lets the second write through. A never path rule that prints as a watch
               satisfies the matching always watch, because the listing does
               not show its action.
           type: technical
