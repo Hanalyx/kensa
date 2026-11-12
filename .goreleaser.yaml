@@ -123,6 +123,9 @@ archives:
       #   kensa check --rules-dir ./rules <host>
       - src: rules/*/*.yml
       - src: rules/README.md
+      # The version marker, so --rules-dir ./rules reports which release
+      # this corpus is (pkg/kensa.DescribeCorpus).
+      - src: rules/.corpus-version
 
 nfpms:
   # ---- kensa (binary package) -------------------------------------------

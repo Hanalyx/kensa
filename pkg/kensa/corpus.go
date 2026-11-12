@@ -101,10 +101,48 @@ func DescribeCorpus(dir string, paths []string) (Corpus, error) {
 	return Corpus{Version: version, Digest: digest, Source: SourceDeclared}, nil
 }
 
+// DescribeCorpusFS is [DescribeCorpus] for a corpus held in a file tree, such
+// as the corpus embedded in the Kensa module (package
+// github.com/Hanalyx/kensa/rules), which carries its version marker.
+//
+// The digest is computed over the same files [LoadRulesFS] loads, with paths
+// relative to the root of fsys, so a tree and the same corpus on disk digest
+// identically. The marker is read from the root of fsys. As with a directory,
+// a tree with no marker returns SourceComputed and an empty Version. A nil
+// tree is an error.
+func DescribeCorpusFS(fsys fs.FS) (Corpus, error) {
+	if fsys == nil {
+		return Corpus{}, errors.New("nil rule file tree")
+	}
+	files, err := walkRuleFS(fsys)
+	if err != nil {
+		return Corpus{}, err
+	}
+	digest, err := digestRuleFiles(files, func(p string) (string, []byte, error) {
+		b, err := fs.ReadFile(fsys, p)
+		return p, b, err
+	})
+	if err != nil {
+		return Corpus{}, err
+	}
+	raw, err := fs.ReadFile(fsys, corpusMarkerFile)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return Corpus{Digest: digest, Source: SourceComputed}, nil
+	case err != nil:
+		return Corpus{}, fmt.Errorf("read corpus version marker: %w", err)
+	}
+	version := strings.TrimSpace(string(raw))
+	if version == "" {
+		return Corpus{Digest: digest, Source: SourceComputed}, nil
+	}
+	return Corpus{Version: version, Digest: digest, Source: SourceDeclared}, nil
+}
+
 // corpusMarkerFile is the version marker inside a corpus directory. It carries
 // no .yml extension on purpose (C-07): consumers count *.yml under the corpus
 // to validate a build and walk the same tree for variables, so a .yml marker
-// would be counted as a rule. walkRuleFiles matches on the extension, so this
+// would be counted as a rule. The rule walk matches on the extension, so this
 // name is also excluded from the digest by construction (C-03).
 const corpusMarkerFile = ".corpus-version"
 
@@ -141,13 +179,25 @@ func corpusDigest(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	h := sha256.New()
-	for _, p := range files {
+	return digestRuleFiles(files, func(p string) (string, []byte, error) {
 		rel, err := filepath.Rel(dir, p)
 		if err != nil {
-			return "", fmt.Errorf("relative path for %s: %w", p, err)
+			return "", nil, fmt.Errorf("relative path for %s: %w", p, err)
 		}
 		content, err := os.ReadFile(p)
+		return filepath.ToSlash(rel), content, err
+	})
+}
+
+// digestRuleFiles hashes rule files in the order given. The read function
+// returns each file's slash-separated path relative to the corpus root, and
+// its content.
+// The directory and file-tree forms share it, so the same corpus digests the
+// same through either.
+func digestRuleFiles(files []string, read func(string) (string, []byte, error)) (string, error) {
+	h := sha256.New()
+	for _, p := range files {
+		rel, content, err := read(p)
 		if err != nil {
 			return "", fmt.Errorf("read %s: %w", p, err)
 		}
@@ -156,7 +206,7 @@ func corpusDigest(dir string) (string, error) {
 		// corpora can produce the same byte stream by rearranging where one
 		// field ends and the next begins.
 		sum := sha256.Sum256(content)
-		h.Write([]byte(filepath.ToSlash(rel)))
+		h.Write([]byte(rel))
 		h.Write([]byte{0})
 		h.Write(sum[:])
 	}

@@ -3,7 +3,9 @@
 #
 # rules/ holds the corpus and also the Go package that embeds it for library
 # consumers. Only the corpus belongs in the package: every *.yml file under
-# rules/, at any depth, plus the corpus README. The layout under rules/ is kept,
+# rules/, at any depth, plus the corpus README and the version marker
+# (.corpus-version), which tells a reader which release the corpus is. The
+# layout under rules/ is kept,
 # directories are 0755 and files 0644, so the package matches what the corpus
 # directory itself would install.
 #
@@ -22,11 +24,12 @@ find "$src" -type f -name '*.yml' | while IFS= read -r f; do
 	cp "$f" "$dest/$rel"
 done
 cp "$src/README.md" "$dest/README.md"
+cp "$src/.corpus-version" "$dest/.corpus-version"
 
 find "$dest" -type d -exec chmod 0755 {} +
 find "$dest" -type f -exec chmod 0644 {} +
 
-if find "$dest" -type f ! -name '*.yml' ! -name README.md | grep -q .; then
+if find "$dest" -type f ! -name '*.yml' ! -name README.md ! -name .corpus-version | grep -q .; then
 	echo "stage-corpus: unexpected non-corpus file staged" >&2
 	exit 1
 fi
