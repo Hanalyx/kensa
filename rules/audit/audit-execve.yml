@@ -31,8 +31,8 @@ implementations:
     check:
       method: audit_rule_exists
       rule: |
-        -a always,exit -F arch=b32 -S execve
-        -a always,exit -F arch=b64 -S execve
+        -a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0
+        -a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0
     remediation:
       mechanism: audit_rule_set
       rule: |

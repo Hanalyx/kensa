@@ -33,7 +33,7 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F arch=b32 -S umount"
+      rule: "-a always,exit -F arch=b32 -S umount -F auid>=1000 -F auid!=unset"
     remediation:
       mechanism: audit_rule_set
       rule: "-a always,exit -F arch=b32 -S umount -F auid>=1000 -F auid!=unset -k privileged-umount"
