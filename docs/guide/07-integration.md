@@ -101,6 +101,11 @@ and ship in the next release.
 - `kensa.DescribeCorpusFS(fsys)` does the same for a file tree such as
   `rules.FS()`. The same corpus gives the same result through either
   form.
+- A directory or tree with no rule files is an error, even when it holds
+  the marker, as it is for `LoadRules`. A symlinked directory given without
+  a trailing slash is not walked, by `LoadRules` or by `DescribeCorpus`, so
+  both return that error; pass the path with a trailing slash. The tree form
+  follows the link, since `os.DirFS` does.
 
 `DescribeCorpus` identifies the directory corpus only. When you pass rule
 paths together with a directory, `LoadRules` loads the directory and then

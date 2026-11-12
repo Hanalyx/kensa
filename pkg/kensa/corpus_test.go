@@ -146,6 +146,57 @@ func TestDescribeCorpus(t *testing.T) {
 		}
 	})
 
+	t.Run("pkg-corpus-identity/AC-14", func(t *testing.T) {
+		// @spec pkg-corpus-identity
+		// @ac AC-14
+		// A walk that finds no rule files is an error, as it is for
+		// LoadRules, even with a marker present and rule paths passed.
+		empty := writeCorpus(t, map[string]string{".corpus-version": "0.13.0\n"})
+		extra := writeRule(t, t.TempDir(), "plain-rule.yml", plainRule)
+		for _, paths := range [][]string{nil, {extra}} {
+			if c, err := DescribeCorpus(empty, paths); err == nil {
+				t.Errorf("marker-only directory, paths %v: got %+v, want an error", paths, c)
+			}
+		}
+		if _, err := LoadRules(empty, nil, nil); err == nil {
+			t.Error("LoadRules accepted a marker-only directory")
+		}
+		if c, err := DescribeCorpusFS(os.DirFS(empty)); err == nil {
+			t.Errorf("marker-only tree: got %+v, want an error", c)
+		}
+	})
+
+	t.Run("pkg-corpus-identity/AC-15", func(t *testing.T) {
+		// @spec pkg-corpus-identity
+		// @ac AC-15
+		// A symlinked root given without a trailing slash is not walked, by
+		// LoadRules or by DescribeCorpus, so both refuse it. os.DirFS follows
+		// the link, so the file-tree form describes the corpus, and it agrees
+		// with the directory form given the trailing slash.
+		target := writeCorpus(t, withFiles(map[string]string{".corpus-version": "0.13.0\n"}))
+		link := filepath.Join(t.TempDir(), "rules")
+		if err := os.Symlink(target, link); err != nil {
+			t.Skipf("symlink: %v", err)
+		}
+		if c, err := DescribeCorpus(link, nil); err == nil {
+			t.Errorf("symlinked root: got %+v, want an error", c)
+		}
+		if _, err := LoadRules(link, nil, nil); err == nil {
+			t.Error("LoadRules walked a symlinked root; the directory form must then describe it too")
+		}
+		slash, err := DescribeCorpus(link+string(filepath.Separator), nil)
+		if err != nil {
+			t.Fatalf("symlinked root with a trailing slash: %v", err)
+		}
+		tree, err := DescribeCorpusFS(os.DirFS(link))
+		if err != nil {
+			t.Fatalf("file-tree form over the link: %v", err)
+		}
+		if slash != tree || slash != describe(t, target) {
+			t.Errorf("forms disagree:\n dir/ %+v\n fs   %+v", slash, tree)
+		}
+	})
+
 	t.Run("pkg-corpus-identity/AC-04", func(t *testing.T) {
 		// @spec pkg-corpus-identity
 		// @ac AC-04

@@ -73,6 +73,12 @@ type Corpus struct {
 //
 // A corpus with no version marker is not an error. It returns an empty Version
 // with SourceComputed, and never invents a version (spec C-05).
+//
+// A directory whose walk finds no rule files is an error, as it is for
+// LoadRules, even when it holds a marker (spec C-11). Reporting the marker's
+// version over no rules would name a corpus that decided no verdict. The walk
+// does not descend into a symlinked root given without a trailing slash, so
+// such a root is an error here and in LoadRules alike.
 func DescribeCorpus(dir string, paths []string) (Corpus, error) {
 	// C-01: the same resolution LoadRules performs, so the directory described
 	// is the directory that would be loaded. Resolving separately here is the
@@ -115,7 +121,7 @@ func DescribeCorpus(dir string, paths []string) (Corpus, error) {
 // relative to the root of fsys, so a tree and the same corpus on disk digest
 // identically. The marker is read from the root of fsys. As with a directory,
 // a tree with no marker returns SourceComputed and an empty Version. A nil
-// tree is an error.
+// tree, and a tree with no rule files, is an error.
 func DescribeCorpusFS(fsys fs.FS) (Corpus, error) {
 	if fsys == nil {
 		return Corpus{}, errors.New("nil rule file tree")
@@ -123,6 +129,10 @@ func DescribeCorpusFS(fsys fs.FS) (Corpus, error) {
 	files, err := walkRuleFS(fsys)
 	if err != nil {
 		return Corpus{}, err
+	}
+	// C-11: as LoadRulesFS, a tree with no rule files is an error.
+	if len(files) == 0 {
+		return Corpus{}, errors.New("no *.yml files found in the rule file tree")
 	}
 	digest, err := digestRuleFiles(files, func(p string) (string, []byte, error) {
 		b, err := fs.ReadFile(fsys, p)
@@ -184,6 +194,10 @@ func corpusDigest(dir string) (string, error) {
 	files, err := walkRuleFiles(dir)
 	if err != nil {
 		return "", err
+	}
+	// C-11: the same refusal LoadRules gives for a directory with no rules.
+	if len(files) == 0 {
+		return "", fmt.Errorf("no *.yml files found in %s", dir)
 	}
 	return digestRuleFiles(files, func(p string) (string, []byte, error) {
 		rel, err := filepath.Rel(dir, p)
