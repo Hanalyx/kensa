@@ -254,7 +254,7 @@ func TestStagedPackageCorpus(t *testing.T) {
 				if mode != 0o755 {
 					t.Errorf("%s: directory mode %o, want 755", p, mode)
 				}
-			case strings.HasSuffix(p, ".yml") || p == "README.md":
+			case strings.HasSuffix(p, ".yml") || p == "README.md" || p == ".corpus-version":
 				if mode != 0o644 {
 					t.Errorf("%s: file mode %o, want 644", p, mode)
 				}

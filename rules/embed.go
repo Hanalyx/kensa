@@ -21,7 +21,11 @@ import (
 // down, in a topic directory. TestEmbeddedMatchesDisk fails if a rule file is
 // ever added that this pattern misses.
 //
-//go:embed */*.yml
+// The version marker is named explicitly. A pattern never matches a file
+// whose name starts with a dot, so without its own entry the embedded corpus
+// would report no version. The marker is read by pkg/kensa.DescribeCorpusFS.
+//
+//go:embed */*.yml .corpus-version
 var corpus embed.FS
 
 // FS returns the embedded corpus. Paths are relative to the corpus root, in

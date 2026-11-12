@@ -11,6 +11,8 @@
 #   4. VERSION matches the newest stamped CHANGELOG version.
 #   5. README states the current version (catches a stale Status section).
 #   6. README and CONTRIBUTING both point to SECURITY.md.
+#   7. No stale prior-release version in README, CONTRIBUTING or SECURITY.
+#   8. rules/.corpus-version matches VERSION (scripts/check-corpus-version.sh).
 set -u
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -85,6 +87,15 @@ if [ -n "$stale" ]; then
 	for s in $stale; do printf '        %s\n' "$s"; done | sort -u
 else
 	ok "no stale prior-release version in README/CONTRIBUTING/SECURITY"
+fi
+
+# 8. rules/.corpus-version == VERSION. The marker tells a consumer which corpus
+#    produced a verdict, and as a second copy of the version it drifts unless
+#    something checks it. The check is its own script so it can be tested.
+if out="$(sh scripts/check-corpus-version.sh "$root" 2>&1)"; then
+	ok "rules/.corpus-version matches VERSION"
+else
+	note "$out"
 fi
 
 if [ "$fail" -ne 0 ]; then

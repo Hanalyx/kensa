@@ -9,7 +9,8 @@
 #   - the module resolves to the candidate version, with no replacement, from
 #     an isolated module cache and never from this checkout;
 #   - the embedded corpus equals the rule files tracked at the commit, file for
-#     file, by path and sha256;
+#     file, by path and sha256, and declares the version in the commit's
+#     rules/.corpus-version marker;
 #   - every dependency hash the consumer records matches Kensa's committed
 #     go.sum;
 #   - rules/ holds no go.mod, and no cmd/ or pkg/ package links the corpus.
@@ -145,6 +146,12 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("loaded %d\n", len(loaded))
+	c, err := kensa.DescribeCorpusFS(fsys)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "DescribeCorpusFS:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("corpus %s %s\n", c.Source, c.Version)
 	err = fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".yml") {
 			return err
@@ -212,7 +219,12 @@ done <"$consumer/go.sum"
 # Content: the embedded corpus equals the rule files tracked at the commit.
 "$work/consumer.bin" >"$work/embedded.txt" || fail "consumer run failed"
 loaded=$(awk '/^loaded /{print $2}' "$work/embedded.txt")
-grep -v '^loaded ' "$work/embedded.txt" | sort -k2 >"$work/embedded.sha"
+corpus=$(awk '/^corpus /{print $2, $3}' "$work/embedded.txt")
+grep -v -e '^loaded ' -e '^corpus ' "$work/embedded.txt" | sort -k2 >"$work/embedded.sha"
+# The version marker must reach the consumer through the module download. The
+# embed pattern skips dot files, so this fails if the marker is not embedded.
+marker=$(tr -d '[:space:]' <"$tree/rules/.corpus-version") || fail "no rules/.corpus-version at $commit"
+[ "$corpus" = "declared $marker" ] || fail "embedded corpus reports '$corpus', want 'declared $marker'"
 (cd "$tree/rules" && find . -type f -name '*.yml' | sed 's#^\./##' | sort |
 	while read -r f; do printf '%s  %s\n' "$(sha256sum <"$f" | cut -d' ' -f1)" "$f"; done) |
 	sort -k2 >"$work/tracked.sha"
@@ -231,4 +243,4 @@ if grep -qx "$module/rules" <<<"$deps"; then
 	fail "a cmd/ or pkg/ package links $module/rules"
 fi
 
-say "PASS: $count rule files embedded and loaded, graph and go.sum verified"
+say "PASS: $count rule files embedded and loaded, corpus version $marker declared, graph and go.sum verified"
