@@ -32,6 +32,9 @@ any pair).
   marker. `DescribeCorpus` identifies the directory corpus only. Rule paths
   passed together with a directory are loaded by `LoadRules` but are not
   covered by the result, so a caller that passes them records them itself.
+  A directory or tree with no rule files is an error, even beside rule
+  paths that `LoadRules` would load, so the marker's version is never
+  reported over no rules.
   The release snapshot check now expects the marker in each package payload
   and checks that it equals `VERSION`. `api/` is unchanged.
 
@@ -96,6 +99,12 @@ any pair).
   "CIS (ubuntu22)". It now returns "CIS (Ubuntu 22.04)" and
   "STIG (Ubuntu 24.04)", in the same way it returns "CIS (RHEL 9)". The
   `Version` field still holds the raw key.
+
+### Security
+
+- **Go 1.26.11.** The binaries are built with Go 1.26.11, which fixes
+  GO-2026-6859, a vulnerability in the standard library `net/http` package
+  found in Go 1.26.10. Building from source needs Go 1.26.11 or later.
 
 ## v0.13.0 (2026-11-08)
 

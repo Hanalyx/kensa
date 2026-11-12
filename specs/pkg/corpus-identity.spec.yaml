@@ -1,6 +1,6 @@
 spec:
     id: pkg-corpus-identity
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 2
 
@@ -187,6 +187,21 @@ spec:
           type: technical
           enforcement: error
 
+        - id: C-11
+          description: |
+              A directory or file tree whose walk finds no rule files MUST
+              be an error, even when it holds a marker. A declared version
+              over no rules names a corpus that decided no verdict.
+              LoadRules and LoadRulesFS refuse the same input when no rule
+              paths are passed. With rule paths, LoadRules loads them, and
+              DescribeCorpus still refuses, since the identity covers the
+              directory only (C-10). A root that is a file is an error. The directory walk
+              does not descend into a symlinked root given without a
+              trailing slash, so both DescribeCorpus and LoadRules refuse
+              that root, while os.DirFS follows it.
+          type: technical
+          enforcement: error
+
     acceptance_criteria:
         - id: AC-01
           description: |
@@ -301,5 +316,23 @@ spec:
               (AC-07).
           references_constraints: [C-06, C-07]
           priority: medium
+
+        - id: AC-14
+          description: |
+              A directory holding only the marker is an error, with and
+              without rule paths, and so is the same tree through
+              DescribeCorpusFS. LoadRules refuses that directory alone and
+              loads the rule path when one is passed.
+          references_constraints: [C-11]
+          priority: high
+
+        - id: AC-15
+          description: |
+              A symlinked root without a trailing slash is an error for
+              DescribeCorpus and for LoadRules. With the trailing slash,
+              DescribeCorpus returns the same result as DescribeCorpusFS
+              over the link and as DescribeCorpus over the target.
+          references_constraints: [C-11]
+          priority: high
 
     tags: [pkg-kensa, corpus, openwatch, versioning, tier-2]
