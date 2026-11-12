@@ -15,7 +15,9 @@ spec:
             lines it would run. A shell that cannot find or run modprobe
             prints "not found" too, with exit 127 or 126. Those words say
             nothing about the module, and reading them as "module absent"
-            passed every module on a host without modprobe.
+            passed every module on a host without modprobe. Any state
+            other than blacklisted, including an unset one, takes the
+            disabled branch.
 
             Known limits, not enforced here and not covered by tests. The
             loaded test runs lsmod with stderr discarded, so a host without
