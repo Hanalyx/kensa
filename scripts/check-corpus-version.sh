@@ -33,8 +33,20 @@ if [ ! -f "$marker_file" ]; then
 	echo "check-corpus-version: missing rules/.corpus-version; the corpus carries no version marker. Run: cp VERSION rules/.corpus-version" >&2
 	exit 1
 fi
-version=$(trim "$(cat "$version_file")")
-marker=$(trim "$(cat "$marker_file")")
+# read prints a file, failing on a read error or on any byte that is not
+# printable ASCII or whitespace. The shell drops NUL bytes from $(...), so a
+# marker of "0.13.0<NUL>" would otherwise pass while the API reads the NUL.
+read_value() {
+	raw=$(cat "$1") || { echo "check-corpus-version: cannot read $1" >&2; exit 1; }
+	if [ -n "$(tr -d '[:print:][:space:]' <"$1" | od -An -c)" ]; then
+		echo "check-corpus-version: $1 holds a byte that is not printable ASCII" >&2
+		exit 1
+	fi
+	trim "$raw"
+}
+
+version=$(read_value "$version_file")
+marker=$(read_value "$marker_file")
 [ -n "$marker" ] || { echo "check-corpus-version: rules/.corpus-version is empty" >&2; exit 1; }
 if [ "$marker" != "$version" ]; then
 	echo "check-corpus-version: rules/.corpus-version ($marker) != VERSION ($version); bump both in the release commit, or run: cp VERSION rules/.corpus-version" >&2

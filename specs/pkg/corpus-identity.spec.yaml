@@ -50,7 +50,9 @@ spec:
             so a rename moves the digest (C-02); adds a third Source,
             none, for rule paths with no directory (AC-03); adds the
             file-tree form the consumer later asked for (AC-11); and
-            limits the identity to the directory corpus (C-10). The
+            limits the identity to the directory corpus (C-10). AC-07
+            also covers the with-rules tarball, which the request did not
+            name. The
             request's third artifact, a kensa-rules package the consumer
             builds from the module cache, is not built here. AC-08 checks
             the module cache the consumer copies from. This spec is a
@@ -160,7 +162,9 @@ spec:
               values as DescribeCorpus reads the marker: leading and
               trailing whitespace are trimmed and whitespace inside the
               value is kept, so a marker DescribeCorpus would report as
-              "0. 13.0" fails against VERSION 0.13.0.
+              "0. 13.0" fails against VERSION 0.13.0. A byte outside
+              printable ASCII and whitespace fails the gate, because the
+              shell cannot carry a NUL the API would keep.
           type: technical
           enforcement: error
 
@@ -258,8 +262,11 @@ spec:
               A marker whose value differs from VERSION fails the
               documentation gate, in both directions. A marker or VERSION
               with whitespace inside the value fails, and one with only
-              surrounding whitespace passes. The gate passes exactly when
-              DescribeCorpus reads a marker equal to VERSION.
+              surrounding whitespace passes. A marker or VERSION holding a
+              byte that is not printable ASCII or whitespace, such as NUL,
+              fails. For values of printable ASCII and whitespace, the gate
+              passes exactly when DescribeCorpus reads a marker equal to
+              VERSION.
           references_constraints: [C-08]
           priority: high
 

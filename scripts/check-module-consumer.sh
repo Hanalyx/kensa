@@ -227,9 +227,11 @@ grep -v -e '^loaded ' -e '^corpus ' "$work/embedded.txt" | sort -k2 >"$work/embe
 # embed pattern skips dot files, so this fails if the marker is not embedded.
 # Trim only leading and trailing whitespace, as pkg/kensa reads the marker;
 # deleting every space would hide a marker such as "0. 13.0".
+# [:space:] is matched in the C locale, as check-corpus-version.sh does.
 marker=$(cat "$tree/rules/.corpus-version") || fail "no rules/.corpus-version at $commit"
-marker=${marker#"${marker%%[![:space:]]*}"}
-marker=${marker%"${marker##*[![:space:]]}"}
+[ -z "$(LC_ALL=C tr -d '[:print:][:space:]' <"$tree/rules/.corpus-version" | od -An -c)" ] ||
+	fail "rules/.corpus-version at $commit holds a byte that is not printable ASCII"
+marker=$(LC_ALL=C; m=$marker; m=${m#"${m%%[![:space:]]*}"}; printf '%s' "${m%"${m##*[![:space:]]}"}")
 [ "$corpus" = "declared $marker" ] || fail "embedded corpus reports '$corpus', want 'declared $marker'"
 # A consumer that copies the corpus out of the module cache, rather than
 # embedding it, reads the marker file from the module directory.
@@ -254,4 +256,4 @@ if grep -qx "$module/rules" <<<"$deps"; then
 	fail "a cmd/ or pkg/ package links $module/rules"
 fi
 
-say "PASS: $count rule files embedded and loaded, corpus version $marker declared, graph and go.sum verified"
+say "PASS: $count rule files embedded and loaded, corpus version $marker declared, module cache marker identical, graph and go.sum verified"

@@ -76,8 +76,10 @@ func TestModuleConsumerCheck(t *testing.T) {
 		if pass == "" {
 			t.Skip("the module consumer check did not run")
 		}
-		if want := "corpus version " + repoVersion(t) + " declared"; !strings.Contains(pass, want) {
-			t.Errorf("module consumer PASS line %q does not contain %q", pass, want)
+		for _, want := range []string{"corpus version " + repoVersion(t) + " declared", "module cache marker identical"} {
+			if !strings.Contains(pass, want) {
+				t.Errorf("module consumer PASS line %q does not contain %q", pass, want)
+			}
 		}
 	})
 }

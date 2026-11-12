@@ -132,6 +132,9 @@ func TestCorpusVersionMarker(t *testing.T) {
 			"tab inside the marker":      {"0.14.0", "0.14\t.0"},
 			"newline inside the marker":  {"0.14.0", "0.14\n.0"},
 			"space inside VERSION":       {"0. 14.0", "0.14.0"},
+			"NUL after the marker":       {"0.14.0", "0.14.0\x00"},
+			"NUL inside the marker":      {"0.14.0", "0.14\x00.0"},
+			"NUL inside VERSION":         {"0.14\x00.0", "0.14.0"},
 		} {
 			if err := run(c[0], c[1]); err == nil {
 				t.Errorf("%s: the gate passed", name)
