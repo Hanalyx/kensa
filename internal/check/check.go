@@ -1008,8 +1008,10 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 // "-C euid!=uid" and "-C uid!=euid" are one comparison; "exit,always" and
 // "always,exit" are one action and list, and -A is read as -a; syscall lists
 // and permission letters are sets; an exit rule with no -S is "-S all".
-// A path or dir rule with no arch, no syscalls and only a perm filter is the
-// watch it loads as.
+// A path rule with no arch, no syscalls and only a perm filter is the watch
+// it loads as. A dir rule is not folded into a watch: dir= watches a subtree,
+// while path= on a directory watches only its inode, and a -w line does not
+// say which of the two auditctl chose.
 //
 // The audit_rule_set handler uses this to detect that a rule is already
 // present on the host before it writes a second drop-in for it, which would
@@ -1089,7 +1091,7 @@ func parseAuditRule(line string) auditRuleForm {
 			}
 			name, tok := canonAuditFilter(next)
 			switch name {
-			case "path", "dir":
+			case "path":
 				pathTok = tok
 			case "perm":
 				permTok = tok
@@ -1112,8 +1114,8 @@ func parseAuditRule(line string) auditRuleForm {
 
 	if isSyscall && list == "exit" && (len(syscalls) == 0 || syscalls["all"]) {
 		syscalls = map[string]bool{"all": true}
-		// A path or dir rule over every syscall with only a perm filter is
-		// the kernel rule -w loads, and auditctl -l prints it as -w.
+		// A path rule over every syscall with only a perm filter is the
+		// kernel rule -w loads on a file, and auditctl -l prints it as -w.
 		if action == "always" && arch == "" && pathTok != "" && permTok != "" && len(filters) == 2 {
 			isSyscall, isWatch = false, true
 			watchPath = pathTok[strings.IndexByte(pathTok, '=')+1:]

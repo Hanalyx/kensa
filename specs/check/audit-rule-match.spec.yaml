@@ -62,9 +62,12 @@ spec:
           description: |
               A watch line matches on its path and permission set. An
               always,exit rule with no arch, no syscalls other than all, and
-              only a path= or dir= filter plus a perm= filter is the kernel
-              rule -w loads, and matches the watch. A path rule with an arch,
-              or with any other filter, is not a watch.
+              only a path= filter plus a perm= filter is the kernel rule -w
+              loads on a file, and matches the watch. A path rule with an
+              arch, or with any other filter, is not a watch. A dir= rule is
+              never folded into a watch, because dir= watches a subtree and
+              path= on a directory watches only its inode; this may FAIL an
+              equivalent rule, the cautious side.
           type: technical
           enforcement: error
         - id: C-04
