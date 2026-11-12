@@ -1,6 +1,6 @@
 spec:
     id: pkg-corpus-identity
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 2
 
@@ -42,9 +42,23 @@ spec:
             and the disagreement surfaces during an incident, so both come
             from one place.
 
+            **Where this differs from the accepted request.** The request
+            and its consumer sign-off proposed DescribeCorpus(dir), a
+            digest over rule content, and two Source values. This spec
+            adds a paths argument, so resolution matches LoadRules (C-01);
+            covers each rule file's relative path as well as its content,
+            so a rename moves the digest (C-02); adds a third Source,
+            none, for rule paths with no directory (AC-03); adds the
+            file-tree form the consumer later asked for (AC-11); and
+            limits the identity to the directory corpus (C-10). The
+            request's third artifact, a kensa-rules package the consumer
+            builds from the module cache, is not built here. AC-08 checks
+            the module cache the consumer copies from. This spec is a
+            draft. Test coverage of its criteria is not contract approval.
+
     objective:
         summary: |
-            Report the identity of the rule corpus at a directory: its
+            Report the identity of the rule corpus in a directory: its
             declared version when it has one, a content digest always, and
             which of the two is being reported, so a consumer can store the
             fact a verdict was measured against.
@@ -56,6 +70,9 @@ spec:
                 - A version marker committed in the module source tree
                 - A gate keeping the marker equal to VERSION
             excludes:
+                - The identity of a rule selection, including rule paths
+                  passed beside a directory (C-10). That is a separate
+                  request
                 - Any field on api.ScanResult. That is a Red-class change
                   needing founder approval and a failure-mode analysis, and
                   this does not warrant it
@@ -139,7 +156,11 @@ spec:
               The declared marker value MUST equal `VERSION`, enforced by a
               gate rather than by convention. An unchecked second copy of a
               version drifts, and a stale declared version is reported with
-              the same confidence as a correct one.
+              the same confidence as a correct one. The gate reads both
+              values as DescribeCorpus reads the marker: leading and
+              trailing whitespace are trimmed and whitespace inside the
+              value is kept, so a marker DescribeCorpus would report as
+              "0. 13.0" fails against VERSION 0.13.0.
           type: technical
           enforcement: error
 
@@ -149,6 +170,17 @@ spec:
               claim was: filtering the diff for non-comment lines returns
               zero.
           type: business
+          enforcement: error
+
+        - id: C-10
+          description: |
+              DescribeCorpus identifies the directory corpus only. When a
+              directory resolves and rule paths are also passed, LoadRules
+              loads the walked files and then each path, but the result
+              MUST NOT be presented as covering those paths: it is the same
+              with or without them. The godoc and the integration guide
+              MUST say so, so a caller records extra paths itself.
+          type: technical
           enforcement: error
 
     acceptance_criteria:
@@ -203,22 +235,31 @@ spec:
         - id: AC-07
           description: |
               A built rpm and a built deb both carry the marker at
-              /usr/share/kensa/rules. Checked against extracted artifacts,
-              not against the packaging config.
+              /usr/share/kensa/rules, equal to VERSION, and the with-rules
+              tarball carries it at rules/. Checked against extracted
+              artifacts, not against the packaging config or the staged
+              tree: scripts/artifact_controls.py checks each extracted
+              payload in the release snapshot job.
           references_constraints: [C-06, C-07]
           priority: high
 
         - id: AC-08
           description: |
-              The marker survives Go module packaging, so a consumer that
-              copies the corpus out of the module cache receives it.
+              The marker survives Go module packaging. A consumer built
+              against the module from an isolated module cache reads it
+              through the embedded corpus, and the module cache directory
+              holds the marker file byte for byte, so a consumer that
+              copies the corpus out of the cache receives it.
           references_constraints: [C-06]
           priority: critical
 
         - id: AC-09
           description: |
               A marker whose value differs from VERSION fails the
-              documentation gate, in both directions.
+              documentation gate, in both directions. A marker or VERSION
+              with whitespace inside the value fails, and one with only
+              surrounding whitespace passes. The gate passes exactly when
+              DescribeCorpus reads a marker equal to VERSION.
           references_constraints: [C-08]
           priority: high
 
@@ -236,5 +277,22 @@ spec:
               files it was built from. A nil tree is an error.
           references_constraints: [C-02, C-03]
           priority: high
+
+        - id: AC-12
+          description: |
+              For one directory, LoadRules loads one more rule when an
+              extra rule path is passed, and DescribeCorpus returns the
+              same result with and without that path.
+          references_constraints: [C-10]
+          priority: high
+
+        - id: AC-13
+          description: |
+              The staged tree that both packages install carries the
+              marker, and DescribeCorpus reports it as declared at
+              VERSION. This checks staging, not the built artifacts
+              (AC-07).
+          references_constraints: [C-06, C-07]
+          priority: medium
 
     tags: [pkg-kensa, corpus, openwatch, versioning, tier-2]
