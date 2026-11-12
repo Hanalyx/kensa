@@ -63,7 +63,9 @@ any pair).
   not duplicates, such as a `never` rule or a rule with different filters.
   It now uses the same comparison as `audit_rule_exists`. The shell rollback
   of a staged rule uses it too, when it reports whether the rule is still
-  loaded after a reboot.
+  loaded after a reboot. There it is combined with the earlier comparison, so
+  a rollback never reports a cleaner restore than before. It now also reports
+  a rule still loaded when `auditctl -l` prints `auid!=unset`.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

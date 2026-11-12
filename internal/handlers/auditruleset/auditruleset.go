@@ -829,12 +829,15 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 // auditd loaded at boot is still enforced (and, immutable, cannot be unloaded)
 // even after the drop-in is removed.
 //
-// It delegates to check.AuditLineLoaded — the same matcher the audit_rule_exists
-// check uses — because `auditctl -l` prints WATCH rules verbatim but
-// reorders/normalises SYSCALL rules (auid!=unset→auid!=-1, -k→-F key=, syscall
-// lists re-sorted); a naive full-line compare missed genuinely-loaded syscall
-// rules and over-reported a clean restore. A read error returns false so a
-// rollback never over-claims a partial restore.
+// It delegates to check.AuditLineMaybeLoaded: the audit_rule_exists matcher,
+// widened by the earlier field-subset matcher, because `auditctl -l` prints
+// WATCH rules verbatim but reorders/normalises SYSCALL rules (auid!=unset→
+// auid!=-1, -k→-F key=, syscall lists re-sorted); a naive full-line compare
+// missed genuinely-loaded syscall rules and over-reported a clean restore. A
+// false "not loaded" here reports a clean restore while the host still
+// carries the rule, so the verdict takes the more cautious of the two
+// matchers. A read error returns false so a rollback never over-claims a
+// partial restore.
 func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []string) bool {
 	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
 	if err != nil || !res.OK() {
@@ -845,7 +848,7 @@ func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		if check.AuditLineLoaded(line, loaded) {
+		if check.AuditLineMaybeLoaded(line, loaded) {
 			return true
 		}
 	}

@@ -81,8 +81,13 @@ spec:
               AuditActionLoaded finds it under any key. The audit_rule_set
               guard refuses a write when AuditActionLoaded finds the line in
               rules.d. The shell staged rollback reports PartialRestore when
-              AuditLineLoaded finds a staged line in auditctl -l. No caller
-              keeps a private matcher.
+              AuditLineMaybeLoaded finds a staged line in auditctl -l. That is
+              AuditLineLoaded OR the earlier field-subset matcher, an interim
+              kept until the canonical form is verified against real auditctl
+              -l output: on this path a false "not loaded" reports a clean
+              restore while the rule is still loaded, so the union may only
+              add PartialRestore results relative to the earlier matcher. No
+              other caller keeps a private matcher.
           type: technical
           enforcement: error
         - id: C-06
@@ -116,7 +121,7 @@ spec:
           references_constraints: [C-05]
           priority: critical
         - id: AC-06
-          description: The shell staged rollback reports PartialRestore when the staged rule is loaded in its auditctl -l form, including auid printed as unset, and a clean restore when only a never line with the same fields is loaded.
+          description: AuditLineLoaded finds a staged rule in its auditctl -l form, including auid printed as unset, and does not take a never line with the same fields for it. The shell staged rollback reports PartialRestore for both loaded forms and, under the interim union, for the never line too; it reports a clean restore when only an unrelated rule is loaded.
           references_constraints: [C-05]
           priority: critical
         - id: AC-07
