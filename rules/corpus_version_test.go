@@ -19,18 +19,20 @@ func repoVersion(t *testing.T) string {
 	return strings.TrimSpace(string(b))
 }
 
-// TestCorpusVersionMarker covers where the corpus version marker travels: the
-// embedded corpus, the staged package contents, and the gate that keeps it
-// equal to VERSION.
+// TestCorpusVersionMarker covers where the corpus version marker travels in
+// this checkout: the embedded corpus, the staged package contents, and the
+// gate that keeps it equal to VERSION.
 //
 // @spec pkg-corpus-identity
 func TestCorpusVersionMarker(t *testing.T) {
-	t.Run("pkg-corpus-identity/AC-07", func(t *testing.T) {
+	t.Run("pkg-corpus-identity/AC-13", func(t *testing.T) {
 		// @spec pkg-corpus-identity
-		// @ac AC-07
+		// @ac AC-13
 		// The staged tree is what both the rpm and the deb install at
-		// /usr/share/kensa/rules (nfpm type: tree). The built artifacts are
-		// checked separately against a release snapshot.
+		// /usr/share/kensa/rules (nfpm type: tree). This checks the staging
+		// only. The built rpm and deb payloads (AC-07) are checked after
+		// extraction by scripts/artifact_controls.py in the release snapshot
+		// job.
 		dest := t.TempDir() + "/stage"
 		cmd := exec.Command("sh", "scripts/stage-corpus.sh", dest)
 		cmd.Dir = ".."
@@ -53,13 +55,13 @@ func TestCorpusVersionMarker(t *testing.T) {
 		}
 	})
 
-	t.Run("pkg-corpus-identity/AC-08", func(t *testing.T) {
+	t.Run("pkg-corpus-identity/AC-11", func(t *testing.T) {
 		// @spec pkg-corpus-identity
-		// @ac AC-08
-		// A consumer that embeds the corpus gets the marker. A pattern skips
-		// dot files, so this fails if the marker loses its explicit embed
-		// entry. scripts/check-module-consumer.sh checks the same through a
-		// real module download.
+		// @ac AC-11
+		// The embedded corpus carries the marker. A pattern skips dot files,
+		// so this fails if the marker loses its explicit embed entry. This
+		// reads the embed in this checkout; TestModuleConsumerCheck checks a
+		// real module download (AC-08).
 		c, err := kensa.DescribeCorpusFS(FS())
 		if err != nil {
 			t.Fatal(err)
@@ -97,15 +99,39 @@ func TestCorpusVersionMarker(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			return exec.Command("sh", script, root).Run()
+			gate := exec.Command("sh", script, root).Run()
+			// The gate must agree with the API: it passes exactly when the
+			// marker DescribeCorpus reads equals VERSION, trimmed the same way.
+			c, err := kensa.DescribeCorpus(filepath.Join(root, "rules"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if apiMatch := c.Version != "" && c.Version == strings.TrimSpace(version); apiMatch != (gate == nil) {
+				t.Errorf("VERSION %q, marker %q: gate error %v, but the API reads %+v", version, marker, gate, c)
+			}
+			return gate
 		}
-		if err := run("0.14.0", "0.14.0"); err != nil {
-			t.Errorf("equal marker failed the gate: %v", err)
+		// Surrounding whitespace is trimmed, as DescribeCorpus trims it.
+		for name, c := range map[string][2]string{
+			"equal":          {"0.14.0", "0.14.0"},
+			"marker padded":  {"0.14.0", "  0.14.0 \t\n"},
+			"VERSION padded": {"\n0.14.0  ", "0.14.0"},
+		} {
+			if err := run(c[0], c[1]); err != nil {
+				t.Errorf("%s: the gate failed: %v", name, err)
+			}
 		}
+		// Whitespace inside a value is kept, as DescribeCorpus keeps it, so a
+		// marker the API would report as "0. 14.0" fails.
 		for name, c := range map[string][2]string{
 			"VERSION bumped, marker not": {"0.14.0", "0.13.0"},
 			"marker bumped, VERSION not": {"0.13.0", "0.14.0"},
 			"marker missing":             {"0.14.0", "-"},
+			"marker empty":               {"0.14.0", " "},
+			"space inside the marker":    {"0.14.0", "0. 14.0"},
+			"tab inside the marker":      {"0.14.0", "0.14\t.0"},
+			"newline inside the marker":  {"0.14.0", "0.14\n.0"},
+			"space inside VERSION":       {"0. 14.0", "0.14.0"},
 		} {
 			if err := run(c[0], c[1]); err == nil {
 				t.Errorf("%s: the gate passed", name)
