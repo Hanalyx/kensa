@@ -25,7 +25,7 @@ spec:
             other, so the linked module version does not describe the
             corpus.
 
-            Requested by openwatch-agent, who computes compliance drift by
+            Requested by OpenWatch, which computes compliance drift by
             comparing a host's score between scans and alerts an operator on
             the delta. With no corpus identity stored, an engine upgrade is
             indistinguishable from a fleet that degraded overnight. Kensa
