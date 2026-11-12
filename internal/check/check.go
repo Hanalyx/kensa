@@ -955,7 +955,8 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		if keyRequired {
 			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded under its own key (key_required): %s", normaliseAuditRule(line)), nil
 		}
-		return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s", normaliseAuditRule(line)), nil
+		return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s%s", normaliseAuditRule(line),
+			auditPermClassDetail(line, loaded)), nil
 	}
 	if len(otherKey) > 0 {
 		return true, fmt.Sprintf("audit_rule_exists: all rule actions present in loaded ruleset; %d line(s) audited under another key: %s",
@@ -979,7 +980,7 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 	}
 	for _, l := range loaded {
 		got := parseAuditRule(l)
-		if got.rule != want.rule {
+		if !sameAuditRule(want, got) {
 			continue
 		}
 		keyed := true
@@ -1008,10 +1009,12 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 // "-C euid!=uid" and "-C uid!=euid" are one comparison; "exit,always" and
 // "always,exit" are one action and list, and -A is read as -a; syscall lists
 // and permission letters are sets; an exit rule with no -S is "-S all".
-// A path rule with no arch, no syscalls and only a perm filter is the watch
-// it loads as. A dir rule is not folded into a watch: dir= watches a subtree,
-// while path= on a directory watches only its inode, and a -w line does not
-// say which of the two auditctl chose.
+// A path= or dir= rule with no arch, no syscalls and only a perm filter is
+// the watch it loads as, and auditctl -l prints it as -w. A path= or dir=
+// rule with an arch, a perm filter and no syscalls matches a loaded line
+// whose syscall set is "all" or contains one whole captured list for that
+// arch and perm (auditPermClass), because auditctl prints that list in its
+// place and the kernel's perm filter only fires on those syscalls.
 //
 // The audit_rule_set handler uses this to detect that a rule is already
 // present on the host before it writes a second drop-in for it, which would
@@ -1024,11 +1027,86 @@ func AuditActionLoaded(rule string, loaded []string) string {
 		return ""
 	}
 	for _, l := range loaded {
-		if parseAuditRule(l).rule == want.rule {
+		if sameAuditRule(want, parseAuditRule(l)) {
 			return strings.TrimSpace(l)
 		}
 	}
 	return ""
+}
+
+// auditPermClassDetail explains a perm-class rule's miss: for the loaded line
+// with the same arch and filters whose syscalls come closest to a captured
+// list, the syscalls it lacks. Empty when the rule is not a perm-class rule or
+// no loaded line has the same arch and filters.
+func auditPermClassDetail(rule string, loaded []string) string {
+	want := parseAuditRule(rule)
+	if want.permRest == "" || !want.allSyscalls {
+		return ""
+	}
+	var best []string
+	bestLine := ""
+	for _, l := range loaded {
+		got := parseAuditRule(l)
+		if got.permRest != want.permRest || got.allSyscalls {
+			continue
+		}
+		miss := auditPermClassMissing(want.arch, want.perm, got.syscalls)
+		if bestLine == "" || len(miss) < len(best) {
+			best, bestLine = miss, strings.TrimSpace(l)
+		}
+	}
+	switch {
+	case bestLine == "":
+		return ""
+	case len(best) == 0:
+		return fmt.Sprintf(" (no captured syscall list for arch %s perm %s; closest loaded line: %s)",
+			want.arch, want.perm, bestLine)
+	default:
+		return fmt.Sprintf(" (closest loaded line lacks syscalls %s: %s)", strings.Join(best, ","), bestLine)
+	}
+}
+
+// sameAuditRule reports whether got audits every event want does, by the
+// equivalences AuditActionLoaded describes. Equal canonical forms match; that
+// covers the netlink listing, whose "-S all" is the canonical form of a rule
+// with no -S. Otherwise only a perm-class rule written with no syscalls (or
+// "-S all") can match, and only a loaded line with the same arch and filters
+// whose syscalls contain one whole auditPermClass list.
+func sameAuditRule(want, got auditRuleForm) bool {
+	if want.rule == got.rule {
+		return true
+	}
+	if want.permRest == "" || want.permRest != got.permRest || !want.allSyscalls {
+		return false
+	}
+	return auditPermClassMissing(want.arch, want.perm, got.syscalls) == nil
+}
+
+// auditPermClassMissing returns nil when syscalls contains one whole captured
+// list for arch and perm, and otherwise the syscalls missing from the closest
+// list. A pair with no captured list returns a non-nil empty result: there is
+// nothing to compare against, so it never matches.
+func auditPermClassMissing(arch, perm string, syscalls map[string]bool) []string {
+	lists := auditPermClass[arch][perm]
+	if len(lists) == 0 {
+		return []string{}
+	}
+	var best []string
+	for _, list := range lists {
+		var miss []string
+		for _, sc := range list {
+			if !syscalls[sc] {
+				miss = append(miss, sc)
+			}
+		}
+		if len(miss) == 0 {
+			return nil
+		}
+		if best == nil || len(miss) < len(best) {
+			best = miss
+		}
+	}
+	return best
 }
 
 // auditRuleForm is one audit rule line reduced to the kernel rule it loads.
@@ -1037,6 +1115,14 @@ func AuditActionLoaded(rule string, loaded []string) string {
 type auditRuleForm struct {
 	rule string
 	keys map[string]bool
+	// For a syscall rule with an arch, a path= or dir= filter and a perm
+	// filter: permRest is the canonical form without its syscalls, arch and
+	// perm name the auditPermClass entry, syscalls is the syscall set, and
+	// allSyscalls says it is "all" (no -S, or -S all). Empty otherwise.
+	permRest    string
+	arch, perm  string
+	syscalls    map[string]bool
+	allSyscalls bool
 }
 
 // parseAuditRule reduces an audit rule line to its canonical form. See
@@ -1051,6 +1137,7 @@ func parseAuditRule(line string) auditRuleForm {
 		syscalls               = map[string]bool{}
 		filters                = map[string]bool{}
 		pathTok, permTok, arch string
+		dirTok                 string
 	)
 	for i := 0; i < len(fields); i++ {
 		f := fields[i]
@@ -1093,6 +1180,8 @@ func parseAuditRule(line string) auditRuleForm {
 			switch name {
 			case "path":
 				pathTok = tok
+			case "dir":
+				dirTok = tok
 			case "perm":
 				permTok = tok
 			case "arch":
@@ -1110,11 +1199,19 @@ func parseAuditRule(line string) auditRuleForm {
 
 	if isSyscall && list == "exit" && (len(syscalls) == 0 || syscalls["all"]) {
 		syscalls = map[string]bool{"all": true}
-		// A path rule over every syscall with only a perm filter is the
-		// kernel rule -w loads on a file, and auditctl -l prints it as -w.
-		if action == "always" && arch == "" && pathTok != "" && permTok != "" && len(filters) == 2 {
+		// A path= or dir= rule over every syscall with only a perm filter is
+		// the kernel rule -w loads on a file or a directory, and auditctl -l
+		// prints it as -w. The kernel answers "Rule exists" for -w and the
+		// path= rule on one file, and for -w and the dir= rule on one
+		// directory, so each pair is one kernel rule (C-03).
+		target := pathTok
+		if target == "" {
+			target = dirTok
+		}
+		if action == "always" && arch == "" && target != "" && (pathTok == "" || dirTok == "") &&
+			permTok != "" && len(filters) == 2 {
 			isSyscall, isWatch = false, true
-			watchPath = pathTok[strings.IndexByte(pathTok, '=')+1:]
+			watchPath = target[strings.IndexByte(target, '=')+1:]
 			watchPerm = permTok[strings.IndexByte(permTok, '=')+1:]
 			filters = map[string]bool{}
 		}
@@ -1130,9 +1227,20 @@ func parseAuditRule(line string) auditRuleForm {
 			form.rule += " " + strings.Join(sortedKeys(filters), " ")
 		}
 	case isSyscall:
+		rest := "-a " + action + "," + list
+		if len(filters) > 0 {
+			rest += " " + strings.Join(sortedKeys(filters), " ")
+		}
 		form.rule = "-a " + action + "," + list + " -S " + strings.Join(sortedKeys(syscalls), ",")
 		if len(filters) > 0 {
 			form.rule += " " + strings.Join(sortedKeys(filters), " ")
+		}
+		if list == "exit" && arch != "" && (pathTok != "" || dirTok != "") && permTok != "" {
+			form.permRest = rest
+			form.arch = arch[strings.IndexByte(arch, '=')+1:]
+			form.perm = permTok[strings.IndexByte(permTok, '=')+1:]
+			form.syscalls = syscalls
+			form.allSyscalls = syscalls["all"]
 		}
 	}
 	return form
