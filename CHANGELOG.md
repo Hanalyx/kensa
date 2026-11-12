@@ -16,6 +16,20 @@ any pair).
 
 ## Unreleased
 
+### Added
+
+- **`pkg/kensa.DescribeCorpus` and `DescribeCorpusFS` report which rule
+  corpus a verdict was measured against.** A scan result names the host
+  context but not the corpus, and `kensa-rules` can be updated without the
+  engine. The result carries the declared `Version`, read from the new
+  `rules/.corpus-version` marker, and a `sha256:` `Digest` over each rule
+  file's path and content. `Source` says which of the two identifies the
+  corpus: `declared`, `computed` (no marker, as in a source checkout) or
+  `none` (rule paths and no directory). The `kensa-rules` rpm and deb, the
+  with-rules tarball and the embedded `rules` package carry the marker.
+  `make docs-check` fails when it differs from `VERSION`. `api/` is
+  unchanged.
+
 ### Changed
 
 - **Boolean flags show `[=true|false]` in help and the man page.** The flag

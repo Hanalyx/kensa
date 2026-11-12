@@ -80,6 +80,26 @@ engines carry. The standalone `kensa` binaries do not embed the corpus.
 They read it at run time, so the `kensa-rules` package can update it
 without a binary release.
 
+To record which corpus produced a verdict, store its identity beside the
+scan result:
+
+- `kensa.DescribeCorpus(dir, paths)` resolves `dir` and `paths` the same
+  way `LoadRules` does and returns a `Corpus` with three fields.
+  - `Version` is the declared release, read from `rules/.corpus-version`.
+    The `kensa-rules` package, the with-rules tarball and the embedded
+    corpus all carry the marker, and it equals the release version.
+  - `Digest` is a `sha256:` digest over each rule file's relative path
+    and content. It moves when a rule changes, is renamed or moves to
+    another category. It does not move for the marker or for any other
+    file.
+  - `Source` says which of the two identifies the corpus: `declared`
+    (marker present), `computed` (no marker, as in a source checkout;
+    `Version` is empty) or `none` (rule paths and no directory, so there
+    is no corpus to describe).
+- `kensa.DescribeCorpusFS(fsys)` does the same for a file tree such as
+  `rules.FS()`. The same corpus gives the same result through either
+  form.
+
 Do not copy the rule files into a consuming repo and do not re-implement
 the loader. The corpus ships as the signed `kensa-rules` package and as
 the embedded `rules` package. Rules that use `{{ var }}` templates only

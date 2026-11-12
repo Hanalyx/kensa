@@ -1,6 +1,6 @@
 spec:
     id: pkg-corpus-identity
-    version: 0.1.0
+    version: 0.2.0
     status: draft
     tier: 2
 
@@ -50,7 +50,9 @@ spec:
             fact a verdict was measured against.
         scope:
             includes:
-                - A function on pkg/kensa returning corpus identity
+                - A function on pkg/kensa returning corpus identity, for a
+                  directory (DescribeCorpus) and for a file tree such as
+                  the embedded corpus (DescribeCorpusFS)
                 - A version marker committed in the module source tree
                 - A gate keeping the marker equal to VERSION
             excludes:
@@ -225,5 +227,14 @@ spec:
               The public api/ surface is unchanged by this feature.
           references_constraints: [C-09]
           priority: critical
+
+        - id: AC-11
+          description: |
+              DescribeCorpusFS over a file tree reports the same Version,
+              Digest and Source as DescribeCorpus over the same corpus on
+              disk, and the embedded corpus digests the same as the rule
+              files it was built from. A nil tree is an error.
+          references_constraints: [C-02, C-03]
+          priority: high
 
     tags: [pkg-kensa, corpus, openwatch, versioning, tier-2]
