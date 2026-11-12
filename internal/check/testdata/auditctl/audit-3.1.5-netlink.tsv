@@ -1,0 +1,117 @@
+# Captured audit-3.1.5, Rocky 9.8, kernel 5.14.0-687, 2026-11-12. Rule loaded through netlink (AUDIT_ADD_RULE, as the agent loads it), then auditctl -l.
+# rule as written\tauditctl -l line
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=w -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=w -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=a -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=a -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=wa -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=wa -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=r -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=r -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=x -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=x -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=rwa -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=rwa -F key=pm
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=rwxa -k pm	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=rwxa -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=w -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=w -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=a -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=a -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=r -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=r -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=x -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=x -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=rwa -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=rwa -F key=pm
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=rwxa -k pm	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=rwxa -F key=pm
+-a always,exit -F path=/etc/shadow -F perm=w -k pn	-w /etc/shadow -p w -k pn
+-a always,exit -F path=/etc/shadow -F perm=a -k pn	-w /etc/shadow -p a -k pn
+-a always,exit -F path=/etc/shadow -F perm=wa -k pn	-w /etc/shadow -p wa -k pn
+-a always,exit -F path=/etc/shadow -F perm=r -k pn	-w /etc/shadow -p r -k pn
+-a always,exit -F path=/etc/shadow -F perm=x -k pn	-w /etc/shadow -p x -k pn
+-a always,exit -F path=/etc/shadow -F perm=rwa -k pn	-w /etc/shadow -p rwa -k pn
+-a always,exit -F path=/etc/shadow -F perm=rwxa -k pn	-w /etc/shadow -p rwxa -k pn
+-a always,exit -F arch=b32 -F dir=/etc/sudoers.d -F perm=wa -k dm	-a always,exit -F arch=b32 -S all -F dir=/etc/sudoers.d -F perm=wa -F key=dm
+-a always,exit -F arch=b32 -F dir=/etc/sudoers.d/ -F perm=wa -k dm	-a always,exit -F arch=b32 -S all -F dir=/etc/sudoers.d/ -F perm=wa -F key=dm
+-a always,exit -F arch=b32 -F path=/etc/sudoers.d -F perm=wa -k dm	-a always,exit -F arch=b32 -S all -F path=/etc/sudoers.d -F perm=wa -F key=dm
+-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=wa -k sa	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=wa -F key=sa
+-a always,exit -F arch=b32 -S open -F path=/etc/shadow -F perm=wa -k narrow	-a always,exit -F arch=b32 -S open -F path=/etc/shadow -F perm=wa -F key=narrow
+-a always,exit -F arch=b64 -F dir=/etc/sudoers.d -F perm=wa -k dm	-a always,exit -F arch=b64 -S all -F dir=/etc/sudoers.d -F perm=wa -F key=dm
+-a always,exit -F arch=b64 -F dir=/etc/sudoers.d/ -F perm=wa -k dm	-a always,exit -F arch=b64 -S all -F dir=/etc/sudoers.d/ -F perm=wa -F key=dm
+-a always,exit -F arch=b64 -F path=/etc/sudoers.d -F perm=wa -k dm	-a always,exit -F arch=b64 -S all -F path=/etc/sudoers.d -F perm=wa -F key=dm
+-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k sa	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -F key=sa
+-a always,exit -F arch=b64 -S open -F path=/etc/shadow -F perm=wa -k narrow	-a always,exit -F arch=b64 -S open -F path=/etc/shadow -F perm=wa -F key=narrow
+-a always,exit -F path=/etc/sudoers.d -F perm=wa -k p2	-w /etc/sudoers.d -p wa -k p2
+-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k d1	-w /etc/sudoers.d/ -p wa -k d1
+-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d2	-w /etc/sudoers.d -p wa -k d2
+-a never,exit -F path=/etc/shadow -F perm=wa -k np	-w /etc/shadow -p wa -k np
+-a always,exit -F path=/etc/shadow -F perm=wa -k ap	-w /etc/shadow -p wa -k ap
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa -k pa	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -F key=pa
+-a always,exit -F arch=b32 -F path=/etc/group -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/group -F perm=wa
+-a always,exit -F arch=b32 -F path=/etc/gshadow -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/gshadow -F perm=wa
+-a always,exit -F arch=b32 -F path=/etc/passwd -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/passwd -F perm=wa
+-a always,exit -F arch=b32 -F path=/etc/security/opasswd -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/security/opasswd -F perm=wa
+-a always,exit -F arch=b32 -F path=/etc/shadow -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/shadow -F perm=wa
+-a always,exit -F arch=b32 -F path=/etc/sudoers -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/etc/sudoers -F perm=wa
+-a always,exit -F arch=b32 -F path=/var/log/faillock -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/var/log/faillock -F perm=wa
+-a always,exit -F arch=b32 -F path=/var/log/lastlog -F perm=wa	-a always,exit -F arch=b32 -S all -F path=/var/log/lastlog -F perm=wa
+-a always,exit -F arch=b32 -S all -F path=/etc/hostname -F perm=wa -F key=system-locale	-a always,exit -F arch=b32 -S all -F path=/etc/hostname -F perm=wa -F key=system-locale
+-a always,exit -F arch=b32 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale	-a always,exit -F arch=b32 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale
+-a always,exit -F arch=b32 -S all -F path=/etc/issue -F perm=wa -F key=system-locale	-a always,exit -F arch=b32 -S all -F path=/etc/issue -F perm=wa -F key=system-locale
+-a always,exit -F arch=b32 -S all -F path=/etc/issue.net -F perm=wa -F key=system-locale	-a always,exit -F arch=b32 -S all -F path=/etc/issue.net -F perm=wa -F key=system-locale
+-a always,exit -F arch=b32 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity	-a always,exit -F arch=b32 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity
+-a always,exit -F arch=b64 -F path=/etc/group -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/group -F perm=wa
+-a always,exit -F arch=b64 -F path=/etc/gshadow -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/gshadow -F perm=wa
+-a always,exit -F arch=b64 -F path=/etc/passwd -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa
+-a always,exit -F arch=b64 -F path=/etc/security/opasswd -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/security/opasswd -F perm=wa
+-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa
+-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/etc/sudoers -F perm=wa
+-a always,exit -F arch=b64 -F path=/var/log/faillock -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/var/log/faillock -F perm=wa
+-a always,exit -F arch=b64 -F path=/var/log/lastlog -F perm=wa	-a always,exit -F arch=b64 -S all -F path=/var/log/lastlog -F perm=wa
+-a always,exit -F arch=b64 -S all -F path=/etc/hostname -F perm=wa -F key=system-locale	-a always,exit -F arch=b64 -S all -F path=/etc/hostname -F perm=wa -F key=system-locale
+-a always,exit -F arch=b64 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale	-a always,exit -F arch=b64 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale
+-a always,exit -F arch=b64 -S all -F path=/etc/issue -F perm=wa -F key=system-locale	-a always,exit -F arch=b64 -S all -F path=/etc/issue -F perm=wa -F key=system-locale
+-a always,exit -F arch=b64 -S all -F path=/etc/issue.net -F perm=wa -F key=system-locale	-a always,exit -F arch=b64 -S all -F path=/etc/issue.net -F perm=wa -F key=system-locale
+-a always,exit -F arch=b64 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity	-a always,exit -F arch=b64 -S all -F path=/etc/nsswitch.conf -F perm=wa -F key=identity
+-a always,exit -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged-priv_change	-a always,exit -S all -F path=/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-priv_change
+-a always,exit -F path=/sbin/apparmor_parser -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng	-a always,exit -S all -F path=/sbin/apparmor_parser -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng
+-a always,exit -F path=/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=unset -k privileged-unix-update	-a always,exit -S all -F path=/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-unix-update
+-a always,exit -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng	-a always,exit -S all -F path=/usr/bin/chacl -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng
+-a always,exit -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=unset -k privileged-chage	-a always,exit -S all -F path=/usr/bin/chage -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-chage
+-a always,exit -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng	-a always,exit -S all -F path=/usr/bin/chcon -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng
+-a always,exit -F path=/usr/bin/chfn -F perm=x -F auid>=1000 -F auid!=unset -k privileged-chfn	-a always,exit -S all -F path=/usr/bin/chfn -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-chfn
+-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=unset -k priv_cmd	-a always,exit -S all -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd
+-a always,exit -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/chsh -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=unset -k privileged-crontab	-a always,exit -S all -F path=/usr/bin/crontab -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-crontab
+-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=unset -k privileged-gpasswd	-a always,exit -S all -F path=/usr/bin/gpasswd -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-gpasswd
+-a always,exit -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/kmod -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/mount -F perm=x -F auid>=1000 -F auid!=unset -k privileged-mount	-a always,exit -S all -F path=/usr/bin/mount -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-mount
+-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=unset -k priv_cmd	-a always,exit -S all -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd
+-a always,exit -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/newgrp -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=unset -k privileged-passwd	-a always,exit -S all -F path=/usr/bin/passwd -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-passwd
+-a always,exit -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=unset -k perm_chng	-a always,exit -S all -F path=/usr/bin/setfacl -F perm=x -F auid>=1000 -F auid!=-1 -F key=perm_chng
+-a always,exit -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=unset -k privileged-ssh	-a always,exit -S all -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-ssh
+-a always,exit -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=unset -k privileged-ssh-agent	-a always,exit -S all -F path=/usr/bin/ssh-agent -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-ssh-agent
+-a always,exit -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=unset -k priv_cmd	-a always,exit -S all -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd
+-a always,exit -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/sudoedit -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=unset	-a always,exit -S all -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=unset -k priv_cmd	-a always,exit -S all -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd
+-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/bin/umount -F perm=x -F auid>=1000 -F auid!=unset -k privileged-umount	-a always,exit -S all -F path=/usr/bin/umount -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-umount
+-a always,exit -F path=/usr/libexec/openssh/ssh-keysign -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/libexec/openssh/ssh-keysign -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/init -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/init -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=unset -k privileged-pam_timestamp_check	-a always,exit -S all -F path=/usr/sbin/pam_timestamp_check -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-pam_timestamp_check
+-a always,exit -F path=/usr/sbin/postdrop -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/postdrop -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/postqueue -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/postqueue -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/poweroff -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/poweroff -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/reboot -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/reboot -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/semanage -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/semanage -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/setfiles -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/setfiles -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/setsebool -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/setsebool -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/shutdown -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/shutdown -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/unix_chkpwd -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/unix_chkpwd -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/unix_update -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/userhelper -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/userhelper -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k privileged	-a always,exit -S all -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged
+-a always,exit -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=unset -k privileged-usermod	-a always,exit -S all -F path=/usr/sbin/usermod -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged-usermod

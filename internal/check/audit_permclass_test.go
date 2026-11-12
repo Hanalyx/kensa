@@ -69,7 +69,8 @@ func printsAsLimit(rule string, viaAuditctl bool) bool {
 // @ac AC-09
 func TestAuditPermClass_CapturedPrintsMatch(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-09", func(t *testing.T) {
-		for _, name := range []string{"audit-4.0.3-auditctl.tsv", "audit-3.1.5-auditctl.tsv", "audit-4.0.3-netlink.tsv"} {
+		for _, name := range []string{"audit-4.0.3-auditctl.tsv", "audit-3.1.5-auditctl.tsv", "audit-4.0.3-netlink.tsv",
+			"audit-3.1.5-netlink.tsv"} {
 			for _, row := range capturedPrints(t, name) {
 				rule, printed := row[0], row[1]
 				want := !printsAsLimit(rule, !strings.HasSuffix(name, "-netlink.tsv"))

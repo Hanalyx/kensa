@@ -152,9 +152,9 @@ spec:
               b32), so a rule that says -S all is matched exactly: the
               expanded line audits less than it. The lists come only from
               captured auditctl -l output on x86_64: audit-4.0.3 (RHEL 10.2,
-              kernel 6.12) for every perm value (r, w, x, a, wa, rwa, rwxa),
-              and audit-3.1.5 (Rocky 9.8, kernel 5.14) for wa, where its b32
-              and b64 lists equal 4.0.3's. A loaded set must contain at least
+              kernel 6.12) and audit-3.1.5 (Rocky 9.8, kernel 5.14) for every
+              perm value (r, w, x, a, wa, rwa, rwxa) and both arches, and the
+              two versions print the same set for each. A loaded set must contain at least
               one captured version's whole list; a set that contains none,
               an arch and perm with no capture, or another machine arch
               (whose b64 list differs) does not match, and the check detail
@@ -199,7 +199,7 @@ spec:
           references_constraints: [C-06]
           priority: medium
         - id: AC-09
-          description: Every captured path= and dir= rule (audit-4.0.3 and audit-3.1.5 auditctl loads, and audit-4.0.3 netlink loads) matches the line auditctl -l printed for it, through the check, the guard and the rollback verdict, except the two C-06 limits (a never path rule; an explicit syscall list loaded by auditctl).
+          description: Every captured path= and dir= rule (audit-4.0.3 and audit-3.1.5, each through auditctl and through netlink) matches the line auditctl -l printed for it, through the check, the guard and the rollback verdict, except the two C-06 limits (a never path rule; an explicit syscall list loaded by auditctl).
           references_constraints: [C-07, C-03]
           priority: critical
         - id: AC-10

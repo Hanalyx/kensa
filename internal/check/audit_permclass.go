@@ -10,12 +10,11 @@ package check
 //
 // Each entry holds one list per captured audit userspace version whose list
 // differs; a loaded set must contain at least one of them. Built only from
-// captured auditctl -l output, never from source reading:
-//   - audit-4.0.3 (RHEL 10.2, kernel 6.12): every entry;
-//   - audit-3.1.5 (Rocky 9.8, kernel 5.14): "wa" only, where its list is the
-//     same set as 4.0.3's for both arches, so it adds no second list.
-//
-// A version or perm value not captured can only fail the comparison.
+// captured auditctl -l output, never from source reading, on x86_64:
+// audit-4.0.3 (RHEL 10.2, kernel 6.12) and audit-3.1.5 (Rocky 9.8, kernel
+// 5.14) print the same set for every arch and perm value below, so each
+// entry holds one list. A version or perm value not captured can only fail
+// the comparison.
 var auditPermClass = map[string]map[string][][]string{
 	"b32": {
 		"r":    {{"open", "readlink", "quotactl", "getxattr", "lgetxattr", "fgetxattr", "listxattr", "llistxattr", "flistxattr", "openat", "readlinkat", "openat2"}},
