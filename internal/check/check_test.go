@@ -1139,6 +1139,7 @@ func TestCheckKernelModuleState_ModprobeMissingIsAnError(t *testing.T) {
 		for _, out := range []string{
 			"sh: 1: /etc/profile.d/x.sh: not found",
 			"/usr/local/sbin/modprobe: line 2: Module atm not found",
+			"modprobe: ERROR: could not insert 'atm': not found",
 		} {
 			t.Run("foreign-not-found-line", func(t *testing.T) {
 				ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
