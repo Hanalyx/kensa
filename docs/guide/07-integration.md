@@ -102,7 +102,9 @@ and ship in the next release.
   `rules.FS()`. The same corpus gives the same result through either
   form.
 - A directory or tree with no rule files is an error, even when it holds
-  the marker, as it is for `LoadRules`. A symlinked directory given without
+  the marker. `LoadRules` refuses it too, unless you pass rule paths. Then
+  `LoadRules` loads the paths, and `DescribeCorpus` still refuses, since it
+  identifies the directory only. A symlinked directory given without
   a trailing slash is not walked, by `LoadRules` or by `DescribeCorpus`, so
   both return that error; pass the path with a trailing slash. The tree form
   follows the link, since `os.DirFS` does.

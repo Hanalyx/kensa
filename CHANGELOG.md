@@ -32,8 +32,9 @@ any pair).
   marker. `DescribeCorpus` identifies the directory corpus only. Rule paths
   passed together with a directory are loaded by `LoadRules` but are not
   covered by the result, so a caller that passes them records them itself.
-  A directory or tree with no rule files is an error, as it is for
-  `LoadRules`, so the marker's version is never reported over no rules.
+  A directory or tree with no rule files is an error, even beside rule
+  paths that `LoadRules` would load, so the marker's version is never
+  reported over no rules.
   The release snapshot check now expects the marker in each package payload
   and checks that it equals `VERSION`. `api/` is unchanged.
 

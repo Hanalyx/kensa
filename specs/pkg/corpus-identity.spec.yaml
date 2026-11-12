@@ -176,18 +176,6 @@ spec:
           type: business
           enforcement: error
 
-        - id: C-11
-          description: |
-              A directory or file tree whose walk finds no rule files MUST
-              be an error, as it is for LoadRules and LoadRulesFS, even
-              when it holds a marker. A declared version over no rules
-              names a corpus that decided no verdict. The directory walk
-              does not descend into a symlinked root given without a
-              trailing slash, so both DescribeCorpus and LoadRules refuse
-              that root, while os.DirFS follows it.
-          type: technical
-          enforcement: error
-
         - id: C-10
           description: |
               DescribeCorpus identifies the directory corpus only. When a
@@ -196,6 +184,21 @@ spec:
               MUST NOT be presented as covering those paths: it is the same
               with or without them. The godoc and the integration guide
               MUST say so, so a caller records extra paths itself.
+          type: technical
+          enforcement: error
+
+        - id: C-11
+          description: |
+              A directory or file tree whose walk finds no rule files MUST
+              be an error, even when it holds a marker. A declared version
+              over no rules names a corpus that decided no verdict.
+              LoadRules and LoadRulesFS refuse the same input when no rule
+              paths are passed. With rule paths, LoadRules loads them, and
+              DescribeCorpus still refuses, since the identity covers the
+              directory only (C-10). A root that is a file is an error. The directory walk
+              does not descend into a symlinked root given without a
+              trailing slash, so both DescribeCorpus and LoadRules refuse
+              that root, while os.DirFS follows it.
           type: technical
           enforcement: error
 
@@ -305,11 +308,21 @@ spec:
           references_constraints: [C-10]
           priority: high
 
+        - id: AC-13
+          description: |
+              The staged tree that both packages install carries the
+              marker, and DescribeCorpus reports it as declared at
+              VERSION. This checks staging, not the built artifacts
+              (AC-07).
+          references_constraints: [C-06, C-07]
+          priority: medium
+
         - id: AC-14
           description: |
               A directory holding only the marker is an error, with and
               without rule paths, and so is the same tree through
-              DescribeCorpusFS. LoadRules refuses the same directory.
+              DescribeCorpusFS. LoadRules refuses that directory alone and
+              loads the rule path when one is passed.
           references_constraints: [C-11]
           priority: high
 
@@ -321,14 +334,5 @@ spec:
               over the link and as DescribeCorpus over the target.
           references_constraints: [C-11]
           priority: high
-
-        - id: AC-13
-          description: |
-              The staged tree that both packages install carries the
-              marker, and DescribeCorpus reports it as declared at
-              VERSION. This checks staging, not the built artifacts
-              (AC-07).
-          references_constraints: [C-06, C-07]
-          priority: medium
 
     tags: [pkg-kensa, corpus, openwatch, versioning, tier-2]

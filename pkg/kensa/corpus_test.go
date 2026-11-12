@@ -149,8 +149,10 @@ func TestDescribeCorpus(t *testing.T) {
 	t.Run("pkg-corpus-identity/AC-14", func(t *testing.T) {
 		// @spec pkg-corpus-identity
 		// @ac AC-14
-		// A walk that finds no rule files is an error, as it is for
-		// LoadRules, even with a marker present and rule paths passed.
+		// A walk that finds no rule files is an error, even with a marker
+		// present. LoadRules refuses the same directory alone, and loads the
+		// paths when they are passed; the identity covers the directory only,
+		// so it still refuses.
 		empty := writeCorpus(t, map[string]string{".corpus-version": "0.13.0\n"})
 		extra := writeRule(t, t.TempDir(), "plain-rule.yml", plainRule)
 		for _, paths := range [][]string{nil, {extra}} {
@@ -160,6 +162,9 @@ func TestDescribeCorpus(t *testing.T) {
 		}
 		if _, err := LoadRules(empty, nil, nil); err == nil {
 			t.Error("LoadRules accepted a marker-only directory")
+		}
+		if got, err := LoadRules(empty, []string{extra}, nil); err != nil || len(got) != 1 {
+			t.Errorf("LoadRules(marker-only dir, extra path): %d rules, err %v; want the 1 path rule", len(got), err)
 		}
 		if c, err := DescribeCorpusFS(os.DirFS(empty)); err == nil {
 			t.Errorf("marker-only tree: got %+v, want an error", c)

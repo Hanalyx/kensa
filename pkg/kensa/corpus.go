@@ -74,11 +74,14 @@ type Corpus struct {
 // A corpus with no version marker is not an error. It returns an empty Version
 // with SourceComputed, and never invents a version (spec C-05).
 //
-// A directory whose walk finds no rule files is an error, as it is for
-// LoadRules, even when it holds a marker (spec C-11). Reporting the marker's
-// version over no rules would name a corpus that decided no verdict. The walk
-// does not descend into a symlinked root given without a trailing slash, so
-// such a root is an error here and in LoadRules alike.
+// A directory whose walk finds no rule files is an error, even when it holds a
+// marker (spec C-11). Reporting the marker's version over no rules would name
+// a corpus that decided no verdict. LoadRules refuses the same directory when
+// no rule paths are passed. With rule paths it loads them, but the identity
+// covers the directory only, so this still returns the error. The walk does
+// not descend into a symlinked root given without a trailing slash, so such a
+// root is an error here and in LoadRules alike. A root that is a file, not a
+// directory, is also an error here.
 func DescribeCorpus(dir string, paths []string) (Corpus, error) {
 	// C-01: the same resolution LoadRules performs, so the directory described
 	// is the directory that would be loaded. Resolving separately here is the
