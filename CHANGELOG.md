@@ -79,6 +79,12 @@ any pair).
   "STIG (Ubuntu 24.04)", in the same way it returns "CIS (RHEL 9)". The
   `Version` field still holds the raw key.
 
+### Security
+
+- **Go 1.26.11.** The binaries are built with Go 1.26.11, which fixes
+  GO-2026-6859, a vulnerability in the standard library `net/http` package
+  found in Go 1.26.10. Building from source needs Go 1.26.11 or later.
+
 ## v0.13.0 (2026-11-08)
 
 A minor release in which new evidence uses schema v2, which also signs
