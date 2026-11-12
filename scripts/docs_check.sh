@@ -45,7 +45,10 @@ else
 fi
 
 # 4. VERSION == newest stamped CHANGELOG version.
-version="$(tr -d '[:space:]' < VERSION)"
+# Trim only leading and trailing whitespace, as check-corpus-version.sh does,
+# so a VERSION such as "0. 13.0" is reported rather than read as 0.13.0.
+# [:space:] is matched in the C locale, as check-corpus-version.sh does.
+version=$(LC_ALL=C; v=$(cat VERSION); v=${v#"${v%%[![:space:]]*}"}; printf '%s' "${v%"${v##*[![:space:]]}"}")
 top_cl="$(grep -m1 -E '^## v[0-9]' CHANGELOG.md | sed -E 's/^## v([0-9][^ ]*).*/\1/')"
 if [ "$version" = "$top_cl" ]; then
 	ok "VERSION ($version) matches newest CHANGELOG entry (v$top_cl)"

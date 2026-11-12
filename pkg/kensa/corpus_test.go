@@ -113,6 +113,39 @@ func TestDescribeCorpus(t *testing.T) {
 		}
 	})
 
+	t.Run("pkg-corpus-identity/AC-12", func(t *testing.T) {
+		// @spec pkg-corpus-identity
+		// @ac AC-12
+		// The identity covers the directory only. A rule path passed beside
+		// it is loaded by LoadRules but left out of the result, so the two
+		// calls below load different rule sets and report one identity.
+		dir := writeCorpus(t, map[string]string{"audit/plain-rule.yml": plainRule})
+		extra := writeRule(t, t.TempDir(), "extra-rule.yml",
+			strings.Replace(plainRule, "id: plain-rule", "id: extra-rule", 1))
+		dirOnly, err := LoadRules(dir, nil, nil)
+		if err != nil {
+			t.Fatalf("LoadRules(dir): %v", err)
+		}
+		mixed, err := LoadRules(dir, []string{extra}, nil)
+		if err != nil {
+			t.Fatalf("LoadRules(dir, extra): %v", err)
+		}
+		if len(dirOnly) != 1 || len(mixed) != 2 {
+			t.Fatalf("loaded %d and %d rules, want 1 and 2", len(dirOnly), len(mixed))
+		}
+		without, err := DescribeCorpus(dir, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		with, err := DescribeCorpus(dir, []string{extra})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if with != without {
+			t.Errorf("extra path changed the directory identity:\n without %+v\n with    %+v", without, with)
+		}
+	})
+
 	t.Run("pkg-corpus-identity/AC-04", func(t *testing.T) {
 		// @spec pkg-corpus-identity
 		// @ac AC-04

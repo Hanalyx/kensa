@@ -135,12 +135,13 @@ Each implementation has a `check` and a `remediation`:
   `>=`; use `<=`/`>=` for thresholds like `PASS_MAX_DAYS <= 365`) and
   `delimiter`. Set `delimiter: " "` for whitespace-separated files such as
   `/etc/login.defs` (`KEY value`); the default delimiter is `=`.
-  `audit_rule_exists` grades the audited action, not the `-k` key label: a
-  host that watches `/etc/passwd -p wa` under another key passes, and the
-  detail says so. Every other part of the line must match the loaded kernel
-  rule, so write the full rule, filters included, not a partial pattern. Set
-  `key_required: true` when a deployment needs the rule loaded under its own
-  key. Each method declares its own required and
+  In the next release (unreleased; not in v0.13.0), `audit_rule_exists`
+  grades the audited action, not the `-k` key label, and `key_required` is
+  new: a host that watches `/etc/passwd -p wa` under another key passes, and
+  the detail says so. Every other part of the line must match the loaded
+  kernel rule, so write the full rule, filters included, not a partial
+  pattern. Set `key_required: true` when a deployment needs the rule loaded
+  under its own key. Each method declares its own required and
   optional fields; the canonical rule schema holds the full method table.
 - **`set_compare`** answers "only authorized members are present". It takes
   `observed_command`, run on the host, one member per line of output, and

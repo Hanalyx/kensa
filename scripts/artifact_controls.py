@@ -77,7 +77,12 @@ def main():
      corpus=root/'rules' if archive.name.endswith('_with-rules.tar.gz') else root/'usr/share/kensa/rules' if archive.name.startswith('kensa-rules_') else None
      if corpus:
       expected={str(p.relative_to(source/'rules')):sha(p) for p in (source/'rules').rglob('*.yml')};expected['README.md']=sha(source/'rules/README.md')
+      # The version marker ships with the corpus and must equal VERSION. Both are trimmed of ASCII whitespace
+      # only, as check-corpus-version.sh trims them; str.strip() would also drop characters TrimSpace keeps.
+      ws=' \t\n\v\f\r';expected['.corpus-version']=sha(source/'rules/.corpus-version')
       actual={str(p.relative_to(corpus)):sha(p) for p in corpus.rglob('*') if p.is_file()};assert actual==expected,archive
+      marker=(corpus/'.corpus-version').read_bytes().decode('ascii','replace').strip(ws);assert marker==(source/'VERSION').read_bytes().decode('ascii','replace').strip(ws),(archive,marker)
+      entry['corpus_version']=marker
       assert all(stat.S_IMODE(p.stat().st_mode)==(0o755 if p.is_dir() else 0o644) for p in corpus.rglob('*')),archive
       entry['corpus_files']=len(actual);entry['corpus_matches_candidate']=True
      metadata.append(entry)

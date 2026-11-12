@@ -27,8 +27,13 @@ any pair).
   corpus: `declared`, `computed` (no marker, as in a source checkout) or
   `none` (rule paths and no directory). The `kensa-rules` rpm and deb, the
   with-rules tarball and the embedded `rules` package carry the marker.
-  `make docs-check` fails when it differs from `VERSION`. `api/` is
-  unchanged.
+  `make docs-check` fails when it differs from `VERSION`, comparing the two
+  with only surrounding whitespace trimmed, as `DescribeCorpus` reads the
+  marker. `DescribeCorpus` identifies the directory corpus only. Rule paths
+  passed together with a directory are loaded by `LoadRules` but are not
+  covered by the result, so a caller that passes them records them itself.
+  The release snapshot check now expects the marker in each package payload
+  and checks that it equals `VERSION`. `api/` is unchanged.
 
 ### Changed
 
