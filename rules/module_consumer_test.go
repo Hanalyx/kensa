@@ -16,6 +16,8 @@ import (
 // when the module is not a git checkout of itself, such as a source tarball
 // or a copy in a module cache, because the check builds from the commit.
 func TestModuleConsumerCheck(t *testing.T) {
+	// pass holds the check's PASS line, for the marker subtest below.
+	var pass string
 	t.Run("rule-embedded-corpus/AC-05", func(t *testing.T) {
 		// @spec rule-embedded-corpus
 		// @ac AC-05
@@ -61,7 +63,24 @@ func TestModuleConsumerCheck(t *testing.T) {
 		if !strings.Contains(string(out), "check-module-consumer: PASS") {
 			t.Fatalf("module consumer check did not report PASS:\n%s", out)
 		}
-		t.Log(strings.TrimSpace(string(out)[strings.LastIndex(string(out), "check-module-consumer: PASS"):]))
+		pass = strings.TrimSpace(string(out)[strings.LastIndex(string(out), "check-module-consumer: PASS"):])
+		t.Log(pass)
+	})
+
+	t.Run("pkg-corpus-identity/AC-08", func(t *testing.T) {
+		// @spec pkg-corpus-identity
+		// @ac AC-08
+		// The same run: the consumer read the marker through the downloaded
+		// module, both embedded and as a file in the module cache, and the
+		// check fails unless both equal the commit's marker.
+		if pass == "" {
+			t.Skip("the module consumer check did not run")
+		}
+		for _, want := range []string{"corpus version " + repoVersion(t) + " declared", "module cache marker identical"} {
+			if !strings.Contains(pass, want) {
+				t.Errorf("module consumer PASS line %q does not contain %q", pass, want)
+			}
+		}
 	})
 }
 

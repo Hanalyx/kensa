@@ -58,12 +58,18 @@ type Corpus struct {
 	Source string
 }
 
-// DescribeCorpus reports the identity of the rule corpus that [LoadRules]
-// would load for the same arguments.
+// DescribeCorpus reports the identity of the directory corpus that
+// [LoadRules] would walk for the same arguments.
 //
 // It resolves dir and paths exactly as LoadRules does, so it cannot describe a
 // directory other than the one loaded (spec C-01). Passing rule paths with no
 // directory yields SourceNone, since there is no corpus to describe.
+//
+// It identifies the directory only. When dir resolves and paths is not empty,
+// LoadRules loads the walked files and then each path as well, but the result
+// here covers none of those paths: the Digest is the same with or without
+// them, and so is the rest of the result (spec C-10). A caller that passes
+// rule paths beside a directory must record those paths itself.
 //
 // A corpus with no version marker is not an error. It returns an empty Version
 // with SourceComputed, and never invents a version (spec C-05).
