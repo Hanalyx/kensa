@@ -61,15 +61,17 @@ any pair).
   `key_required: true`. A check line must now name the full rule, not a
   partial pattern; 12 corpus checks were corrected to the rules their
   benchmarks and remediations load. A path or dir rule with an arch and a
-  `perm` filter but no `-S` passes against the syscall list `auditctl -l`
-  prints for it, and against `-S all`, the form a rule loaded through netlink
-  prints. A rule that names `-S all` is still matched exactly, because the
-  expanded list audits fewer syscalls than it does. A `dir=` rule without
-  arch matches the `-w` line it prints as. The
-  syscall lists were taken from `auditctl -l` on RHEL 10 (audit 4.0.3) and
-  RHEL 9 (audit 3.1.5). The `/etc/sudoers.d` rule for RHEL 10 now uses
-  `dir=/etc/sudoers.d`. Its earlier `path=/etc/sudoers.d/` form, with the
-  trailing slash, is refused by the kernel, so that check could never pass.
+  `perm` filter but no `-S` passes against a loaded line whose syscalls
+  include the full list `auditctl -l` prints for it, and against `-S all`, the
+  form a rule loaded through netlink prints. That list is the rule as
+  `auditctl` loads it, so this is not the broader-rule case above. A rule that
+  names `-S all` is still matched exactly, because the expanded list audits
+  fewer syscalls than it does. A `dir=` rule without arch matches the `-w`
+  line it prints as. The syscall lists were taken from `auditctl -l` on RHEL
+  10 (audit 4.0.3) and RHEL 9 (audit 3.1.5). The `/etc/sudoers.d` rule for
+  RHEL 10 now uses `dir=/etc/sudoers.d`. Its earlier `path=/etc/sudoers.d/`
+  form, with the trailing slash, is refused by the kernel, so that check could
+  never pass.
 
 ### Fixed
 
