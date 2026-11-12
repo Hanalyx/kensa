@@ -187,3 +187,66 @@ func TestAuditPermClass_DirFoldsIntoWatch(t *testing.T) {
 		}
 	})
 }
+
+// The guard against the kernel's own duplicate test: for each pair the kernel
+// refused as "Rule exists" (one kernel rule), the guard calls the second a
+// duplicate of the first, so it never lets augenrules hit that refusal at
+// boot. The four name and alias pairs are the C-06 limit (values compared as
+// written), where the guard still misses the duplicate.
+//
+// @spec check-audit-rule-match
+// @ac AC-12
+func TestAuditPermClass_GuardAgreesWithKernelDuplicates(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-12", func(t *testing.T) {
+		nameLimit := map[string]bool{"exit-name-vs-number": true, "auid-name-vs-number": true,
+			"euid-name-vs-number-samekey": true, "arch-alias-samekey": true}
+		f, err := os.ReadFile(filepath.Join("testdata", "auditctl", "audit-4.0.3-pairs.tsv"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := 0
+		for _, line := range strings.Split(strings.TrimRight(string(f), "\n"), "\n") {
+			if strings.HasPrefix(line, "#") {
+				continue
+			}
+			c := strings.Split(line, "\t")
+			if len(c) != 5 || c[4] != "Rule exists" {
+				continue
+			}
+			seen++
+			dup := AuditActionLoaded(c[2], []string{c[1]}) != ""
+			if dup == nameLimit[c[0]] {
+				t.Errorf("%s: kernel says one rule; guard duplicate=%v (name limit %v)", c[0], dup, nameLimit[c[0]])
+			}
+		}
+		if seen < 10 {
+			t.Fatalf("only %d Rule-exists pairs in the fixture", seen)
+		}
+	})
+}
+
+// A rule that says -S all is matched exactly: the kernel's perm classes hold
+// syscalls auditctl's list lacks, so the expanded line audits less. A rule
+// with an arch filter other than equality never takes the perm-class path.
+//
+// @spec check-audit-rule-match
+// @ac AC-10
+func TestAuditPermClass_ExplicitAllAndArchOperator(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-10", func(t *testing.T) {
+		list := strings.Join(auditPermClass["b32"]["wa"][0], ",")
+		expanded := "-a always,exit -F arch=b32 -S " + list + " -F path=/etc/hosts -F perm=wa -F key=system-locale"
+		if AuditLineLoaded("-a always,exit -F arch=b32 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale",
+			[]string{expanded}) {
+			t.Error("an explicit -S all rule matched the expanded list")
+		}
+		if !AuditLineLoaded("-a always,exit -F arch=b32 -F path=/etc/hosts -F perm=wa -F key=system-locale",
+			[]string{expanded}) {
+			t.Error("control: the rule with no -S did not match its expanded list")
+		}
+		b64 := strings.Join(auditPermClass["b64"]["wa"][0], ",")
+		if AuditLineLoaded("-a always,exit -F arch!=b64 -F path=/etc/shadow -F perm=wa -k x",
+			[]string{"-a always,exit -F arch!=b64 -S " + b64 + " -F path=/etc/shadow -F perm=wa -F key=x"}) {
+			t.Error("an arch!= rule took the perm-class path")
+		}
+	})
+}

@@ -1013,8 +1013,8 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 // the watch it loads as, and auditctl -l prints it as -w. A path= or dir=
 // rule with an arch, a perm filter and no syscalls matches a loaded line
 // whose syscall set is "all" or contains one whole captured list for that
-// arch and perm (auditPermClass), because auditctl prints that list in its
-// place and the kernel's perm filter only fires on those syscalls.
+// arch and perm (auditPermClass): auditctl loads the rule with that list and
+// auditctl -l prints it. A rule that says "-S all" is matched exactly.
 //
 // The audit_rule_set handler uses this to detect that a rule is already
 // present on the host before it writes a second drop-in for it, which would
@@ -1040,14 +1040,14 @@ func AuditActionLoaded(rule string, loaded []string) string {
 // no loaded line has the same arch and filters.
 func auditPermClassDetail(rule string, loaded []string) string {
 	want := parseAuditRule(rule)
-	if want.permRest == "" || !want.allSyscalls {
+	if want.permRest == "" || !want.noSyscalls {
 		return ""
 	}
 	var best []string
 	bestLine := ""
 	for _, l := range loaded {
 		got := parseAuditRule(l)
-		if got.permRest != want.permRest || got.allSyscalls {
+		if got.permRest != want.permRest || got.syscalls["all"] {
 			continue
 		}
 		miss := auditPermClassMissing(want.arch, want.perm, got.syscalls)
@@ -1066,17 +1066,21 @@ func auditPermClassDetail(rule string, loaded []string) string {
 	}
 }
 
-// sameAuditRule reports whether got audits every event want does, by the
+// sameAuditRule reports whether got is the loaded form of want, by the
 // equivalences AuditActionLoaded describes. Equal canonical forms match; that
 // covers the netlink listing, whose "-S all" is the canonical form of a rule
-// with no -S. Otherwise only a perm-class rule written with no syscalls (or
-// "-S all") can match, and only a loaded line with the same arch and filters
-// whose syscalls contain one whole auditPermClass list.
+// with no -S. Otherwise only a perm-class rule written with no -S at all can
+// match, and only a loaded line with the same arch and filters whose syscalls
+// contain one whole auditPermClass list: the list auditctl, and so augenrules,
+// loads that rule with. A rule that says "-S all" keeps exact matching,
+// because the kernel's perm classes hold syscalls the auditctl list lacks
+// (for example chown32 and truncate64 for b32), so the expanded line audits
+// less than it.
 func sameAuditRule(want, got auditRuleForm) bool {
 	if want.rule == got.rule {
 		return true
 	}
-	if want.permRest == "" || want.permRest != got.permRest || !want.allSyscalls {
+	if want.permRest == "" || want.permRest != got.permRest || !want.noSyscalls {
 		return false
 	}
 	return auditPermClassMissing(want.arch, want.perm, got.syscalls) == nil
@@ -1115,14 +1119,15 @@ func auditPermClassMissing(arch, perm string, syscalls map[string]bool) []string
 type auditRuleForm struct {
 	rule string
 	keys map[string]bool
-	// For a syscall rule with an arch, a path= or dir= filter and a perm
+	// For a syscall rule with an arch=, a path= or dir= filter and a perm
 	// filter: permRest is the canonical form without its syscalls, arch and
-	// perm name the auditPermClass entry, syscalls is the syscall set, and
-	// allSyscalls says it is "all" (no -S, or -S all). Empty otherwise.
-	permRest    string
-	arch, perm  string
-	syscalls    map[string]bool
-	allSyscalls bool
+	// perm name the auditPermClass entry, and syscalls is the syscall set.
+	// noSyscalls says the line named no -S at all, so auditctl loads it with
+	// the auditPermClass list. Empty otherwise.
+	permRest   string
+	arch, perm string
+	syscalls   map[string]bool
+	noSyscalls bool
 }
 
 // parseAuditRule reduces an audit rule line to its canonical form. See
@@ -1138,6 +1143,7 @@ func parseAuditRule(line string) auditRuleForm {
 		filters                = map[string]bool{}
 		pathTok, permTok, arch string
 		dirTok                 string
+		namedSyscalls          bool
 	)
 	for i := 0; i < len(fields); i++ {
 		f := fields[i]
@@ -1164,6 +1170,7 @@ func parseAuditRule(line string) auditRuleForm {
 			}
 			i++
 		case "-S":
+			namedSyscalls = true
 			for _, sc := range strings.Split(next, ",") {
 				if sc != "" {
 					syscalls[sc] = true
@@ -1235,12 +1242,15 @@ func parseAuditRule(line string) auditRuleForm {
 		if len(filters) > 0 {
 			form.rule += " " + strings.Join(sortedKeys(filters), " ")
 		}
-		if list == "exit" && arch != "" && (pathTok != "" || dirTok != "") && permTok != "" {
+		// Only an equality arch filter names the arch whose syscalls the
+		// list holds; arch!=b64 covers the other arch.
+		if list == "exit" && strings.HasPrefix(arch, "-F arch=") && (pathTok != "" || dirTok != "") &&
+			permTok != "" {
 			form.permRest = rest
-			form.arch = arch[strings.IndexByte(arch, '=')+1:]
+			form.arch = strings.TrimPrefix(arch, "-F arch=")
 			form.perm = permTok[strings.IndexByte(permTok, '=')+1:]
 			form.syscalls = syscalls
-			form.allSyscalls = syscalls["all"]
+			form.noSyscalls = !namedSyscalls
 		}
 	}
 	return form

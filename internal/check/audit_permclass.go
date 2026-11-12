@@ -1,10 +1,12 @@
 package check
 
 // auditPermClass lists, for each arch and perm value, the syscalls auditctl
-// selects for a path= or dir= rule that names that arch and perm and no -S.
-// auditctl -l prints that list where the rule had none. The kernel's perm
-// filter only fires on these syscalls, so a loaded rule audits every event
-// the rule does when its syscall set contains one whole list (C-07).
+// loads a path= or dir= rule with when the rule names that arch and perm and
+// no -S, and that auditctl -l then prints. A loaded line whose syscalls
+// contain one whole list is the rule as augenrules loads it (C-07). The
+// lists are auditctl's, not the kernel's perm classes, which hold more (for
+// example chown32 and truncate64 for b32); and they are x86_64's, so on
+// another machine arch the b64 list differs and the comparison fails.
 //
 // Each entry holds one list per captured audit userspace version whose list
 // differs; a loaded set must contain at least one of them. Built only from

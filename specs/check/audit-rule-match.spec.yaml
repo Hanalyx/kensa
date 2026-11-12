@@ -126,32 +126,42 @@ spec:
               netlink it prints as written and matches. A path= rule on a
               directory satisfies a dir= requirement (C-03). The kernel
               refuses a path= value with a trailing slash, so such a rule can
-              never be loaded.
+              never be loaded. The guard misses a duplicate when a rules.d
+              path rule names an explicit -S list with a perm filter:
+              auditctl widens that list to the perm class, so it can load as
+              the same kernel rule as a new rule with no -S, while the guard
+              compares the lists as written (an under-refusal; no corpus rule
+              uses that form). On a machine arch other than x86_64 a b64
+              path rule loaded by auditctl fails the check (C-07).
           type: technical
           enforcement: warning
         - id: C-07
           description: |
-              A syscall rule with an arch, a path= or dir= filter, a perm=
-              filter and no syscalls (or -S all) matches a loaded line with
-              the same action, list, arch, path or dir, perm and other
-              filters whose syscall set is all, or contains one whole list
-              auditctl selects for that arch and perm. auditctl -l prints
-              that list in place of all for a rule auditctl loaded, and
-              prints -S all for one loaded through netlink, as the agent
-              loads it. The kernel's perm filter fires only on those
-              syscalls, so either form audits every event the rule does.
-              The lists come only from captured auditctl -l output:
-              audit-4.0.3 (RHEL 10.2, kernel 6.12) for every arch and perm
-              value (r, w, x, a, wa, rwa, rwxa), and audit-3.1.5 (Rocky 9.8,
-              kernel 5.14) for wa, where its b32 and b64 lists are the same
-              sets as 4.0.3's. A loaded set must contain at least one
-              captured version's whole list; a set that contains none, or an
-              arch and perm with no capture, does not match, and the check
-              detail names the syscalls the closest loaded line lacks. A
-              rule that names an explicit syscall list keeps exact
-              matching. The guard reads rules.d text, where such a rule has
-              no -S or -S all, so two rules that differ only in perm are
-              never duplicates.
+              A syscall rule with an equality arch filter (arch=b32 or
+              arch=b64), a path= or dir= filter, a perm= filter and no -S at
+              all matches a loaded line with the same action, list, arch,
+              path or dir, perm and other filters whose syscall set is all,
+              or contains one whole list auditctl loads that rule with.
+              auditctl, and so augenrules, loads such a rule with an explicit
+              syscall list chosen by the arch and perm, and auditctl -l
+              prints it; through netlink, as the agent loads it, the rule
+              loads and prints as -S all. Either line is the rule as one of
+              the two loaders loads it. The list is auditctl's, not the
+              kernel's perm class, which holds more syscalls (for example
+              chown32, fchown32, lchown32, truncate64 and ftruncate64 for
+              b32), so a rule that says -S all is matched exactly: the
+              expanded line audits less than it. The lists come only from
+              captured auditctl -l output on x86_64: audit-4.0.3 (RHEL 10.2,
+              kernel 6.12) for every perm value (r, w, x, a, wa, rwa, rwxa),
+              and audit-3.1.5 (Rocky 9.8, kernel 5.14) for wa, where its b32
+              and b64 lists equal 4.0.3's. A loaded set must contain at least
+              one captured version's whole list; a set that contains none,
+              an arch and perm with no capture, or another machine arch
+              (whose b64 list differs) does not match, and the check detail
+              names the syscalls the closest loaded line lacks. A rule that
+              names a syscall list, -S all included, keeps exact matching.
+              In the guard, two rules.d path rules that differ only in perm
+              are never duplicates.
           type: technical
           enforcement: error
 
@@ -193,12 +203,16 @@ spec:
           references_constraints: [C-07, C-03]
           priority: critical
         - id: AC-10
-          description: Against the printed listing, a loaded line missing one syscall of the class, with a different perm, arch, path or action does not satisfy an arch path rule, and the check detail names the missing syscall.
+          description: Against the printed listing, a loaded line missing one syscall of the class, with a different perm, arch, path or action does not satisfy an arch path rule, and the check detail names the missing syscall. A rule that says -S all does not match the expanded list, and a rule with arch!= never takes the perm-class path.
           references_constraints: [C-07]
           priority: critical
         - id: AC-11
           description: For each arch and each pair of perm values, the guard treats a rules.d path rule as a duplicate of a new one only when the perm is the same, whether the rules.d line has no -S, -S all, or the expanded list.
           references_constraints: [C-07]
+          priority: critical
+        - id: AC-12
+          description: For every pair of rules the kernel refused as "Rule exists" when loaded one after the other with one key (audit-4.0.3), the guard treats the second as a duplicate of the first, except the four pairs that differ only in a name or alias (C-06).
+          references_constraints: [C-03, C-06, C-07]
           priority: critical
 
     tags: [check, audit, rollback, tier-1]
