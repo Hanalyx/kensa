@@ -1,6 +1,6 @@
 # Integration
 
-_Applies to: Kensa v0.13.0. Last updated 2026-11-08._
+_Applies to: Kensa v0.13.0. Last updated 2026-11-12._
 
 This chapter is for programs that **embed** Kensa (notably OpenWatch) rather
 than run the CLI, consuming its `api`/`pkg/kensa` Go surfaces. The division of
@@ -37,14 +37,15 @@ Loading the rule corpus from a consuming program is public surface too
   `/usr/share/kensa/rules`), and substitutes `{{ name }}` rule templates
   against kensa's embedded defaults merged with the caller's `vars`
   (caller wins). That `vars` map is where an orchestrator injects
-  operator-configured values. Each value is type checked first, by the
-  same rules as `--var`, and a value that does not fit fails the load with
+  operator-configured values. In the next release, each value is type
+  checked first (unreleased; v0.13.0 does not check it), by the same rules
+  as `--var`, and a value that does not fit fails the load with
   the variable named. Strict: a bad file or undefined variable fails the
   load with the file named; nothing is skipped silently.
-- `kensa.CheckVarValue(name, raw)`: the same type check for one value, so
-  an operator form can refuse `three` where a whole number belongs before
-  anything is saved. An empty value, and a variable Kensa ships no default
-  for, are accepted.
+- `kensa.CheckVarValue(name, raw)` (unreleased; not in v0.13.0): the
+  same type check for one value, so an operator form can refuse `three`
+  where a whole number belongs before anything is saved. An empty value,
+  and a variable Kensa ships no default for, are accepted.
 - `kensa.BuiltInVars()`: the embedded variable defaults (name → value),
   for rendering an operator configuration UI. Review
   `rsyslog_remote_server`, `chrony_ntp_pool`, and `banner_text`: their
@@ -81,7 +82,8 @@ They read it at run time, so the `kensa-rules` package can update it
 without a binary release.
 
 To record which corpus produced a verdict, store its identity beside the
-scan result:
+scan result. These two functions are unreleased. They are not in v0.13.0
+and ship in the next release.
 
 - `kensa.DescribeCorpus(dir, paths)` resolves `dir` and `paths` the same
   way `LoadRules` does and returns a `Corpus` with three fields.
@@ -99,6 +101,12 @@ scan result:
 - `kensa.DescribeCorpusFS(fsys)` does the same for a file tree such as
   `rules.FS()`. The same corpus gives the same result through either
   form.
+
+`DescribeCorpus` identifies the directory corpus only. When you pass rule
+paths together with a directory, `LoadRules` loads the directory and then
+each path, but the identity covers none of those paths. The result is the
+same with or without them. If you load extra paths beside a directory,
+record which paths you passed yourself.
 
 Do not copy the rule files into a consuming repo and do not re-implement
 the loader. The corpus ships as the signed `kensa-rules` package and as
