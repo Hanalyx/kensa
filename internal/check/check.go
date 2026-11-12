@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -876,14 +877,17 @@ func checkServiceState(ctx context.Context, transport api.Transport, params api.
 // effective kernel ruleset loaded by auditd, read with auditctl -l.
 //
 // The action decides compliance, not the -k key label. A line passes when the
-// loaded ruleset audits the same action: the path and permissions of a watch,
-// or the arch, syscalls and filters of a syscall rule. That is the predicate
-// the audit_rule_set remediation guard uses to refuse a duplicate
-// (AuditActionLoaded), with one addition: the check also requires the same
-// set of -C comparisons and -F filters on both lines, some of which that
-// matcher skips (auditActionUnderOtherKey). A host
+// loaded ruleset holds the same kernel rule: the same -a action and list, the
+// same syscalls, and the same set of -C comparisons and -F filters, or for a
+// watch the same path and permissions. Only the key may differ. That is the
+// predicate the audit_rule_set remediation guard uses to refuse a duplicate
+// (AuditActionLoaded), so the check and the guard give one answer. A host
 // that audits writes to /etc/passwd under another key is compliant; a rule
 // that needs its own key says so with key_required.
+//
+// Open limit: the check reads the loaded ruleset as a set and does not model
+// rule order. A never rule loaded ahead of a matching always rule suppresses
+// that rule's records, and the check does not detect it.
 //
 // Params: rule (full audit rule string, one or more lines); key_required
 // (optional bool, default false: when true, every line must also be loaded
@@ -931,10 +935,8 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	// A rule may carry several lines — e.g. a syscall control's b32 + b64
 	// variants, or EPERM + EACCES pairs. Every line must be present.
 	//
-	// The exact line (key included) is tried first, so every line that passed
-	// under the key-strict match still passes. Only a line missing as written
-	// falls back to the action match, which keeps AuditLineLoaded's full-line
-	// compare for a bare keyed rule with no distinguishing field.
+	// The line under its own key is tried first, so the detail says when a
+	// line passed only under another key.
 	var otherKey []string
 	for _, line := range strings.Split(rule, "\n") {
 		line = strings.TrimSpace(line)
@@ -945,7 +947,7 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 			continue
 		}
 		if !keyRequired {
-			if got := auditActionUnderOtherKey(line, loaded); got != "" {
+			if got := AuditActionLoaded(line, loaded); got != "" {
 				otherKey = append(otherKey, got)
 				continue
 			}
@@ -962,301 +964,251 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
 }
 
-// auditActionUnderOtherKey returns a loaded line that audits the same action
-// as rule under any key, or "" if none does. It is AuditActionLoaded plus a
-// two-way compare of every filter except the key: the -C comparisons, and
-// every -F field, including fields such as euid that AuditActionLoaded skips.
-// Without it, `-S execve -C uid!=euid -F euid=0` (privileged execs only)
-// would be satisfied by a loaded `-S execve` that audits a different set of
-// events, and a loaded line narrowed by a filter the rule does not carry
-// would count as the rule's action.
-func auditActionUnderOtherKey(rule string, loaded []string) string {
-	want := auditFilterSet(rule)
-	for _, l := range loaded {
-		if AuditActionLoaded(rule, []string{l}) == "" {
-			continue
-		}
-		if sameStringSet(want, auditFilterSet(l)) {
-			return strings.TrimSpace(l)
-		}
-	}
-	return ""
-}
-
-// auditFilterSet lists a syscall rule line's -C comparisons and -F fields
-// other than the key, as "-C uid!=euid" and "-F euid=0" tokens. auid!=unset
-// is written as auid!=-1, the form auditctl -l prints. A watch line has none.
-func auditFilterSet(line string) map[string]bool {
-	out := map[string]bool{}
-	if strings.HasPrefix(strings.TrimSpace(line), "-w") {
-		return out
-	}
-	fields := strings.Fields(line)
-	for i := 0; i+1 < len(fields); i++ {
-		tok := fields[i+1]
-		switch fields[i] {
-		case "-C":
-			out["-C "+tok] = true
-		case "-F":
-			if strings.HasPrefix(tok, "key=") {
-				continue
-			}
-			if tok == "auid!=unset" {
-				tok = "auid!=-1"
-			}
-			out["-F "+tok] = true
-		}
-	}
-	return out
-}
-
-// AuditLineLoaded reports whether a single audit rule line is present in the
-// loaded ruleset (auditctl -l lines). It matches on the line's distinguishing
-// fields rather than a literal compare, because auditctl reorders/normalises
-// output: auid!=unset -> auid!=-1, "-k key" -> "-F key=key", and syscall lists
-// are re-sorted. Matching only on -k would be a false pass whenever several
-// rules share a key (the Ubuntu usergroup_modification / perm_chng / priv_cmd /
-// module_chng clusters all do).
+// AuditLineLoaded reports whether a single audit rule line is loaded under
+// its own key: some line of loaded (auditctl -l output) is the same kernel
+// rule (see AuditActionLoaded) and carries every -k key the rule names. A
+// rule with no key matches the kernel rule under any key.
 //
 // Exported so the audit_rule_set handler's shell-transport rollback can reuse
 // the exact same matcher for its post-reboot honesty verdict — a full-line
 // string compare there wrongly missed normalised syscall rules.
 func AuditLineLoaded(rule string, loaded []string) bool {
-	// Watch rules ("-w <path> -p <perms> -k <key>") print verbatim: full match.
-	if strings.HasPrefix(rule, "-w") {
-		norm := normaliseAuditRule(rule)
-		for _, l := range loaded {
-			if normaliseAuditRule(l) == norm {
-				return true
-			}
-		}
+	want := parseAuditRule(rule)
+	if want.rule == "" {
 		return false
 	}
-
-	// Syscall / exec rules: match on the distinguishing fields the rule carries.
-	archTok, hasArch := auditFToken(rule, "arch")
-	pathTok, hasPath := auditFToken(rule, "path")
-	permTok, hasPerm := auditFToken(rule, "perm")
-	exitTok, hasExit := auditFToken(rule, "exit")
-	key := extractAuditKey(rule)
-	want := auditSyscallSet(rule)
-	hasDistinguisher := hasArch || hasPath || hasExit || len(want) > 0
-
 	for _, l := range loaded {
-		if hasArch && !auditFieldEqual(l, "arch", archTok) {
+		got := parseAuditRule(l)
+		if got.rule != want.rule {
 			continue
 		}
-		if hasPath && !auditFieldEqual(l, "path", pathTok) {
-			continue
-		}
-		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
-			continue
-		}
-		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
-			continue
-		}
-		if key != "" && extractAuditKey(l) != key {
-			continue
-		}
-		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
-			continue
-		}
-		if !auidTokensPresent(rule, l) {
-			continue
-		}
-		// With no distinguishing field at all, fall back to a full-line compare
-		// so a bare keyed rule can't be satisfied by an unrelated line.
-		if !hasDistinguisher && normaliseAuditRule(l) != normaliseAuditRule(rule) {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-// AuditActionLoaded reports a loaded rule line whose audit ACTION matches rule
-// while IGNORING the -k key label (empty string if none matches). The kernel
-// deduplicates audit rules on the action — a watch's path+perms, or a syscall
-// rule's arch/syscalls/filters — NOT on the key, so two rules with the same
-// action under different keys collide ("Rule exists") when both load. The
-// audit_rule_set handler uses this to detect that a rule's action is already
-// present on the host before it writes a second drop-in for it, which would
-// otherwise create a duplicate that aborts the audit ruleset load (and drops
-// immutability) at the next reboot. Distinct from AuditLineLoaded, which is
-// key-STRICT (it answers "is this exact rule, key included, loaded?").
-func AuditActionLoaded(rule string, loaded []string) string {
-	if strings.HasPrefix(strings.TrimSpace(rule), "-w") {
-		wp := watchPathPerm(rule)
-		if wp == "" {
-			return ""
-		}
-		for _, l := range loaded {
-			if strings.HasPrefix(strings.TrimSpace(l), "-w") && watchPathPerm(l) == wp {
-				return strings.TrimSpace(l)
+		keyed := true
+		for k := range want.keys {
+			if !got.keys[k] {
+				keyed = false
+				break
 			}
 		}
-		return ""
-	}
-
-	archTok, hasArch := auditFToken(rule, "arch")
-	pathTok, hasPath := auditFToken(rule, "path")
-	permTok, hasPerm := auditFToken(rule, "perm")
-	exitTok, hasExit := auditFToken(rule, "exit")
-	want := auditSyscallSet(rule)
-	// Require at least one distinguishing field so we never claim an unrelated
-	// rule as a conflict.
-	if !(hasArch || hasPath || hasExit || len(want) > 0) {
-		return ""
-	}
-	for _, l := range loaded {
-		if hasArch && !auditFieldEqual(l, "arch", archTok) {
-			continue
-		}
-		if hasPath && !auditFieldEqual(l, "path", pathTok) {
-			continue
-		}
-		if hasPerm && !auditFieldEqual(l, "perm", permTok) {
-			continue
-		}
-		if hasExit && !auditFieldEqual(l, "exit", exitTok) {
-			continue
-		}
-		if len(want) > 0 && !sameStringSet(want, auditSyscallSet(l)) {
-			continue
-		}
-		if !auidTokensPresent(rule, l) {
-			continue
-		}
-		return strings.TrimSpace(l)
-	}
-	return ""
-}
-
-// watchPathPerm returns "PATH -p PERM" for a watch rule ("-w PATH -p PERM ..."),
-// dropping the -k key — the action the kernel deduplicates on. Empty if the
-// line has no -w path.
-func watchPathPerm(rule string) string {
-	fields := strings.Fields(rule)
-	var path, perm string
-	for i := 0; i+1 < len(fields); i++ {
-		switch fields[i] {
-		case "-w":
-			path = fields[i+1]
-		case "-p":
-			perm = fields[i+1]
-		}
-	}
-	if path == "" {
-		return ""
-	}
-	return path + " -p " + perm
-}
-
-// auidTokensPresent reports whether every auid filter in the rule appears in
-// the loaded line. The auid filters (auid>=1000, auid=0, auid!=unset)
-// distinguish otherwise-identical syscall lines — e.g. the setxattr control's
-// auid>=1000 and auid=0 variants. auditctl -l prints auid!=unset as auid!=-1,
-// so normalise before comparing.
-func auidTokensPresent(rule string, loadedLine string) bool {
-	fields := strings.Fields(rule)
-	for i := 0; i+1 < len(fields); i++ {
-		if fields[i] != "-F" || !strings.HasPrefix(fields[i+1], "auid") {
-			continue
-		}
-		tok := fields[i+1]
-		if tok == "auid!=unset" {
-			tok = "auid!=-1"
-		}
-		if !auditFieldPresent(loadedLine, tok) {
-			return false
-		}
-	}
-	return true
-}
-
-// auditSyscallSet returns the set of syscalls named in a rule's "-S a,b,c"
-// tokens (auditctl -l re-sorts the list, so compare as a set, not a string).
-func auditSyscallSet(rule string) map[string]bool {
-	set := map[string]bool{}
-	fields := strings.Fields(rule)
-	for i := 0; i+1 < len(fields); i++ {
-		if fields[i] == "-S" {
-			for _, sc := range strings.Split(fields[i+1], ",") {
-				if sc != "" {
-					set[sc] = true
-				}
-			}
-		}
-	}
-	return set
-}
-
-// sameStringSet reports whether two string sets are equal.
-func sameStringSet(a, b map[string]bool) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k := range a {
-		if !b[k] {
-			return false
-		}
-	}
-	return true
-}
-
-// extractAuditKey returns the value following -k in an audit rule string,
-// or empty string if none is present.
-func extractAuditKey(rule string) string {
-	fields := strings.Fields(rule)
-	for i, f := range fields {
-		if f == "-k" && i+1 < len(fields) {
-			return fields[i+1]
-		}
-		if strings.HasPrefix(f, "-k") && len(f) > 2 {
-			return f[2:]
-		}
-		// auditctl -l normalises "-k key" to "-F key=key"; accept that form too
-		// so the key can be compared exactly against a loaded line.
-		if strings.HasPrefix(f, "key=") {
-			return f[len("key="):]
-		}
-	}
-	return ""
-}
-
-// auditFieldEqual reports whether line carries the exact "-F <field>=<value>"
-// token wantTok — a WHOLE-VALUE match, NOT a substring. This is what stops
-// "-F path=/usr/bin/su" from matching a loaded "-F path=/usr/bin/sudo" (su is a
-// prefix of sudo); the substring form silently conflated distinct rules.
-func auditFieldEqual(line, field, wantTok string) bool {
-	got, ok := auditFToken(line, field)
-	return ok && got == wantTok
-}
-
-// auditFieldPresent reports whether tok is a complete whitespace-delimited
-// field of line (not a substring — so "auid>=1000" does not match a loaded
-// "auid>=10000").
-func auditFieldPresent(line, tok string) bool {
-	for _, f := range strings.Fields(line) {
-		if f == tok {
+		if keyed {
 			return true
 		}
 	}
 	return false
 }
 
-// auditFToken returns the "-F <field>=<value>" token for the named field in an
-// audit rule (e.g. auditFToken(rule, "path") -> `-F path=/usr/bin/sudo`, true),
-// or ("", false) if the field is absent. The token is matched verbatim against
-// auditctl -l output, which preserves "-F path=" / "-F perm=".
-func auditFToken(rule, field string) (string, bool) {
-	fields := strings.Fields(rule)
-	for i := 0; i+1 < len(fields); i++ {
-		if fields[i] == "-F" && strings.HasPrefix(fields[i+1], field+"=") {
-			return "-F " + fields[i+1], true
+// AuditActionLoaded reports a line of loaded that is the same kernel rule as
+// rule while IGNORING the -k key label (empty string if none matches). Two
+// lines are the same kernel rule when they have the same -a action and list,
+// the same syscalls, and the same set of -C comparisons and -F filters other
+// than the key, or for a watch the same path and permissions.
+//
+// Both rules.d source lines and auditctl -l lines compare correctly, because
+// each side is reduced to one canonical form first: "-k k" and "-F key=k"
+// are the key; auid!=unset, auid!=-1 and auid!=4294967295 are one value;
+// "-C euid!=uid" and "-C uid!=euid" are one comparison; "exit,always" and
+// "always,exit" are one action and list, and -A is read as -a; syscall lists
+// and permission letters are sets; an exit rule with no -S is "-S all".
+// A path or dir rule with no arch, no syscalls and only a perm filter is the
+// watch it loads as.
+//
+// The audit_rule_set handler uses this to detect that a rule is already
+// present on the host before it writes a second drop-in for it, which would
+// otherwise create a duplicate that aborts the audit ruleset load (and drops
+// immutability) at the next reboot. Distinct from AuditLineLoaded, which is
+// key-STRICT (it answers "is this exact rule, key included, loaded?").
+func AuditActionLoaded(rule string, loaded []string) string {
+	want := parseAuditRule(rule)
+	if want.rule == "" {
+		return ""
+	}
+	for _, l := range loaded {
+		if parseAuditRule(l).rule == want.rule {
+			return strings.TrimSpace(l)
 		}
 	}
-	return "", false
+	return ""
+}
+
+// auditRuleForm is one audit rule line reduced to the kernel rule it loads.
+// rule is the canonical form without the key, or "" when the line is not a
+// watch (-w) or a syscall rule (-a/-A); keys holds the -k and -F key= labels.
+type auditRuleForm struct {
+	rule string
+	keys map[string]bool
+}
+
+// parseAuditRule reduces an audit rule line to its canonical form. See
+// AuditActionLoaded for the equivalences it applies.
+func parseAuditRule(line string) auditRuleForm {
+	form := auditRuleForm{keys: map[string]bool{}}
+	fields := strings.Fields(line)
+	var (
+		isWatch, isSyscall     bool
+		watchPath, watchPerm   string
+		action, list           string
+		syscalls               = map[string]bool{}
+		filters                = map[string]bool{}
+		pathTok, permTok, arch string
+	)
+	for i := 0; i < len(fields); i++ {
+		f := fields[i]
+		next := ""
+		if i+1 < len(fields) {
+			next = fields[i+1]
+		}
+		switch f {
+		case "-w":
+			isWatch, watchPath = true, next
+			i++
+		case "-p":
+			watchPerm = canonAuditPerm(next)
+			i++
+		case "-a", "-A":
+			isSyscall = true
+			for _, part := range strings.Split(next, ",") {
+				switch part {
+				case "always", "never":
+					action = part
+				default:
+					list = part
+				}
+			}
+			i++
+		case "-S":
+			for _, sc := range strings.Split(next, ",") {
+				if sc != "" {
+					syscalls[sc] = true
+				}
+			}
+			i++
+		case "-F":
+			i++
+			if strings.HasPrefix(next, "key=") {
+				form.keys[strings.TrimPrefix(next, "key=")] = true
+				continue
+			}
+			name, tok := canonAuditFilter(next)
+			switch name {
+			case "path", "dir":
+				pathTok = tok
+			case "perm":
+				permTok = tok
+			case "arch":
+				arch = tok
+			}
+			filters[tok] = true
+		case "-C":
+			filters["-C "+canonAuditCompare(next)] = true
+			i++
+		case "-k":
+			form.keys[next] = true
+			i++
+		default:
+			if strings.HasPrefix(f, "-k") && len(f) > 2 {
+				form.keys[f[2:]] = true
+			}
+		}
+	}
+
+	if isSyscall && list == "exit" && (len(syscalls) == 0 || syscalls["all"]) {
+		syscalls = map[string]bool{"all": true}
+		// A path or dir rule over every syscall with only a perm filter is
+		// the kernel rule -w loads, and auditctl -l prints it as -w.
+		if action == "always" && arch == "" && pathTok != "" && permTok != "" && len(filters) == 2 {
+			isSyscall, isWatch = false, true
+			watchPath = pathTok[strings.IndexByte(pathTok, '=')+1:]
+			watchPerm = permTok[strings.IndexByte(permTok, '=')+1:]
+			filters = map[string]bool{}
+		}
+	}
+
+	switch {
+	case isWatch && watchPath != "":
+		if watchPerm == "" {
+			watchPerm = "rwxa"
+		}
+		form.rule = "-w " + watchPath + " -p " + watchPerm
+		if len(filters) > 0 {
+			form.rule += " " + strings.Join(sortedKeys(filters), " ")
+		}
+	case isSyscall:
+		form.rule = "-a " + action + "," + list + " -S " + strings.Join(sortedKeys(syscalls), ",")
+		if len(filters) > 0 {
+			form.rule += " " + strings.Join(sortedKeys(filters), " ")
+		}
+	}
+	return form
+}
+
+// canonAuditFilter returns a -F field's name and its canonical "-F" token.
+// An unset id (unset, -1 or 4294967295, which libaudit parses to one value)
+// is written -1, and perm letters in rwxa order.
+func canonAuditFilter(tok string) (string, string) {
+	idx := strings.IndexAny(tok, "!=<>&")
+	if idx <= 0 {
+		return tok, "-F " + tok
+	}
+	name, rest := tok[:idx], tok[idx:]
+	op := ""
+	for _, o := range []string{"!=", ">=", "<=", "&=", "=", ">", "<", "&"} {
+		if strings.HasPrefix(rest, o) {
+			op = o
+			break
+		}
+	}
+	value := strings.TrimPrefix(rest, op)
+	switch {
+	case value == "unset" || value == "4294967295":
+		value = "-1"
+	case name == "perm":
+		value = canonAuditPerm(value)
+	}
+	return name, "-F " + name + op + value
+}
+
+// canonAuditCompare orders the two sides of a -C comparison. libaudit parses
+// "euid!=uid" and "uid!=euid" into one comparison; -C accepts only = and !=.
+func canonAuditCompare(tok string) string {
+	op := "!="
+	idx := strings.Index(tok, op)
+	if idx < 0 {
+		op = "="
+		idx = strings.Index(tok, op)
+	}
+	if idx <= 0 {
+		return tok
+	}
+	left, right := tok[:idx], tok[idx+len(op):]
+	if right < left {
+		left, right = right, left
+	}
+	return left + op + right
+}
+
+// canonAuditPerm writes audit permission letters in rwxa order, the order
+// auditctl -l prints them. A value with any other character is kept as
+// written, so it never compares equal to a valid one by accident.
+func canonAuditPerm(p string) string {
+	if strings.Trim(p, "rwxa") != "" {
+		return p
+	}
+	var b strings.Builder
+	for _, c := range "rwxa" {
+		if strings.ContainsRune(p, c) {
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
+}
+
+// sortedKeys returns a set's members in sorted order.
+func sortedKeys(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // normaliseAuditRule collapses whitespace in a rule string for comparison.

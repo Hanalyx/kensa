@@ -40,13 +40,30 @@ any pair).
   watched writes to `/etc/passwd` under `audit_rules_usergroup_modification`
   failed `audit-file-passwd`, whose rule names the key `identity`. Yet
   `audit_rule_set` refused to add the rule, because the action was already
-  audited. The check now passes a line when the same action is loaded under
-  any key: the path and permissions of a watch, or the arch, syscalls and
-  filters of a syscall rule. The detail names the line found under another
-  key. A rule that needs its own key sets the new optional `key_required:
-  true`.
+  audited. The check now passes a line when the same kernel rule is loaded
+  under any key: the path and permissions of a watch, or the action and list,
+  syscalls and every `-C` and `-F` filter of a syscall rule. Equivalent forms
+  compare equal, for example `-C euid!=uid` and `-C uid!=euid`, or
+  `auid!=unset` and `auid!=-1`. A `never` rule does not satisfy an `always`
+  rule, and a loaded rule narrowed by an extra filter, such as `success=0`,
+  does not satisfy the broader one. The detail names the line found under
+  another key. A rule that needs its own key sets the new optional
+  `key_required: true`. A check line must now name the full rule, not a
+  partial pattern; 12 corpus checks were corrected to the rules their
+  benchmarks and remediations load.
 
 ### Fixed
+
+- **`audit_rule_set` no longer misses a duplicate written with
+  `auid!=unset`.** Before writing a rule, the handler refuses one whose kernel
+  rule is already in another `rules.d` file, because the duplicate aborts the
+  audit load at the next reboot. It compared `auid!=unset` in the new rule
+  with the same text in the file as different values, so for rules carrying
+  that filter it let the duplicate through. It also refused rules that were
+  not duplicates, such as a `never` rule or a rule with different filters.
+  It now uses the same comparison as `audit_rule_exists`. The shell rollback
+  of a staged rule uses it too, when it reports whether the rule is still
+  loaded after a reboot.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

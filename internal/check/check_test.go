@@ -133,7 +133,9 @@ func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
 // one is loaded. The -F path= field distinguishes them.
 func TestCheckAuditRuleExists_ExecPathMatch(t *testing.T) {
 	// Only /usr/bin/sudo is loaded; its key priv_cmd is shared with chsh etc.
-	loaded := "-a always,exit -F arch=b64 -S execve -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd"
+	// A rule with no arch and no -S covers every syscall, and auditctl -l
+	// prints it with -S all.
+	loaded := "-a always,exit -S all -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd"
 	ft := &fakeTransport{
 		cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)},
 	}
@@ -150,6 +152,15 @@ func TestCheckAuditRuleExists_ExecPathMatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	} else if passed {
 		t.Errorf("/usr/bin/chsh not loaded but check passed (key-only false pass): %s", detail)
+	}
+	// A b64 execve-only rule on the same path is a narrower kernel rule: it
+	// misses a 32-bit exec, so it does not satisfy the rule over every syscall.
+	narrow := "-a always,exit -F arch=b64 -S execve -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=priv_cmd"
+	ftNarrow := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, narrow)}}
+	if passed, detail, err := runForTest(context.Background(), ftNarrow, exec("/usr/bin/sudo")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	} else if passed {
+		t.Errorf("a b64 execve-only rule passed the rule over every syscall: %s", detail)
 	}
 }
 
