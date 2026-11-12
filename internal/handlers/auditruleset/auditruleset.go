@@ -836,8 +836,9 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 // missed genuinely-loaded syscall rules and over-reported a clean restore. A
 // false "not loaded" here reports a clean restore while the host still
 // carries the rule, so the verdict takes the more cautious of the two
-// matchers. A read error returns false so a rollback never over-claims a
-// partial restore.
+// matchers. A read error also returns false, so an unreadable listing
+// reports a clean restore; that is an over-claim this function does not yet
+// guard against.
 func auditRuleLoadedShell(ctx context.Context, transport api.Transport, lines []string) bool {
 	res, err := transport.Run(ctx, "auditctl -l 2>/dev/null")
 	if err != nil || !res.OK() {

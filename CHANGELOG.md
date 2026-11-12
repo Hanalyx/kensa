@@ -46,8 +46,10 @@ any pair).
   compare equal, for example `-C euid!=uid` and `-C uid!=euid`, or
   `auid!=unset` and `auid!=-1`. A `never` rule does not satisfy an `always`
   rule, and a loaded rule narrowed by an extra filter, such as `success=0`,
-  does not satisfy the broader one. The detail names the line found under
-  another key. A rule that needs its own key sets the new optional
+  does not satisfy the broader one. A loaded rule that audits strictly more
+  than the required one does not satisfy it either, so a host with broader
+  rules than a check names now fails that check. The detail names the line
+  found under another key. A rule that needs its own key sets the new optional
   `key_required: true`. A check line must now name the full rule, not a
   partial pattern; 12 corpus checks were corrected to the rules their
   benchmarks and remediations load.
