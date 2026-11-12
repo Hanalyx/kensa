@@ -1,0 +1,22 @@
+# Captured audit-4.0.3, RHEL 10.2, kernel 6.12.0-211, 2026-11-12. After auditctl -D, rule A then rule B loaded with auditctl.
+# name\tA\tB\tB exit status\tB error ("Rule exists" means one kernel rule; "-" for none)
+auid-unset-vs-minus1	-a always,exit -F arch=b64 -S chmod -F auid!=unset -k a3	-a always,exit -F arch=b64 -S chmod -F auid!=-1 -k a1	0	-
+reversed-C	-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=unset -k c1	-a always,exit -F arch=b64 -S execve -C euid!=uid -F auid!=unset -k c2	0	-
+watch-vs-pathrule	-w /etc/sudoers.d -p wa -k w1	-a always,exit -F path=/etc/sudoers.d -F perm=wa -k p2	0	-
+watch-slash	-w /etc/sudoers.d -p wa -k w1	-w /etc/sudoers.d/ -p wa -k w2	0	-
+always-vs-never	-a always,exit -F arch=b64 -S execve -k al	-a never,exit -F arch=b64 -S execve -k nv	0	-
+arch-alias	-a always,exit -F arch=b64 -S chown -k b6	-a always,exit -F arch=x86_64 -S chown -k ax	0	-
+same-rule-other-key	-a always,exit -F arch=b64 -S chown -k k1	-a always,exit -F arch=b64 -S chown -k k2	0	-
+same-rule-same-key	-a always,exit -F arch=b64 -S chown -k k1	-a always,exit -F arch=b64 -S chown -k k1	255	Rule exists
+exit-always-order	-a always,exit -F arch=b64 -S chown -k k1	-a exit,always -F arch=b64 -S chown -k k1	255	Rule exists
+syscall-order	-a always,exit -F arch=b64 -S chown,fchown -k k1	-a always,exit -F arch=b64 -S fchown,chown -k k1	255	Rule exists
+exit-name-vs-number	-a always,exit -F arch=b64 -S open -F exit=-EACCES -k k1	-a always,exit -F arch=b64 -S open -F exit=-13 -k k1	255	Rule exists
+auid-name-vs-number	-a always,exit -F arch=b64 -S chown -F auid=root -k k1	-a always,exit -F arch=b64 -S chown -F auid=0 -k k1	255	Rule exists
+path-slash	-a always,exit -F path=/etc/sudoers.d -F perm=wa -k k1	-a always,exit -F path=/etc/sudoers.d/ -F perm=wa -k k1	255	Invalid argument
+euid-name-vs-number-samekey	-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=root -k k1	-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k k1	255	Rule exists
+arch-alias-samekey	-a always,exit -F arch=b64 -S chown -k k1	-a always,exit -F arch=x86_64 -S chown -k k1	255	Rule exists
+reversed-C-samekey	-a always,exit -F arch=b64 -S execve -C uid!=euid -k k1	-a always,exit -F arch=b64 -S execve -C euid!=uid -k k1	255	Rule exists
+auid-unset-samekey	-a always,exit -F arch=b64 -S chmod -F auid!=unset -k k1	-a always,exit -F arch=b64 -S chmod -F auid!=-1 -k k1	255	Rule exists
+watch-vs-pathrule-samekey	-w /etc/shadow -p wa -k k1	-a always,exit -F path=/etc/shadow -F perm=wa -k k1	255	Rule exists
+watch-vs-dirrule-samekey	-w /etc/sudoers.d -p wa -k k1	-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k k1	255	Rule exists
+all-vs-class-samekey	-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa -k k1	-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k k1	0	-

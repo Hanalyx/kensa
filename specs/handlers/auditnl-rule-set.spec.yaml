@@ -1,6 +1,6 @@
 spec:
     id: auditnl-rule-set
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 1
 
@@ -30,6 +30,7 @@ spec:
             without netlink access behaves exactly as before.
         related_specs:
             - handler-audit-rule-set
+            - check-audit-rule-match
             - kernelio-sysctl
 
     objective:
@@ -113,9 +114,11 @@ spec:
         - id: C-07
           description: |
               Apply MUST NOT write a drop-in for a rule whose audit action is
-              already present on the host from a different source. The kernel
-              deduplicates on the action (watch path+perms; syscall signature),
-              NOT the -k key, so a second drop-in with the same action collides
+              already present on the host from a different source. The action
+              is the kernel rule other than the -k key: a watch's path and
+              permissions, or a syscall rule's action, list, syscalls and every
+              -C and -F filter, compared as check-audit-rule-match defines. A
+              second drop-in with the same action collides
               at load ("Rule exists") and aborts the whole ruleset load —
               observed to drop a host out of immutable state at the next reboot.
               Detection is key-agnostic and best-effort (an unreadable live
@@ -184,9 +187,11 @@ spec:
               rule's own drop-in, Apply refuses with Success:false and does NOT
               write the drop-in — writing a second file for the same action
               would collide at load and abort the ruleset (dropping immutability
-              at reboot). Detection is key-agnostic (check.AuditActionLoaded).
-              An absent action, or a re-apply of the rule's own drop-in, is not
-              a conflict and proceeds.
+              at reboot). Detection is key-agnostic (check.AuditActionLoaded,
+              as check-audit-rule-match defines it): a never rule, or a rule
+              with different filters, is not the same action. An absent
+              action, or a re-apply of the rule's own drop-in, is not a
+              conflict and proceeds.
           references_constraints: [C-07]
           priority: critical
 

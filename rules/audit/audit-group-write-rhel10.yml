@@ -21,7 +21,9 @@ implementations:
   - default: true
     check:
       method: audit_rule_exists
-      rule: "-a always,exit -F path=/etc/group -F perm=wa"
+      rule: |
+        -a always,exit -F arch=b32 -F path=/etc/group -F perm=wa
+        -a always,exit -F arch=b64 -F path=/etc/group -F perm=wa
     remediation:
       mechanism: manual
       note: "Add `-a always,exit -F arch=b64 -F path=/etc/group -F perm=wa -k identity` (and the b32 form) to /etc/audit/rules.d/ and augenrules --load."

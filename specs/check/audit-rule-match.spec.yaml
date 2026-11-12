@@ -1,0 +1,218 @@
+spec:
+    id: check-audit-rule-match
+    version: 0.2.0
+    status: draft
+    tier: 1
+
+    context:
+        system: kensa
+        feature: check-audit-rule-match
+        description: |
+            One predicate decides whether an audit rule line is already
+            present, and three callers use it: the audit_rule_exists check
+            (against auditctl -l output), the audit_rule_set duplicate guard
+            (against the rules.d source lines augenrules loads), and the
+            audit_rule_set shell rollback's post-reboot verdict (against
+            auditctl -l output). The two inputs write the same kernel rule
+            differently, so each line is reduced to one canonical form
+            before it is compared.
+        related_specs:
+            - auditnl-rule-set
+
+    objective:
+        summary: |
+            Two lines match when they load the same kernel rule, ignoring the
+            -k key. A match under the rule's own key additionally requires
+            every key the rule names. The check, the guard and the rollback
+            verdict give one answer for a single line.
+        scope:
+            includes:
+                - check.AuditActionLoaded (key-agnostic) and check.AuditLineLoaded (own key)
+                - the canonical form of a watch line and of a syscall line
+                - the audit_rule_exists check, the audit_rule_set guard and the shell staged-rollback verdict as callers
+            excludes:
+                - rule order on the loaded list
+                - matching a loaded rule that audits more than the required one, except the perm-class syscall lists of C-07
+                - mapping numeric exit values to errno names, and user or arch names to numbers
+
+    constraints:
+        - id: C-01
+          description: |
+              Two syscall lines match only when their -a action (always or
+              never) and list are equal, their syscall sets are equal, and
+              their sets of -C comparisons and -F filters other than the key
+              are equal in both directions. A loaded never rule never
+              satisfies an always rule written in syscall form. A never
+              path rule over every syscall with only a perm filter prints in
+              auditctl -l exactly as a watch, so against auditctl -l output
+              it cannot be told from one (C-06).
+          type: security
+          enforcement: error
+        - id: C-02
+          description: |
+              Before comparison each line is canonicalized: "-k k" and
+              "-F key=k" are the key; auid!=unset, auid!=-1 and
+              auid!=4294967295 are one value (libaudit parses all three to
+              4294967295); the two sides of a -C comparison are ordered, since
+              libaudit parses euid!=uid and uid!=euid to one comparison;
+              "exit,always" and "always,exit" are one action and list, and -A
+              is read as -a; syscall lists and permission letters are sets; an
+              exit rule with no -S is "-S all"; a watched path, path= or dir=
+              value drops trailing slashes; and an argument written against
+              its flag (-Farch=b64, -Sexecve, -pwa, -kname) is read as if
+              separated. The same canonical form is
+              applied to both sides of every comparison.
+          type: technical
+          enforcement: error
+        - id: C-03
+          description: |
+              A watch line matches on its path and permission set. An
+              always,exit rule with no arch, no syscalls other than all, and
+              only one path= or dir= filter plus a perm= filter is the
+              kernel rule -w loads, and auditctl -l prints it as -w, so it
+              matches the watch. The kernel confirms each pair is one rule:
+              loading -w and the path= rule on one file, or -w and the dir=
+              rule on one directory, under one key, the second load fails
+              with "Rule exists" (audit-4.0.3, RHEL 10.2). A path rule with
+              an arch, or with any other filter, is not a watch (C-07). The
+              listing cannot show whether a -w line on a directory came from
+              dir= or path=, so a path= rule on a directory, which watches
+              only the directory's own inode, satisfies a dir= requirement:
+              a known limit, rare, recorded in C-06.
+          type: technical
+          enforcement: error
+        - id: C-04
+          description: |
+              Genuinely different filters stay different after
+              canonicalization: = and != differ, different comparison fields
+              differ, and different field names or values differ.
+          type: security
+          enforcement: error
+        - id: C-05
+          description: |
+              audit_rule_exists passes a line when AuditLineLoaded finds it
+              under its own key, or, without key_required, when
+              AuditActionLoaded finds it under any key. The audit_rule_set
+              guard refuses a write when AuditActionLoaded finds the line in
+              rules.d. The shell staged rollback reports PartialRestore when
+              AuditLineMaybeLoaded finds a staged line in auditctl -l. That is
+              AuditLineLoaded OR the earlier field-subset matcher, an interim
+              kept until the canonical form is verified against real auditctl
+              -l output: on this path a false "not loaded" reports a clean
+              restore while the rule is still loaded, so the union may only
+              add PartialRestore results relative to the earlier matcher. No
+              other caller keeps a private matcher.
+          type: technical
+          enforcement: error
+        - id: C-06
+          description: |
+              Known limits. The match is equality, so a loaded rule that
+              audits strictly more than the required one does not satisfy it.
+              The loaded ruleset is read as a set, so rule order is not
+              modeled. Values are compared as written, so a numeric exit
+              value, a user name for a uid field (auid=root), or an arch
+              alias (arch=x86_64) does not match the number or b32/b64 form
+              auditctl prints. In the check that is a false FAIL. In the
+              duplicate guard it is a missed duplicate: a rules.d line
+              written euid=root and a new rule written euid=0 are expected to
+              load as one kernel rule (not yet verified on a host), and the
+              guard lets the second write through; the kernel answers "Rule
+              exists" for euid=root and euid=0 under one key, so they are
+              one kernel rule. A never path rule that prints as a watch
+              satisfies the matching always watch, because the listing does
+              not show its action. A rule with an explicit syscall list that
+              auditctl loads is printed widened to the perm class, so it does
+              not match its own listing (a false FAIL); loaded through
+              netlink it prints as written and matches. A path= rule on a
+              directory satisfies a dir= requirement (C-03). The kernel
+              refuses a path= value with a trailing slash, so such a rule can
+              never be loaded. The guard misses a duplicate when a rules.d
+              path rule names an explicit -S list with a perm filter:
+              auditctl widens that list to the perm class, so it can load as
+              the same kernel rule as a new rule with no -S, while the guard
+              compares the lists as written (an under-refusal; no corpus rule
+              uses that form). On a machine arch other than x86_64 a b64
+              path rule loaded by auditctl fails the check (C-07).
+          type: technical
+          enforcement: warning
+        - id: C-07
+          description: |
+              A syscall rule with an equality arch filter (arch=b32 or
+              arch=b64), a path= or dir= filter, a perm= filter and no -S at
+              all matches a loaded line with the same action, list, arch,
+              path or dir, perm and other filters whose syscall set is all,
+              or contains one whole list auditctl loads that rule with.
+              auditctl, and so augenrules, loads such a rule with an explicit
+              syscall list chosen by the arch and perm, and auditctl -l
+              prints it; through netlink, as the agent loads it, the rule
+              loads and prints as -S all. Either line is the rule as one of
+              the two loaders loads it. The list is auditctl's, not the
+              kernel's perm class, which holds more syscalls (for example
+              chown32, fchown32, lchown32, truncate64 and ftruncate64 for
+              b32), so a rule that says -S all is matched exactly: the
+              expanded line audits less than it. The lists come only from
+              captured auditctl -l output on x86_64: audit-4.0.3 (RHEL 10.2,
+              kernel 6.12) and audit-3.1.5 (Rocky 9.8, kernel 5.14) for every
+              perm value (r, w, x, a, wa, rwa, rwxa) and both arches, and the
+              two versions print the same set for each. A loaded set must contain at least
+              one captured version's whole list; a set that contains none,
+              an arch and perm with no capture, or another machine arch
+              (whose b64 list differs) does not match, and the check detail
+              names the syscalls the closest loaded line lacks. A rule that
+              names a syscall list, -S all included, keeps exact matching.
+              In the guard, two rules.d path rules that differ only in perm
+              are never duplicates.
+          type: technical
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: A loaded never rule fails an always rule under another key and under the same key, for a syscall rule and for a path rule; an always rule under the same key passes.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-02
+          description: On the own-key path, a loaded line narrowed by success=0, or by a -C comparison and euid filter, fails the broader rule, and a loaded line missing the rule's -C and euid fails it; equal filters pass.
+          references_constraints: [C-01]
+          priority: critical
+        - id: AC-03
+          description: Reversed -C sides, auid unset printed as unset or written as 4294967295, list-before-action, -A, and watch permissions in another order each match their auditctl -l form.
+          references_constraints: [C-02]
+          priority: critical
+        - id: AC-04
+          description: = against !=, a gid comparison against a uid comparison, egid=0 against euid=0, and auid=0 against auid!=-1 do not match.
+          references_constraints: [C-04]
+          priority: critical
+        - id: AC-05
+          description: For single-line rules without key_required, the check's verdict equals the guard's answer against both the auditctl -l form and the rules.d form of each fixture; the guard does not refuse a never rule, a narrowed rule or a privileged-exec rule as a duplicate of a plain rule, and does refuse a reversed -C duplicate and an auid!=unset duplicate under another key.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-06
+          description: AuditLineLoaded finds a staged rule in its auditctl -l form, including auid printed as unset, and does not take a never line with the same fields for it. The shell staged rollback reports PartialRestore for both loaded forms and, under the interim union, for the never line too; it reports a clean restore when only an unrelated rule is loaded.
+          references_constraints: [C-05]
+          priority: critical
+        - id: AC-07
+          description: An always,exit path rule or dir rule with no arch matches the watch on the same path and permissions in both directions, with or without a trailing slash; a b64 path rule, or a path or dir rule with an auid filter, does not match a plain watch; a watch still matches its own listing.
+          references_constraints: [C-03]
+          priority: high
+        - id: AC-08
+          description: A loaded rule that audits strictly more than the required rule does not satisfy it.
+          references_constraints: [C-06]
+          priority: medium
+        - id: AC-09
+          description: Every captured path= and dir= rule (audit-4.0.3 and audit-3.1.5, each through auditctl and through netlink) matches the line auditctl -l printed for it, through the check, the guard and the rollback verdict, except the two C-06 limits (a never path rule; an explicit syscall list loaded by auditctl).
+          references_constraints: [C-07, C-03]
+          priority: critical
+        - id: AC-10
+          description: Against the printed listing, a loaded line missing one syscall of the class, with a different perm, arch, path or action does not satisfy an arch path rule, and the check detail names the missing syscall. A rule that says -S all does not match the expanded list, and a rule with arch!= never takes the perm-class path.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-11
+          description: For each arch and each pair of perm values, the guard treats a rules.d path rule as a duplicate of a new one only when the perm is the same, whether the rules.d line has no -S, -S all, or the expanded list.
+          references_constraints: [C-07]
+          priority: critical
+        - id: AC-12
+          description: For every pair of rules the kernel refused as "Rule exists" when loaded one after the other with one key (audit-4.0.3), the guard treats the second as a duplicate of the first, except the four pairs that differ only in a name or alias (C-06).
+          references_constraints: [C-03, C-06, C-07]
+          priority: critical
+
+    tags: [check, audit, rollback, tier-1]
