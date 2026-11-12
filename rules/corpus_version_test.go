@@ -91,6 +91,10 @@ func TestCorpusVersionMarker(t *testing.T) {
 			if err := os.MkdirAll(filepath.Join(root, "rules"), 0o755); err != nil {
 				t.Fatal(err)
 			}
+			// One rule file, so DescribeCorpus has a corpus to describe.
+			if err := os.WriteFile(filepath.Join(root, "rules", "r.yml"), []byte("id: r\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
 			if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte(version+"\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}

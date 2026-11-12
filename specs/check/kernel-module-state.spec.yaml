@@ -1,0 +1,87 @@
+spec:
+    id: check-kernel-module-state
+    version: 0.1.0
+    status: draft
+    tier: 2
+
+    context:
+        system: kensa
+        feature: check-kernel-module-state
+        description: |
+            The kernel_module_state check decides whether a kernel module
+            is kept from loading. Its disabled branch reads the output of
+            modprobe -n --show-depends with stderr merged. modprobe prints
+            an install override, a module-not-found message, or the insmod
+            lines it would run. A shell that cannot find or run modprobe
+            prints "not found" too, with exit 127 or 126. Those words say
+            nothing about the module, and reading them as "module absent"
+            passed every module on a host without modprobe. Any state
+            other than blacklisted, including an unset one, takes the
+            disabled branch.
+
+            Known limits, not enforced here and not covered by tests. The
+            loaded test runs lsmod with stderr discarded, so a host without
+            lsmod reads as "module not loaded" for every module. Both
+            matches below read the whole output rather than a line for the
+            checked module, which gives a false PASS for a module modprobe
+            would load: a module-not-found line for another module, such as
+            a missing dependency, passes; and an install override anywhere
+            in the output passes, including one for a dependency, a
+            commented line, or "install /bin/true-x", even beside the
+            checked module's insmod line.
+
+    objective:
+        summary: |
+            The disabled branch passes only on evidence from modprobe
+            itself: an install override to /bin/true or /bin/false, or
+            modprobe's own module-not-found message with a non-zero exit.
+            When modprobe cannot run, the check returns an error, not a
+            verdict.
+        scope:
+            includes:
+                - the disabled branch of kernel_module_state in internal/check/check.go
+                - the loaded test that runs before it
+            excludes:
+                - the blacklisted branch
+                - a missing lsmod, which reads as "not loaded" (a known limit)
+
+    constraints:
+        - id: C-01
+          description: |
+              The check passes when the output of modprobe -n
+              --show-depends contains "install /bin/true" or "install
+              /bin/false" anywhere. Both forms appear in CIS and STIG
+              hardening, so both count. The match is a substring of the
+              whole output, not a line for the checked module (a known limit).
+          type: technical
+          enforcement: error
+        - id: C-02
+          description: |
+              The check passes as "not available" only when modprobe exits
+              non-zero and prints a module-not-found line: a line that
+              starts with "modprobe: " and contains "Module " and " not
+              found". The module named in that line is not compared with
+              the checked module (a known limit). The same words with exit 0, a
+              not-found line printed by another program, or a modprobe line
+              without "Module ", do not pass.
+          type: security
+          enforcement: error
+        - id: C-03
+          description: |
+              When modprobe exits 126 or 127, the shell could not run it.
+              The check returns an error that says modprobe could not run,
+              and never a PASS or FAIL verdict.
+          type: security
+          enforcement: error
+
+    acceptance_criteria:
+        - id: AC-01
+          description: An install /bin/true or install /bin/false listing passes; modprobe's module-not-found message with exit 1 passes; a listing of insmod lines only fails; a loaded module fails even when an override is present.
+          references_constraints: [C-01, C-02]
+          priority: critical
+        - id: AC-02
+          description: With modprobe missing (dash and bash messages, exit 127) or not executable (exit 126), the check returns an error that says modprobe could not run, and reports neither PASS nor FAIL. Not-found text with exit 0, a not-found line from another program with exit 1, and a modprobe line with " not found" but no "Module ", do not pass.
+          references_constraints: [C-02, C-03]
+          priority: critical
+
+    tags: [check, kernel-module, tier-2]
