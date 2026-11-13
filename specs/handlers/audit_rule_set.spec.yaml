@@ -1,6 +1,6 @@
 spec:
     id: handler-audit-rule-set
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
     context:
@@ -82,6 +82,37 @@ spec:
               empty and rollback removes only the file.
           type: security
           enforcement: error
+        - id: C-07
+          description: |
+              Rollback restores the drop-in's content from the capture
+              (file_existed, prior_content). If the file is exactly what
+              Apply wrote, a file Kensa created is removed. Otherwise the prior
+              bytes are written back. That holds for an empty or comment-only
+              file, blank lines, carriage returns and the trailing newline
+              state. If lines were only appended after Apply, the prior bytes
+              come back followed by those lines, kept as they are. A newline
+              goes between them when the prior file did not end in one. Any
+              other change keeps every byte but what Apply added: one copy of
+              each of its lines, and the managed header when the prior file
+              held only whitespace (the only case in which Apply adds one).
+              The file is removed when nothing but the header and blank lines
+              remain and Kensa created it before this change. It is also
+              removed when the header is still in it, nothing else is, and the
+              prior content starts with the header (a sibling transaction made
+              it) or the capture is missing. So an operator file that holds
+              only that header line is removed in that case too. A file gone
+              at rollback stays gone. Both transports. The file's mode, owner
+              and security label are not captured.
+
+              Known limits, both from rolling back transactions on one file
+              out of the order they were applied. A later transaction's
+              capture holds the earlier one's result, not the original file.
+              So a prior file with no trailing newline gains one. And an
+              existing file that held only Kensa's header, left by an earlier
+              transaction, is removed. The usual rollback order, latest
+              first, restores both exactly.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the rule file and runs augenrules --load.
@@ -116,6 +147,24 @@ spec:
               that is not a parseable rule, Apply writes the drop-in, returns
               Staged, and loads nothing into the kernel.
           references_constraints: [C-06]
+          priority: critical
+        - id: AC-07
+          description: |
+              On both transports, a rollback gives back byte for byte an
+              empty file, a comment-only file, a file with no trailing
+              newline, one with several, one with blank lines and comments,
+              a comment with no newline and a file with carriage returns. A
+              sibling rule or an operator comment added after Apply survives
+              after every prior byte. A file Kensa created is removed, also
+              when two transactions sharing it roll back out of order. An
+              edit that is not an append keeps every byte but the rule's
+              lines and the header Apply added. An operator's copy of the
+              rule's line, and of the header line in a file that was not
+              blank, stays. An operator's blank-line file outlives an
+              out-of-order rollback of two transactions. A file gone at rollback stays gone. A
+              pre-state without the capture removes the file only when
+              nothing but Kensa's header is left.
+          references_constraints: [C-07]
           priority: critical
     depends_on:
         - spec_id: handler-interface

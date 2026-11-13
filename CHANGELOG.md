@@ -104,6 +104,20 @@ any pair).
 
 ### Fixed
 
+- **Rolling back `audit_rule_set` gives an existing rule file's content
+  back byte for byte.** Rollback took out the rule's lines and deleted the
+  file when no rule line was left. So it deleted an operator's file that held
+  only comments or nothing. It also normalized the trailing newline of any
+  file it kept. Now, when the file is as remediate left it, rollback writes
+  back the bytes captured before the change. It removes the file only if
+  Kensa created it. When lines were appended afterward, for example by
+  another rule, it writes back the captured bytes followed by those lines.
+  Both transports. Only content is restored. In agent mode, writing the file
+  still sets mode 0640 and a new inode, on remediate and on rollback. Two
+  limits apply when transactions on one file roll back out of the order they
+  were applied. A file with no trailing newline gains one. An existing file
+  that held only Kensa's header, left by an earlier change, is removed.
+
 - **Rolling back a staged audit rule after a reboot no longer reports a clean
   restore while the rule is still loaded.** On a host whose audit
   configuration is immutable, `audit_rule_set` writes the rule file and loads
