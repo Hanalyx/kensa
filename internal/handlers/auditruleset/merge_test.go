@@ -154,3 +154,31 @@ func TestRestoreFile_SiblingsAndOperatorCopies(t *testing.T) {
 		}
 	})
 }
+
+// An operator's own copy of the header line stays, since Apply adds the
+// header only to a file that held nothing but whitespace; and an operator's
+// blank-line file outlives an out-of-order rollback of two transactions.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_OperatorHeaderAndBlankFile(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		prior := "-w /op -p wa -k op\n-w /op2 -p wa\n"
+		// After Apply the operator put the header line mid-file.
+		current := "-w /op -p wa -k op\n" + h + "-w /op2 -p wa\n" + a + "\n"
+		if r := restoreFile(current, true, prior, true, true, []string{a}); r.remove || r.content != "-w /op -p wa -k op\n"+h+"-w /op2 -p wa\n" {
+			t.Errorf("operator header line: %+v", r)
+		}
+		// The operator's file held one blank line. A then B applied; roll
+		// back A, then B.
+		afterA := restoreFile(h+a+"\n"+b+"\n", true, "\n", true, true, []string{a})
+		if afterA.remove || afterA.content != "\n"+b+"\n" {
+			t.Fatalf("rolling back A first: %+v", afterA)
+		}
+		if r := restoreFile(afterA.content, true, h+a+"\n", true, true, []string{b}); r.remove || r.content != "\n" {
+			t.Errorf("rolling back B second deleted or changed the operator's file: %+v", r)
+		}
+	})
+}

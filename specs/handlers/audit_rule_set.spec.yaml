@@ -94,11 +94,15 @@ spec:
               goes between them when the prior file did not end in one. Any
               other change keeps every byte but what Apply added: one copy of
               each of its lines, and the managed header when the prior file
-              had none. The file is removed only when nothing but the header
-              and blank lines remain and Kensa made it. That means it did not
-              exist before, or its prior content starts with the header. A
-              file gone at rollback stays gone. Both transports. The file's
-              mode, owner and security label are not captured.
+              held only whitespace (the only case in which Apply adds one).
+              The file is removed when nothing but the header and blank lines
+              remain and Kensa created it before this change. It is also
+              removed when the header is still in it, nothing else is, and the
+              prior content starts with the header (a sibling transaction made
+              it) or the capture is missing. So an operator file that holds
+              only that header line is removed in that case too. A file gone
+              at rollback stays gone. Both transports. The file's mode, owner
+              and security label are not captured.
           type: security
           enforcement: error
     acceptance_criteria:
@@ -147,7 +151,9 @@ spec:
               when two transactions sharing it roll back out of order. An
               edit that is not an append keeps every byte but the rule's
               lines and the header Apply added. An operator's copy of the
-              rule's line stays. A file gone at rollback stays gone. A
+              rule's line, and of the header line in a file that was not
+              blank, stays. An operator's blank-line file outlives an
+              out-of-order rollback of two transactions. A file gone at rollback stays gone. A
               pre-state without the capture removes the file only when
               nothing but Kensa's header is left.
           references_constraints: [C-07]

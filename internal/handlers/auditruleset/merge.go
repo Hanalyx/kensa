@@ -64,10 +64,13 @@ type fileRestore struct {
 // prior bytes come back followed by those lines, kept as they are (a newline
 // is added between them when the prior file did not end in one). Any other
 // change keeps every byte but what Apply added: one copy of each of its
-// lines, and the managed header when the prior file had none. The file is
-// removed only when nothing but the header and blank lines remain and Kensa
-// made the file: it did not exist before this change, or its prior content
-// starts with the header (a sibling rule's transaction created it). A file
+// lines, and the managed header when the prior file held only whitespace
+// (the only case in which Apply adds one). The file is removed when nothing
+// but the header and blank lines remain and Kensa created it before this
+// change. It is also removed when Kensa's header is still in it, nothing else
+// is, and the prior content starts with the header (a sibling rule's
+// transaction created it) or the capture is missing. An operator file that
+// holds only that header line is therefore removed in that case too. A file
 // that is gone now stays gone. Only content is restored; the file's mode,
 // owner and security label are not captured.
 func restoreFile(current string, currentExists bool, prior string, existed, captured bool, added []string) fileRestore {
@@ -92,16 +95,34 @@ func restoreFile(current string, currentExists bool, prior string, existed, capt
 		}
 	}
 	drop := append([]string(nil), added...)
-	if captured && existed && !strings.Contains(prior, managedHeader) {
-		// Apply put the header into a file that had none.
+	if captured && existed && strings.TrimSpace(prior) == "" {
+		// Apply's merge puts the header only into a file that held nothing
+		// but whitespace, so only then is a header line Apply's to drop.
 		drop = append(drop, managedHeader)
 	}
 	reduced := dropLines(current, drop)
-	kensaMade := !captured || !existed || strings.HasPrefix(strings.TrimLeft(prior, " \t\r\n"), managedHeader)
-	if kensaMade && onlyManagedHeader(reduced) {
+	switch {
+	case !onlyManagedHeader(reduced):
+		return fileRestore{content: reduced}
+	case captured && !existed:
+		// Kensa created the file and nothing of anyone else's is left.
+		return fileRestore{remove: true}
+	case (!captured || strings.HasPrefix(strings.TrimLeft(prior, " \t\r\n"), managedHeader)) && hasManagedHeader(reduced):
+		// The file is Kensa's own stub: a sibling transaction created it, or
+		// the capture is missing, and the header is still all it holds.
 		return fileRestore{remove: true}
 	}
 	return fileRestore{content: reduced}
+}
+
+// hasManagedHeader reports whether content holds Kensa's header line.
+func hasManagedHeader(content string) bool {
+	for _, l := range strings.Split(content, "\n") {
+		if strings.TrimSpace(l) == managedHeader {
+			return true
+		}
+	}
+	return false
 }
 
 // dropLines removes one copy of each line in drop (exact match after
