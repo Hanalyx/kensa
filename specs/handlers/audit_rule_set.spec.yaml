@@ -1,6 +1,6 @@
 spec:
     id: handler-audit-rule-set
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
     context:
@@ -82,6 +82,22 @@ spec:
               empty and rollback removes only the file.
           type: security
           enforcement: error
+        - id: C-07
+          description: |
+              Rollback restores the drop-in byte for byte from the capture
+              (file_existed, prior_content) when the file is exactly what
+              Apply wrote: it removes a file Kensa created, and otherwise
+              writes the prior bytes back, including an empty or comment-only
+              file, blank lines, carriage returns and the trailing newline
+              state. If the file changed after Apply only by lines appended to
+              what Apply wrote, the prior bytes come back followed by those
+              lines, with a newline between them when the prior file did not
+              end in one. Any other change keeps every byte but the lines
+              Apply added. The file is then removed only if Kensa created it
+              and nothing but its header and blank lines remain. A file that is gone at rollback stays
+              gone. Both transports.
+          type: security
+          enforcement: error
     acceptance_criteria:
         - id: AC-01
           description: Apply writes the rule file and runs augenrules --load.
@@ -116,6 +132,20 @@ spec:
               that is not a parseable rule, Apply writes the drop-in, returns
               Staged, and loads nothing into the kernel.
           references_constraints: [C-06]
+          priority: critical
+        - id: AC-07
+          description: |
+              On both transports, a rollback gives back byte for byte an
+              empty file, a comment-only file, a file with no trailing
+              newline, one with several, one with blank lines and comments,
+              a comment with no newline and a file with carriage returns. A
+              sibling rule or an operator comment added after Apply survives
+              after every prior byte, including a trailing blank line, and a
+              file Kensa created is removed. An edit that is not an append
+              keeps every byte but the rule's lines, a file gone at rollback
+              stays gone, and a pre-state without the capture removes the
+              file only when nothing but Kensa's header is left.
+          references_constraints: [C-07]
           priority: critical
     depends_on:
         - spec_id: handler-interface

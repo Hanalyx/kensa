@@ -519,24 +519,31 @@ func (h *Handler) applyShell(ctx context.Context, transport api.Transport, p *Pa
 // readFileShell returns the current content of path over the shell transport,
 // or "" if the file does not exist.
 func (h *Handler) readFileShell(ctx context.Context, transport api.Transport, path string) (string, error) {
+	content, _, err := h.readFileShellExists(ctx, transport, path)
+	return content, err
+}
+
+// readFileShellExists reads path over the shell transport and also reports
+// whether it exists.
+func (h *Handler) readFileShellExists(ctx context.Context, transport api.Transport, path string) (string, bool, error) {
 	cmd := shellcapture.ExistenceReadCmd("-e", shellEscape(path), "__KENSA_ABSENT__")
 	res, err := transport.Run(ctx, cmd)
 	if err != nil {
-		return "", fmt.Errorf("audit_rule_set: read %s: %w", path, err)
+		return "", false, fmt.Errorf("audit_rule_set: read %s: %w", path, err)
 	}
 	if !res.OK() {
-		return "", fmt.Errorf("audit_rule_set: read %s failed (exit %d): %s", path, res.ExitCode, strings.TrimSpace(res.Stderr))
+		return "", false, fmt.Errorf("audit_rule_set: read %s failed (exit %d): %s", path, res.ExitCode, strings.TrimSpace(res.Stderr))
 	}
 	if res.Stdout == "__KENSA_ABSENT__" {
-		return "", nil
+		return "", false, nil
 	}
 	// base64-decode to exact bytes so the shell rollback path (which re-reads and
-	// removeRuleLines-rewrites this file) is byte-perfect (#247).
+	// restores this file from these bytes) is byte-perfect (#247).
 	content, decErr := shellcapture.DecodeContent(res.Stdout)
 	if decErr != nil {
-		return "", fmt.Errorf("audit_rule_set: decode %s: %w", path, decErr)
+		return "", false, fmt.Errorf("audit_rule_set: decode %s: %w", path, decErr)
 	}
-	return content, nil
+	return content, true, nil
 }
 
 // Capture records whether the rule file existed and its prior content,
@@ -787,34 +794,48 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		persistOnly, immutableStaged = true, true
 	}
 
+	prior := capturedFile(pre.Data)
 	if at, ok := transport.(auditnl.AuditTransport); ok {
-		res, err := h.rollbackNetlink(ctx, transport, at, path, added, fileAdded, immutableStaged, capturedImmutable(pre.Data))
+		res, err := h.rollbackNetlink(ctx, transport, at, path, prior, added, fileAdded, immutableStaged, capturedImmutable(pre.Data))
 		if !errors.Is(err, auditnl.ErrAuditUnavailable) {
 			return res, err
 		}
 		// Netlink unavailable → shell rollback.
 	}
-	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged, persistOnly, capturedImmutable(pre.Data))
+	return h.rollbackShell(ctx, transport, path, prior, fileAdded, immutableStaged, persistOnly, capturedImmutable(pre.Data))
+}
+
+// priorFile is the drop-in as capture recorded it.
+type priorFile struct {
+	content  string
+	existed  bool
+	captured bool // both fields were recorded
+}
+
+// capturedFile reads file_existed and prior_content from a pre-state.
+func capturedFile(data map[string]interface{}) priorFile {
+	existed, okE := data["file_existed"].(bool)
+	content, okC := data["prior_content"].(string)
+	return priorFile{content: content, existed: existed, captured: okE && okC}
 }
 
 // rollbackNetlink restores the drop-in by removing exactly the lines Apply
 // added to the file (fileAdded) — leaving any sibling rule's lines in a shared
 // drop-in intact — and unloads exactly the rule lines Apply added to the kernel
 // (added), never a rule another drop-in owns.
-func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, at auditnl.AuditTransport, path string, added, fileAdded []string, immutableStaged, wasImmutable bool) (*api.RollbackResult, error) {
-	// Restore persist layer first: strip only this rule's lines from the
-	// current file. If no managed rule line remains, remove the file;
-	// otherwise write the reduced content (preserving siblings).
-	current, _, rerr := at.ReadFileIfExists(path)
+func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, at auditnl.AuditTransport, path string, prior priorFile, added, fileAdded []string, immutableStaged, wasImmutable bool) (*api.RollbackResult, error) {
+	// Restore the persist layer first (restoreFile): the prior bytes when the
+	// file is as Apply left it, otherwise only this rule's lines removed.
+	current, exists, rerr := at.ReadFileIfExists(path)
 	if rerr != nil {
 		return nil, fmt.Errorf("audit_rule_set: rollback read %s: %w", path, rerr)
 	}
-	if reduced, remaining := removeRuleLines(current, fileAdded); remaining {
-		if err := kernelio.WriteFile(ctx, at, path, auditFileMode, []byte(reduced)); err != nil {
-			return nil, fmt.Errorf("audit_rule_set: rollback persist write: %w", err)
+	if r := restoreFile(current, exists, prior.content, prior.existed, prior.captured, fileAdded); r.remove {
+		if err := kernelio.RemoveFile(ctx, at, path); err != nil {
+			return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
 		}
-	} else if err := kernelio.RemoveFile(ctx, at, path); err != nil {
-		return nil, fmt.Errorf("audit_rule_set: rollback persist remove: %w", err)
+	} else if err := kernelio.WriteFile(ctx, at, path, auditFileMode, []byte(r.content)); err != nil {
+		return nil, fmt.Errorf("audit_rule_set: rollback persist write: %w", err)
 	}
 
 	c, err := at.AuditClient()
@@ -915,8 +936,8 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 // rollbackShell removes only this rule's lines from the drop-in (preserving
 // siblings in a shared file), deleting the file if no managed rule remains,
 // then reloads augenrules.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, immutableStaged, persistOnly, wasImmutable bool) (*api.RollbackResult, error) {
-	current, rerr := h.readFileShell(ctx, transport, path)
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, prior priorFile, fileAdded []string, immutableStaged, persistOnly, wasImmutable bool) (*api.RollbackResult, error) {
+	current, exists, rerr := h.readFileShellExists(ctx, transport, path)
 	if rerr != nil {
 		return nil, rerr
 	}
@@ -937,13 +958,13 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 		augenrules = " && { augenrules --load >/dev/null 2>&1 || true; }"
 	}
 	var cmd string
-	if reduced, remaining := removeRuleLines(current, fileAdded); remaining {
+	if r := restoreFile(current, exists, prior.content, prior.existed, prior.captured, fileAdded); r.remove {
+		cmd = fmt.Sprintf("rm -f %s%s", shellEscape(path), augenrules)
+	} else {
 		cmd = fmt.Sprintf(
 			"printf '%%s' %s > %s%s",
-			shellEscape(reduced), shellEscape(path), augenrules,
+			shellEscape(r.content), shellEscape(path), augenrules,
 		)
-	} else {
-		cmd = fmt.Sprintf("rm -f %s%s", shellEscape(path), augenrules)
 	}
 
 	res, err := transport.Run(ctx, cmd)
