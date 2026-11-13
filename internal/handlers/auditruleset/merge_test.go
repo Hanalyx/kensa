@@ -182,3 +182,29 @@ func TestRestoreFile_OperatorHeaderAndBlankFile(t *testing.T) {
 		}
 	})
 }
+
+// The removal conditions, one by one: an operator's file reduced to the
+// header line stays when its prior was not Kensa's; a blank-only file stays
+// when the capture is missing; a Kensa stub whose prior starts with blank
+// lines before the header is still recognized.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_RemovalConditions(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		// The operator replaced their own line with the header text after Apply.
+		if r := restoreFile(h+a+"\n", true, "-w /op -p wa\n", true, true, []string{a}); r.remove || r.content != h {
+			t.Errorf("operator file left with the header line: %+v", r)
+		}
+		// No capture, and only blank lines left: kept.
+		if r := restoreFile("\n"+a+"\n", true, "", false, false, []string{a}); r.remove || r.content != "\n" {
+			t.Errorf("no capture, blank lines left: %+v", r)
+		}
+		// A Kensa stub whose prior begins with a blank line before the header.
+		if r := restoreFile("\n"+h+b+"\n", true, "\n"+h+a+"\n", true, true, []string{b}); !r.remove {
+			t.Errorf("Kensa stub with a leading blank line: %+v", r)
+		}
+	})
+}

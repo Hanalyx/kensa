@@ -103,6 +103,14 @@ spec:
               only that header line is removed in that case too. A file gone
               at rollback stays gone. Both transports. The file's mode, owner
               and security label are not captured.
+
+              Known limits, both from rolling back transactions on one file
+              out of the order they were applied. A later transaction's
+              capture holds the earlier one's result, not the original file.
+              So a prior file with no trailing newline gains one. And an
+              existing file that held only Kensa's header, left by an earlier
+              transaction, is removed. The usual rollback order, latest
+              first, restores both exactly.
           type: security
           enforcement: error
     acceptance_criteria:
