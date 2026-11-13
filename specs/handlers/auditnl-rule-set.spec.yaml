@@ -1,6 +1,6 @@
 spec:
     id: auditnl-rule-set
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
 
@@ -47,6 +47,8 @@ spec:
                 - auditnl.AuditClient interface + Open (ErrAuditUnavailable on failure)
                 - auditnl.AuditTransport capability (FileTransport + AuditClient())
                 - audit_rule_set dual-path Apply/Capture/Rollback
+                - auditnl.RuleText and auditnl.RulesText (render the loaded rules for the staged-rollback verdict)
+                - the staged-rollback verdict and the committed shell verify on both paths (C-09, C-10)
             excludes:
                 - reimplementing augenrules' whole-directory load semantics
                 - the engine transaction-phase event emission (separate deliverable)
@@ -142,6 +144,45 @@ spec:
               and Apply refuses.
           type: security
           enforcement: error
+        - id: C-09
+          description: |
+              A staged rollback never reports a clean restore unless the live
+              state shows it. After the drop-in is restored, the host may have
+              rebooted, so auditd may have loaded a staged rule or set the
+              immutable flag from a staged -e 2, and neither can change until
+              the next boot. At boot auditctl built the rule, not BuildRule, so
+              the verdict does not compare wire bytes. It reads the loaded
+              rules (RulesText on the netlink path, auditctl -l on the shell
+              path) and compares each staged line by kernel identity
+              (check-audit-rule-match C-10). A loaded line, or one that may be
+              loaded, gives PartialRestore. So does each read that fails: a
+              rule listing that cannot be read, an auditctl -l with a non-zero
+              exit or no output, an exit-list rule that cannot be rendered, a
+              rule on a staged line's list that cannot be rendered, and a
+              host-facts probe that fails. A rule on another list that cannot
+              be rendered is left out. On the netlink path a staged -e 2, when
+              capture did not read the config as immutable, gives
+              PartialRestore when GetStatus reads enabled 2 or cannot be read.
+              Capture records audit_immutable_at_capture when it read the
+              config as immutable. A pre-state without it is read as mutable,
+              so the status is checked. The shell path stages only an
+              immutable host, so its -e 2 changed nothing. This keeps the
+              staged semantics: the persist layer is restored now and the
+              ruleset at the next boot. Only the false clean result is fixed.
+          type: security
+          enforcement: error
+        - id: C-10
+          description: |
+              When a committed shell rollback cannot read auditctl -s, it
+              verifies the unload through auditctl -l with the same identity
+              comparison. A line Apply added that is loaded or may be loaded,
+              a listing or fact read that fails, and an added -e 2, which a
+              listing cannot show, each give PartialRestore. With no rule line
+              added, there is nothing to verify and the restore is clean. This
+              can report a partial restore of a clean host; it never reports a
+              clean restore of a host that is not.
+          type: security
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -217,6 +258,38 @@ spec:
               subdirectory; an unreadable *.rules file and an unsearchable
               /etc/audit make it exit non-zero.
           references_constraints: [C-08]
+          priority: critical
+        - id: AC-10
+          description: |
+              For every captured auditctl load of a syscall rule (audit-4.0.3
+              and audit-3.1.5), a staged line whose boot wire is rebuilt from
+              the captured auditctl -l line gives PartialRestore through the
+              netlink staged rollback, with the drop-in removed. For at least
+              one row that wire differs from BuildRule of the staged line.
+          references_constraints: [C-09]
+          priority: critical
+        - id: AC-11
+          description: |
+              Netlink staged rollback gives PartialRestore when GetRules fails,
+              when an exit-list rule cannot be rendered, when a rule on a staged
+              line's list cannot be rendered, and when the probe fails; it finds
+              a rule added with -A; it is clean with an unrenderable
+              filesystem-list rule or an unrelated rule loaded. A persist_only
+              -e 2 staged on a mutable host gives PartialRestore after a reboot
+              into enabled 2 or with an unreadable status, and is clean with no
+              reboot or when capture read enabled 2. Shell staged rollback gives
+              PartialRestore when auditctl -l exits non-zero, fails in the
+              transport, prints nothing, or the probe fails, and when the rule
+              is loaded; "No rules" is clean.
+          references_constraints: [C-09]
+          priority: critical
+        - id: AC-12
+          description: |
+              A committed shell rollback with an unreadable auditctl -s gives
+              PartialRestore when the added rule is still listed, when
+              auditctl -l cannot be read, and when the added line is -e 2; it
+              is clean when the listing lacks the rule.
+          references_constraints: [C-10]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

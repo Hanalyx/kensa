@@ -119,6 +119,10 @@ func TestRollback_Netlink_StagedNoFalseUnloadFailure(t *testing.T) {
 // immutable_staged flag. Pre-fix this reported "succeeded, no runtime rule
 // loaded" while auditctl -l still showed the rule.
 //
+// This test loads the boot rule with BuildRule, so it covers only a rule
+// auditctl builds the same way. TestRollback_Netlink_StagedRuleLoadedAtBoot
+// covers rules auditctl builds differently.
+//
 // @spec auditnl-rule-set
 // @ac AC-07
 func TestRollback_Netlink_StagedPostRebootReportsPartial(t *testing.T) {
@@ -158,9 +162,10 @@ func TestRollback_Netlink_StagedPostRebootReportsPartial(t *testing.T) {
 // matcher must handle SYSCALL rules, which `auditctl -l` NORMALISES (-k → -F
 // key=, fields reordered) — unlike watch rules, which print verbatim. The old
 // full-line string compare missed a genuinely-loaded syscall rule and
-// over-reported a clean restore; the matcher now delegates to
-// check.AuditLineLoaded. Here a staged SYSCALL rule is loaded post-reboot in
-// normalised form, so the shell rollback must report an honest PartialRestore.
+// over-reported a clean restore; the verdict now compares by kernel identity
+// (check.AuditLoadedIdentity). Here a staged SYSCALL rule is loaded
+// post-reboot in normalised form, so the shell rollback must report an honest
+// PartialRestore.
 //
 // @spec auditnl-rule-set
 // @ac AC-07
@@ -169,9 +174,10 @@ func TestRollback_Shell_StagedSyscallPostRebootReportsPartial(t *testing.T) {
 	const syscallRule = "-a always,exit -F arch=b64 -S execve -k exec"
 	tp := engine.NewFakeTransport()
 	// auditctl -l prints the loaded syscall rule NORMALISED (-k → -F key=).
-	tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{
+	tp.Results["auditctl -l"] = &api.CommandResult{
 		Stdout: "-a always,exit -F arch=b64 -S execve -F key=exec\n",
 	}
+	measuredHost(tp, syscallRule, "-a always,exit -F arch=b64 -S execve -F key=exec")
 	pre := &api.PreState{
 		Mechanism: "audit_rule_set",
 		Data: map[string]interface{}{

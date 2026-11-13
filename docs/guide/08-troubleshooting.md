@@ -64,6 +64,14 @@ this as a partial restore. This is a limitation of immutable auditd itself
 (`augenrules` has the same constraint), not of Kensa. Reboot to apply the
 restored file, or set `enabled=1` if your policy permits a mutable audit config.
 
+The same applies to a rule Kensa staged on such a host, if the host rebooted
+before the rollback: `auditd` loaded the rule at boot. In the next release
+(unreleased; not in v0.13.0), Kensa also reports a partial restore when it
+cannot read what the rollback depends on: the loaded rules, the audit status
+or the facts it needs to compare rules. The detail names what could not be
+read. Check that `auditctl` runs under `--sudo`, then confirm the rule file and
+`auditctl -l` by hand.
+
 ## An audit rule is refused, or skipped
 
 In the next release (unreleased; not in v0.13.0), `audit_rule_set` refuses to

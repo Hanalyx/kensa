@@ -35,6 +35,12 @@ type FakeAuditTransport struct {
 	// rejects the load (e.g. EPERM on an immutable config that a caller
 	// reached without a GetStatus pre-check).
 	AddErr error
+	// GetRulesErr, when set, is returned by GetRules, modeling a rule
+	// listing that cannot be read.
+	GetRulesErr error
+	// GetStatusErr, when set, is returned by GetStatus, modeling an audit
+	// status that cannot be read.
+	GetStatusErr error
 }
 
 // NewFakeAudit returns a FakeAuditTransport with initialized state.
@@ -81,6 +87,9 @@ func (c *fakeAuditClient) DeleteRule(wire []byte) error {
 }
 
 func (c *fakeAuditClient) GetRules() ([][]byte, error) {
+	if c.t.GetRulesErr != nil {
+		return nil, c.t.GetRulesErr
+	}
 	out := make([][]byte, 0, len(c.t.Loaded))
 	for _, w := range c.t.Loaded {
 		out = append(out, w)
@@ -88,7 +97,12 @@ func (c *fakeAuditClient) GetRules() ([][]byte, error) {
 	return out, nil
 }
 
-func (c *fakeAuditClient) GetStatus() (int, error) { return c.t.Enabled, nil }
+func (c *fakeAuditClient) GetStatus() (int, error) {
+	if c.t.GetStatusErr != nil {
+		return 0, c.t.GetStatusErr
+	}
+	return c.t.Enabled, nil
+}
 
 func (c *fakeAuditClient) Close() error { return nil }
 

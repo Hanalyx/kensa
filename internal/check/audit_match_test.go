@@ -241,10 +241,10 @@ func TestAuditMatch_CoverageIsNotIdentity(t *testing.T) {
 	})
 }
 
-// TestAuditMatch_LineLoadedForRollback covers AuditLineLoaded as the
-// audit_rule_set shell rollback uses it: a staged rule auditd loaded at boot
-// must still read as loaded in the form auditctl -l prints it, and a never
-// line must not.
+// TestAuditMatch_LineLoadedForRollback covers AuditLoadedIdentity as the
+// audit_rule_set staged rollback uses it: a staged rule auditd loaded at boot
+// must be the same kernel rule as the form auditctl -l prints, including auid
+// printed as unset, and a never line with the same fields must not be.
 //
 // @spec check-audit-rule-match
 // @ac AC-06
@@ -252,15 +252,15 @@ func TestAuditMatch_LineLoadedForRollback(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-06", func(t *testing.T) {
 		staged := "-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"
 		printed := "-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -F key=user_emulation"
-		if !AuditLineLoaded(staged, []string{printed}) {
-			t.Error("a staged rule loaded in auditctl -l form did not read as loaded")
-		}
-		if !AuditLineLoaded(staged, []string{strings.Replace(printed, "auid!=-1", "auid!=unset", 1)}) {
-			t.Error("a staged rule loaded with auid!=unset printed did not read as loaded")
+		target := testAuditTarget()
+		for _, listed := range []string{printed, strings.Replace(printed, "auid!=-1", "auid!=unset", 1)} {
+			if id, why := AuditLoadedIdentity(staged, listed, target); id != AuditSame {
+				t.Errorf("staged rule listed as %q: %v (%s), want Same", listed, id, why)
+			}
 		}
 		never := strings.Replace(printed, "always,exit", "never,exit", 1)
-		if AuditLineLoaded(staged, []string{never}) {
-			t.Error("a never line read as the staged always rule")
+		if id, _ := AuditLoadedIdentity(staged, never, target); id != AuditDistinct {
+			t.Errorf("a never line: %v, want Distinct", id)
 		}
 	})
 }

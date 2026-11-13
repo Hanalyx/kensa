@@ -104,6 +104,30 @@ any pair).
 
 ### Fixed
 
+- **Rolling back a staged audit rule after a reboot no longer reports a clean
+  restore while the rule is still loaded.** On a host whose audit
+  configuration is immutable, `audit_rule_set` writes the rule file and loads
+  nothing; the rule takes effect at the next boot. If the host rebooted before
+  the rollback, the rollback removes the file, but the running kernel keeps
+  the rule until the next boot, so the result is a partial restore. In agent
+  mode the rollback compared the rule as Kensa would build it with the rule as
+  `auditctl` built it at boot. For a path or `dir` rule with an arch, a perm
+  filter and no `-S`, `auditctl` loads the syscall list for the perm, so the
+  two did not match and the rollback reported a clean restore. Over 206
+  captured `auditctl` loads, that happened for all 74 such rules and for 4 of
+  the 28 that also name `-S`. The rollback now renders the loaded rules and compares each by
+  kernel rule identity, the same comparison the duplicate guard uses. A rule
+  that is loaded, or may be, is a partial restore. So is any read the result
+  depends on that fails: the rule listing, the host facts the comparison
+  needs, or `auditctl -l` over SSH, which before this change read as "not
+  loaded". A rule added with `-A`, which the kernel lists with a prepend flag
+  the renderer rejected, is now read. A staged `-e 2` that took effect at boot
+  is a partial restore in agent mode too. A committed rollback over SSH that
+  cannot read `auditctl -s` now checks `auditctl -l` for the rule instead of
+  reporting a clean restore. These changes can report a partial restore of a
+  host that is clean. They do not report a clean restore of a host that is
+  not.
+
 - **`audit_rule_set` compares rules the way the kernel does before it writes
   one.** The handler refuses to write a rule that would duplicate one already
   in a `rules.d` file, because a duplicate aborts the audit load at the next

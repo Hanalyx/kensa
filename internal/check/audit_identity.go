@@ -426,7 +426,7 @@ func parseAuditK(line string, side auditSide) auditK {
 			name, op, value := splitAuditField(next)
 			switch name {
 			case "key":
-				k.keys = append(k.keys, value)
+				k.keys = append(k.keys, splitAuditKeys(value)...)
 			case "path", "dir":
 				k.hasTarget = true
 				k.target = auditTargetField{kind: name, value: value}
@@ -441,7 +441,7 @@ func parseAuditK(line string, side auditSide) auditK {
 			k.cmps = append(k.cmps, canonAuditCompare(auditCompareFieldNames(next)))
 			i++
 		case "-k":
-			k.keys = append(k.keys, next)
+			k.keys = append(k.keys, splitAuditKeys(next)...)
 			i++
 		}
 	}
@@ -456,6 +456,12 @@ func parseAuditK(line string, side auditSide) auditK {
 	}
 	return k
 }
+
+// splitAuditKeys splits a key value on AUDIT_KEY_SEPARATOR (\x01). The
+// kernel stores a rule's keys as one string joined by it, and a netlink
+// listing returns that string whole, where auditctl -l prints one key flag
+// per key. Splitting both sides the same way compares the two forms.
+func splitAuditKeys(v string) []string { return strings.Split(v, "\x01") }
 
 // auditSyscallAlias maps a syscall name to the one libaudit gives the same
 // number. libaudit 3.1.2's i386, x86_64, arm and aarch64 tables have one such
@@ -789,6 +795,74 @@ func AuditRuleIdentity(a, b string, t *AuditTarget) (AuditIdentity, string) {
 // built from the source line?
 func AuditLoadedIdentity(source, listed string, t *AuditTarget) (AuditIdentity, string) {
 	return auditIdentity(parseAuditK(source, auditSource), parseAuditK(listed, auditLoaded), t)
+}
+
+// AuditLoadedAmong reports whether a rule among lines may be loaded, judged
+// against a listing of the loaded rules: auditctl -l lines, or netlink rules
+// rendered by auditnl.RuleText. It returns the first line whose identity
+// with a listed rule is Same, else the first that is Unresolved, else
+// AuditDistinct. Lines that are not rules, such as -e 2, and the "No rules"
+// line are not compared. Only listed rules with the line's keys are
+// compared, since a key difference always makes two rules distinct; the
+// host facts are read for those alone. A failure to read the facts is an
+// error.
+func AuditLoadedAmong(ctx context.Context, transport api.Transport, lines, listed []string) (string, AuditIdentity, string, error) {
+	type pair struct{ line, row string }
+	var pairs []pair
+	probe := map[string]bool{}
+	var probeLines []string
+	add := func(l string) {
+		if !probe[l] {
+			probe[l] = true
+			probeLines = append(probeLines, l)
+		}
+	}
+	for _, l := range lines {
+		src := parseAuditK(l, auditSource)
+		if !src.ok {
+			continue
+		}
+		for _, r := range listed {
+			r = strings.TrimSpace(r)
+			got := parseAuditK(r, auditLoaded)
+			if !got.ok || strings.Join(src.keys, "\x01") != strings.Join(got.keys, "\x01") {
+				continue
+			}
+			pairs = append(pairs, pair{l, r})
+			add(l)
+			add(r)
+		}
+	}
+	if len(pairs) == 0 {
+		return "", AuditDistinct, "", nil
+	}
+	target, err := ReadAuditTarget(ctx, transport, probeLines)
+	if err != nil {
+		return "", AuditDistinct, "", fmt.Errorf("read the host facts needed to compare audit rules: %w", err)
+	}
+	var unsureLine, unsureWhy string
+	for _, p := range pairs {
+		switch id, why := AuditLoadedIdentity(p.line, p.row, target); id {
+		case AuditSame:
+			return p.line, AuditSame, "", nil
+		case AuditUnresolved:
+			if unsureLine == "" {
+				unsureLine, unsureWhy = p.line, why
+			}
+		}
+	}
+	if unsureLine != "" {
+		return unsureLine, AuditUnresolved, unsureWhy, nil
+	}
+	return "", AuditDistinct, "", nil
+}
+
+// AuditRuleList returns the filter list a source line names, such as
+// "exit" or "exclude", lower-cased as libaudit reads it. ok is false for a
+// line that is not an audit rule, such as a control line (-e 2, -D, -b).
+func AuditRuleList(line string) (list string, ok bool) {
+	k := parseAuditK(line, auditSource)
+	return k.list, k.ok
 }
 
 func auditIdentity(a, b auditK, t *AuditTarget) (AuditIdentity, string) {

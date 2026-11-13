@@ -68,12 +68,10 @@ func TestApply_GuardMatchesTheKernelRule(t *testing.T) {
 }
 
 // The shell staged rollback decides PartialRestore from auditctl -l, with
-// check.AuditLineMaybeLoaded. A staged rule auditd loaded at boot reads as
-// loaded in the form auditctl prints it, including auid printed as unset,
-// which the earlier matcher missed. The interim union with the earlier
-// matcher means a never line with the same fields still reads as loaded: a
-// cautious PartialRestore, never a clean restore the earlier matcher would
-// not have given.
+// check.AuditLoadedIdentity. A staged rule auditd loaded at boot reads as
+// loaded in the form auditctl prints it, including auid printed as unset. A
+// never line with the same fields is another kernel rule, so it is not the
+// staged rule, and neither is an unrelated rule.
 //
 // @spec check-audit-rule-match
 // @ac AC-06
@@ -87,12 +85,13 @@ func TestRollback_Shell_StagedVerdictUsesKernelRule(t *testing.T) {
 		}{
 			{"staged rule loaded in printed form", printed, true},
 			{"auid printed as unset", strings.Replace(printed, "auid!=-1", "auid!=unset", 1), true},
-			{"only a never line loaded (interim, cautious)", strings.Replace(printed, "always,exit", "never,exit", 1), true},
+			{"only a never line loaded", strings.Replace(printed, "always,exit", "never,exit", 1), false},
 			{"an unrelated rule loaded", "-a always,exit -F arch=b64 -S chown -F auid>=1000 -F auid!=-1 -F key=perm_mod", false},
 		}
 		for _, c := range cases {
 			tp := engine.NewFakeTransport()
-			tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{Stdout: c.loaded + "\n"}
+			tp.Results["auditctl -l"] = &api.CommandResult{Stdout: c.loaded + "\n"}
+			measuredHost(tp, staged, c.loaded)
 			pre := &api.PreState{
 				Mechanism: "audit_rule_set",
 				Data: map[string]interface{}{
@@ -123,7 +122,8 @@ func TestRollback_Shell_StagedVerdictUsesKernelRule(t *testing.T) {
 func TestRollback_Shell_StagedWatchTrailingSlash(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-06", func(t *testing.T) {
 		tp := engine.NewFakeTransport()
-		tp.Results["auditctl -l 2>/dev/null"] = &api.CommandResult{Stdout: "-w /etc/sudoers.d -p wa -k identity\n"}
+		tp.Results["auditctl -l"] = &api.CommandResult{Stdout: "-w /etc/sudoers.d -p wa -k identity\n"}
+		measuredHost(tp, "-w /etc/sudoers.d/ -p wa -k identity", "-w /etc/sudoers.d -p wa -k identity")
 		pre := &api.PreState{
 			Mechanism: "audit_rule_set",
 			Data: map[string]interface{}{

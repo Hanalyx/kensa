@@ -1075,39 +1075,6 @@ func auditKeysCover(want, got []string) bool {
 	return true
 }
 
-// AuditLineLoaded reports whether a single audit rule line is loaded under
-// its own key: some line of loaded (auditctl -l output) has the canonical
-// form parseAuditRule gives the rule, or holds a whole captured class list
-// for it (sameAuditRule), and carries every -k key the rule names. A rule
-// with no key matches under any key.
-//
-// It is the earlier matcher, kept only for the audit_rule_set shell
-// staged-rollback verdict (through AuditLineMaybeLoaded). audit_rule_exists
-// uses auditRuleCovers and the duplicate guard uses AuditRuleIdentity.
-func AuditLineLoaded(rule string, loaded []string) bool {
-	want := parseAuditRule(rule)
-	if want.rule == "" {
-		return false
-	}
-	for _, l := range loaded {
-		got := parseAuditRule(l)
-		if !sameAuditRule(want, got) {
-			continue
-		}
-		keyed := true
-		for k := range want.keys {
-			if !got.keys[k] {
-				keyed = false
-				break
-			}
-		}
-		if keyed {
-			return true
-		}
-	}
-	return false
-}
-
 // auditPermClassDetail explains a perm-class rule's miss: for the loaded line
 // with the same arch and filters whose syscalls come closest to a captured
 // list, the syscalls it lacks. Empty when the rule is not a perm-class rule or
@@ -1138,26 +1105,6 @@ func auditPermClassDetail(rule string, loaded []string) string {
 	default:
 		return fmt.Sprintf(" (closest loaded line lacks syscalls %s: %s)", strings.Join(best, ","), bestLine)
 	}
-}
-
-// sameAuditRule reports whether got is the loaded form of want, by the
-// equivalences parseAuditRule applies. Equal canonical forms match; that
-// covers the netlink listing, whose "-S all" is the canonical form of a rule
-// with no -S. Otherwise only a perm-class rule written with no -S at all can
-// match, and only a loaded line with the same arch and filters whose syscalls
-// contain one whole auditPermClass list: the list auditctl, and so augenrules,
-// loads that rule with. A rule that says "-S all" keeps exact matching,
-// because the kernel's perm classes hold syscalls the auditctl list lacks
-// (for example chown32 and truncate64 for b32), so the expanded line audits
-// less than it.
-func sameAuditRule(want, got auditRuleForm) bool {
-	if want.rule == got.rule {
-		return true
-	}
-	if want.permRest == "" || want.permRest != got.permRest || !want.noSyscalls {
-		return false
-	}
-	return auditPermClassMissing(want.arch, want.perm, got.syscalls) == nil
 }
 
 // auditPermClassMissing returns nil when syscalls contains one whole captured
