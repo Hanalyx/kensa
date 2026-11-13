@@ -225,7 +225,12 @@ spec:
               listed rule is the one auditctl built from the staged line when
               the identity is Same, and may be when it is Unresolved. Only a
               listed rule with the line's keys is compared, since a key
-              difference always makes two rules distinct. On the netlink path
+              difference always makes two rules distinct. A listed line the
+              parser cannot read makes the answer Unresolved at best. A source
+              -w takes its field type from the path's type now, and auditctl
+              chose the loaded rule's type at boot, so against a loaded rule a
+              path= or dir= type mismatch is Unresolved, not Distinct. On the
+              netlink path
               the listing is auditnl.RuleText of each loaded rule. RuleText
               clears AUDIT_FILTER_PREPEND from the list word, which the kernel
               sets on a rule added with -A, and writes a watch with an explicit

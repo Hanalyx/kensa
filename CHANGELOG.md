@@ -111,22 +111,29 @@ any pair).
   the rollback, the rollback removes the file, but the running kernel keeps
   the rule until the next boot, so the result is a partial restore. In agent
   mode the rollback compared the rule as Kensa would build it with the rule as
-  `auditctl` built it at boot. For a path or `dir` rule with an arch, a perm
-  filter and no `-S`, `auditctl` loads the syscall list for the perm, so the
-  two did not match and the rollback reported a clean restore. Over 206
-  captured `auditctl` loads, that happened for all 74 such rules and for 4 of
-  the 28 that also name `-S`. The rollback now renders the loaded rules and compares each by
-  kernel rule identity, the same comparison the duplicate guard uses. A rule
-  that is loaded, or may be, is a partial restore. So is any read the result
-  depends on that fails: the rule listing, the host facts the comparison
-  needs, or `auditctl -l` over SSH, which before this change read as "not
-  loaded". A rule added with `-A`, which the kernel lists with a prepend flag
-  the renderer rejected, is now read. A staged `-e 2` that took effect at boot
-  is a partial restore in agent mode too. A committed rollback over SSH that
-  cannot read `auditctl -s` now checks `auditctl -l` for the rule instead of
-  reporting a clean restore. These changes can report a partial restore of a
-  host that is clean. They do not report a clean restore of a host that is
-  not.
+  `auditctl` built it at boot. Take a path or `dir` rule with an arch, a perm
+  filter and no `-S`. `auditctl` loads it with the perm's syscall list, so the
+  two did not match, and the rollback reported a clean restore. The tests
+  model the boot load from captured `auditctl -l` output: 206 loads of 103
+  rule lines on two audit versions. On the old code all 74 loads of that shape
+  read as not loaded, and so did 4 of the 28 that also name `-S`. The same
+  compare decided a rollback on a mutable host that rebooted after remediate,
+  where it also missed the reloaded rule. Both rollbacks now render the loaded
+  rules and compare each by kernel rule identity, the same comparison the
+  duplicate guard uses. A rule that is loaded, or may be, is a partial
+  restore. So is any read the result depends on that fails: the rule listing,
+  the host facts the comparison needs, or `auditctl -l` over SSH, which before
+  this change read as "not loaded". A rule added with `-A` is now read. The
+  kernel and libaudit sources show it lists with a prepend flag the renderer
+  rejected; that is not measured. A staged `-e 2` that took effect at boot is
+  a partial restore too. So is a staged control line, such as `-b 8192`, that
+  no rule listing can show. A committed rollback over SSH now checks `auditctl
+  -l` for the rule, because `augenrules --load` removes a rule only when the
+  compiled rules start with `-D`. A `persist_only` rollback over SSH no longer
+  runs `augenrules --load`, which on a mutable host loaded every rules.d file
+  although the remediation loaded nothing. These changes can report a partial
+  restore of a host that is clean. They do not report a clean restore of a
+  host that is not.
 
 - **`audit_rule_set` compares rules the way the kernel does before it writes
   one.** The handler refuses to write a rule that would duplicate one already

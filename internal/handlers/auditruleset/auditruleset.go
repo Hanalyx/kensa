@@ -155,6 +155,9 @@ func stagedVerdict(ctx context.Context, transport api.Transport, path string, fi
 	if bootImmutable {
 		return partial("the staged -e 2 made the audit config immutable at boot (host rebooted before rollback); it clears on next reboot (%s)", via)
 	}
+	if l := unshowableLine(fileAdded); l != "" {
+		return partial("whether the staged control line %q took effect at a boot cannot be shown from the rule listing (%s)", l, via)
+	}
 	if listErr != nil {
 		return partial("the loaded audit rules could not be read, so whether the host rebooted and loaded the staged rule is unknown: %v (%s)", listErr, via)
 	}
@@ -633,8 +636,10 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 	_, fileAdded := mergeRuleLines(priorContent, auditnl.RuleLines(p.Rule))
 	// Immutable (enabled 2) → Apply stages, nothing is loaded, so Rollback must
 	// not report a partial restore just because the runtime is locked. Mark it.
-	immutableStaged := auditImmutableShell(ctx, transport)
-	return h.preState(p, fileExisted, priorContent, nil, fileAdded, immutableStaged, immutableStaged), nil
+	// applyShell stages a persist_only directive on any host, as the netlink
+	// path does, so mark that staged too.
+	immutable := auditImmutableShell(ctx, transport)
+	return h.preState(p, fileExisted, priorContent, nil, fileAdded, immutable || p.PersistOnly, immutable), nil
 }
 
 // preState builds the canonical PreState. added is the netlink-path set of
@@ -666,6 +671,10 @@ func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, add
 	}
 	if immutable {
 		data["audit_immutable_at_capture"] = true
+	}
+	if p.PersistOnly {
+		// Apply writes the drop-in and runs no load, so Rollback runs none.
+		data["persist_only"] = true
 	}
 	return &api.PreState{
 		Mechanism:  mechanism,
@@ -774,7 +783,8 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		}
 		// Netlink unavailable → shell rollback.
 	}
-	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged)
+	persistOnly, _ := pre.Data["persist_only"].(bool)
+	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged, persistOnly, capturedImmutable(pre.Data))
 }
 
 // rollbackNetlink restores the drop-in by removing exactly the lines Apply
@@ -845,31 +855,35 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 	}
 
 	// Verify the unload took by reading the live rule list back and
-	// confirming none of the rules we added are still loaded — a positive
-	// read-back rather than trusting the delete return alone.
+	// confirming none of the rules we added are still loaded, a positive
+	// read-back rather than trusting the delete return alone. Compare by kernel
+	// identity, not wire bytes: if the host rebooted after Apply, auditctl
+	// loaded the drop-in line at boot in its own form, which DeleteRule of the
+	// BuildRule wire misses with ENOENT and a wire compare would not find.
 	if len(added) > 0 {
-		loaded, gerr := c.GetRules()
-		if gerr != nil {
+		partial := func(format string, a ...interface{}) *api.RollbackResult {
 			return &api.RollbackResult{
 				Success:        false,
 				PartialRestore: true,
-				Detail:         fmt.Sprintf("audit_rule_set: restored %s but could not verify live rules: %v", path, gerr),
+				Detail:         fmt.Sprintf("audit_rule_set: restored %s but ", path) + fmt.Sprintf(format, a...),
 				ExecutedAt:     time.Now().UTC(),
-			}, nil
+			}
 		}
-		for _, line := range added {
-			wire, berr := auditnl.BuildRule(line)
-			if berr != nil {
-				continue
-			}
-			if containsWire(loaded, wire) {
-				return &api.RollbackResult{
-					Success:        false,
-					PartialRestore: true,
-					Detail:         fmt.Sprintf("audit_rule_set: file restored but rule %q still loaded after unload; remedy: reboot", line),
-					ExecutedAt:     time.Now().UTC(),
-				}, nil
-			}
+		listed, skipped, lerr := auditnl.RulesText(c)
+		if lerr == nil {
+			lerr = unrenderedList(added, skipped)
+		}
+		if lerr != nil {
+			return partial("could not verify live rules: %v", lerr), nil
+		}
+		line, id, why, err := check.AuditLoadedAmong(ctx, transport, added, listed)
+		switch {
+		case err != nil:
+			return partial("could not verify live rules: %v", err), nil
+		case id == check.AuditSame:
+			return partial("rule %q still loaded after unload; remedy: reboot", line), nil
+		case id == check.AuditUnresolved:
+			return partial("a loaded rule may be %q (%s), so the unload could not be verified", line, why), nil
 		}
 	}
 	return &api.RollbackResult{
@@ -882,7 +896,7 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 // rollbackShell removes only this rule's lines from the drop-in (preserving
 // siblings in a shared file), deleting the file if no managed rule remains,
 // then reloads augenrules.
-func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, immutableStaged bool) (*api.RollbackResult, error) {
+func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, immutableStaged, persistOnly, wasImmutable bool) (*api.RollbackResult, error) {
 	current, rerr := h.readFileShell(ctx, transport, path)
 	if rerr != nil {
 		return nil, rerr
@@ -892,18 +906,25 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 	// tolerate the load failure exactly as the staged apply path (applyShell)
 	// does, keeping res.OK() a verdict on the file operation alone. A committed
 	// rollback keeps the bare `&&` so a genuine reload failure still surfaces.
-	augenrules := "augenrules --load"
-	if immutableStaged {
-		augenrules = "{ augenrules --load >/dev/null 2>&1 || true; }"
+	//
+	// A persist_only Apply ran no load, so its rollback runs none either: on a
+	// mutable host augenrules --load would load every rules.d file into the
+	// kernel, a change the transaction never made.
+	augenrules := " && augenrules --load"
+	switch {
+	case persistOnly:
+		augenrules = ""
+	case immutableStaged:
+		augenrules = " && { augenrules --load >/dev/null 2>&1 || true; }"
 	}
 	var cmd string
 	if reduced, remaining := removeRuleLines(current, fileAdded); remaining {
 		cmd = fmt.Sprintf(
-			"printf '%%s' %s > %s && %s",
+			"printf '%%s' %s > %s%s",
 			shellEscape(reduced), shellEscape(path), augenrules,
 		)
 	} else {
-		cmd = fmt.Sprintf("rm -f %s && %s", shellEscape(path), augenrules)
+		cmd = fmt.Sprintf("rm -f %s%s", shellEscape(path), augenrules)
 	}
 
 	res, err := transport.Run(ctx, cmd)
@@ -922,12 +943,14 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 	// running kernel and re-locked immutable — decide the verdict from LIVE
 	// state, not the stale capture-time flag. Still loaded ⇒ honest
 	// PartialRestore (clears next reboot); not loaded ⇒ clean restore.
-	//
-	// The shell path stages only when capture read the config as immutable,
-	// so a staged -e 2 cannot have changed the flag: it was already set.
 	if immutableStaged {
 		listed, lerr := auditListShell(ctx, transport)
-		return stagedVerdict(ctx, transport, path, fileAdded, listed, lerr, false, nil, "shell"), nil
+		var bootImmutable bool
+		var bootErr error
+		if !wasImmutable && stagedImmutableDirective(fileAdded) {
+			bootImmutable, bootErr = auditStatusShell(ctx, transport)
+		}
+		return stagedVerdict(ctx, transport, path, fileAdded, listed, lerr, bootImmutable, bootErr, "shell"), nil
 	}
 	// augenrules --load exited cleanly, but on an immutable audit config
 	// (enabled 2) the kernel silently refuses live rule changes — a rule that
@@ -942,36 +965,40 @@ func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, pa
 			ExecutedAt:     time.Now().UTC(),
 		}, nil
 	}
-	if serr != nil {
-		return verifyUnloadedShell(ctx, transport, path, fileAdded, serr), nil
-	}
-	return &api.RollbackResult{
-		Success:    true,
-		Detail:     fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules", path),
-		ExecutedAt: time.Now().UTC(),
-	}, nil
+	// augenrules --load removes a rule from the kernel only when the compiled
+	// rules start with -D, so its exit alone does not show the rule is gone.
+	// Verify through the listing whether or not the status could be read.
+	return verifyUnloadedShell(ctx, transport, path, fileAdded, serr), nil
 }
 
-// verifyUnloadedShell finishes a committed shell rollback when auditctl -s
-// could not be read (statusErr), so whether the config is immutable is
-// unknown. augenrules --load succeeded, which on a mutable config removed the
-// rule; on an immutable one the kernel kept it. The listing settles it: no
-// line Apply added may still be loaded. A listing or fact read that fails,
-// a loaded or possibly loaded line, or an added -e 2 (which the listing
-// cannot show) is a partial restore. This can report a partial restore of a
-// host that is clean; it never reports a clean restore of one that is not.
+// verifyUnloadedShell finishes a committed shell rollback on a config that
+// is not known to be immutable. augenrules --load succeeded, but that removes
+// a rule only when the compiled rules start with -D, and statusErr, when set,
+// means auditctl -s could not be read, so the config may be immutable after
+// all. The listing settles it: no line Apply added may still be loaded. A
+// listing or fact read that fails, a loaded or possibly loaded line, a
+// control line the listing cannot show, and an added -e 2 when the status
+// could not be read are each a partial restore. This can report a partial
+// restore of a host that is clean; it never reports a clean restore of one
+// that is not.
 func verifyUnloadedShell(ctx context.Context, transport api.Transport, path string, fileAdded []string, statusErr error) *api.RollbackResult {
+	lead := fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules, but ", path)
+	if statusErr != nil {
+		lead = fmt.Sprintf("audit_rule_set: restored %s, but the audit status could not be read (%v) and ", path, statusErr)
+	}
 	partial := func(format string, a ...interface{}) *api.RollbackResult {
 		return &api.RollbackResult{
 			Success:        false,
 			PartialRestore: true,
-			Detail: fmt.Sprintf("audit_rule_set: restored %s, but the audit status could not be read (%v) and ", path, statusErr) +
-				fmt.Sprintf(format, a...),
-			ExecutedAt: time.Now().UTC(),
+			Detail:         lead + fmt.Sprintf(format, a...),
+			ExecutedAt:     time.Now().UTC(),
 		}
 	}
-	if stagedImmutableDirective(fileAdded) {
+	if statusErr != nil && stagedImmutableDirective(fileAdded) {
 		return partial("whether the -e 2 line took effect cannot be shown from the listing")
+	}
+	if l := unshowableLine(fileAdded); l != "" {
+		return partial("whether the control line %q took effect cannot be shown from the listing", l)
 	}
 	hasRule := false
 	for _, l := range fileAdded {
@@ -989,7 +1016,7 @@ func verifyUnloadedShell(ctx context.Context, transport api.Transport, path stri
 	}
 	listed, lerr := auditListShell(ctx, transport)
 	if lerr != nil {
-		return partial("the loaded rules could not be read either, so the unload could not be verified: %v", lerr)
+		return partial("the loaded rules could not be read, so the unload could not be verified: %v", lerr)
 	}
 	line, id, why, err := check.AuditLoadedAmong(ctx, transport, fileAdded, listed)
 	switch {
@@ -1002,15 +1029,37 @@ func verifyUnloadedShell(ctx context.Context, transport api.Transport, path stri
 	}
 	return &api.RollbackResult{
 		Success:    true,
-		Detail:     fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules; the status could not be read, and the listing shows no added rule loaded", path),
+		Detail:     fmt.Sprintf("audit_rule_set: restored %s and reloaded audit rules; the listing shows no added rule loaded", path),
 		ExecutedAt: time.Now().UTC(),
 	}
+}
+
+// unshowableLine returns the first line that is neither an audit rule nor
+// -e 2, such as -b 8192, -f 2, -e 0 or --loginuid-immutable. Such a line
+// changes kernel audit settings when it loads, which no rule listing shows,
+// so a rollback cannot show it is undone.
+func unshowableLine(lines []string) string {
+	for _, l := range lines {
+		t := strings.TrimSpace(l)
+		if t == "" || strings.HasPrefix(t, "#") || stagedImmutableDirective([]string{t}) {
+			continue
+		}
+		if _, ok := check.AuditRuleList(t); !ok {
+			return t
+		}
+	}
+	return ""
 }
 
 // unrenderedList returns an error when a staged line is on a filter list
 // that the netlink listing left a rule out of, because that listing cannot
 // show the line is not loaded.
 func unrenderedList(lines, skipped []string) error {
+	for _, sk := range skipped {
+		if strings.HasPrefix(sk, "list ") {
+			return fmt.Errorf("a rule on an unknown filter list (%s) could not be rendered", sk)
+		}
+	}
 	for _, l := range lines {
 		list, ok := check.AuditRuleList(l)
 		if !ok {

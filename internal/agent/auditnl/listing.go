@@ -34,9 +34,9 @@ const (
 // "-a always,exit -S all -F path=<p> -F perm=<p>" or with dir=, so the type
 // survives, and with its own action: a never rule of that shape, which both
 // print as an always watch, keeps "never". Other rules come back as
-// ToCommandLine prints them, with "-k" for the key and the machine arch
-// rather than b64. Several keys stay joined by the kernel's \x01 separator,
-// which the rule parser in internal/check splits.
+// ToCommandLine prints them: "-F key=" for the key, and b64 or b32 for the
+// machine's own arch. Several keys stay joined by the kernel's \x01
+// separator, which the rule parser in internal/check splits.
 func RuleText(wire []byte) (string, error) {
 	if len(wire) < auditHeaderSize {
 		return "", errors.New("auditnl: rule wire format too short")

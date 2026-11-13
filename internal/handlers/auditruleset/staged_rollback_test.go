@@ -210,6 +210,9 @@ func TestRollback_Netlink_StagedReadsFailClosed(t *testing.T) {
 			}
 			answerProbe(f, "4.0.3", exitRule, text)
 		}, true, "is loaded in the running kernel")
+		run("a rule on an unknown list unrenderable", exitRule, func(f *auditnl.FakeAuditTransport) {
+			loadWire(f, corrupt(t, "-a always,exit -F arch=b64 -S chmod -k other", 9))
+		}, true, "unknown filter list")
 		run("an unrelated rule loaded", exitRule, func(f *auditnl.FakeAuditTransport) {
 			w, _ := auditnl.BuildRule("-a always,exit -F arch=b64 -S execve -k other")
 			loadWire(f, w)
@@ -394,6 +397,234 @@ func TestRollback_Shell_CommittedStatusUnreadable(t *testing.T) {
 			if rb.PartialRestore != c.partial || rb.Success == c.partial {
 				t.Errorf("%s: Success=%v Partial=%v detail=%q, want Partial=%v", c.name, rb.Success, rb.PartialRestore, rb.Detail, c.partial)
 			}
+		}
+	})
+}
+
+// A committed netlink rollback after a reboot on a mutable host: auditctl
+// loaded the drop-in line at boot in its own form, so DeleteRule of the
+// BuildRule wire gets ENOENT and leaves it loaded. The verify compares by
+// kernel identity and reports PartialRestore. Before this change it reported
+// "unloaded, verified".
+//
+// @spec auditnl-rule-set
+// @ac AC-13
+func TestRollback_Netlink_CommittedRuleReloadedAtBoot(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-13", func(t *testing.T) {
+		rows := bootRows(t)
+		checked := 0
+		for _, r := range rows {
+			staged, _ := auditnl.BuildRule(r.source)
+			boot, err := auditnl.BuildRule(r.listed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hex.EncodeToString(staged) == hex.EncodeToString(boot) {
+				continue
+			}
+			checked++
+			f := auditnl.NewFakeAudit()
+			f.Enabled = 1
+			h := auditruleset.New()
+			params := api.Params{"rule": r.source, "persist_file": auditPath}
+			pre, err := h.Capture(context.Background(), f, params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res, err := h.Apply(context.Background(), f, params, nil); err != nil || !res.Success || res.Staged {
+				t.Fatalf("Apply: err=%v res=%+v", err, res)
+			}
+			// Reboot: the kernel starts empty and auditctl loads the drop-in line.
+			f.Loaded = map[string][]byte{}
+			loadWire(f, boot)
+			text, _ := auditnl.RuleText(boot)
+			answerProbe(f, r.version, r.source, text)
+			rb, err := h.Rollback(context.Background(), f, pre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "still loaded") {
+				t.Errorf("%s: %q reloaded at boot as %q: Success=%v Partial=%v detail=%q",
+					r.file, r.source, r.listed, rb.Success, rb.PartialRestore, rb.Detail)
+			}
+		}
+		if checked == 0 {
+			t.Fatal("no row has a boot wire that differs from BuildRule")
+		}
+	})
+}
+
+// shellPre is a shell-path pre-state with the given flags set.
+func shellPre(line string, flags ...string) *api.PreState {
+	data := map[string]interface{}{
+		"path":             auditPath,
+		"file_existed":     false,
+		"prior_content":    "",
+		"file_added_lines": []string{line},
+	}
+	for _, f := range flags {
+		data[f] = true
+	}
+	return &api.PreState{Mechanism: "audit_rule_set", Data: data}
+}
+
+// A persist_only directive over the shell path is staged on any host. Its
+// rollback removes the file and runs no load, since Apply ran none, and on a
+// host capture read as mutable it reads the status: a reboot into enabled 2,
+// or a status that cannot be read, is a partial restore. A control line no
+// listing can show, such as -b 8192, is a partial restore on both shell
+// paths.
+//
+// @spec auditnl-rule-set
+// @ac AC-14
+func TestRollback_Shell_PersistOnlyAndControlLines(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-14", func(t *testing.T) {
+		h := auditruleset.New()
+		params := api.Params{"rule": "-e 2", "persist_file": "/etc/audit/rules.d/99-finalize.rules", "persist_only": true}
+		tp := engine.NewFakeTransport()
+		tp.Results["auditctl -s 2>/dev/null"] = &api.CommandResult{Stdout: "enabled 1\nfailure 1\n"}
+		pre, err := h.Capture(context.Background(), tp, params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if staged, _ := pre.Data["immutable_staged"].(bool); !staged {
+			t.Fatal("a shell persist_only capture is not marked staged")
+		}
+		if po, _ := pre.Data["persist_only"].(bool); !po {
+			t.Fatal("a shell persist_only capture is not marked persist_only")
+		}
+		for _, c := range []struct {
+			name    string
+			status  *api.CommandResult
+			partial bool
+		}{
+			{"no reboot", &api.CommandResult{Stdout: "enabled 1\n"}, false},
+			{"rebooted into enabled 2", &api.CommandResult{Stdout: "enabled 2\n"}, true},
+			{"status unreadable", &api.CommandResult{ExitCode: 1}, true},
+		} {
+			rt := engine.NewFakeTransport()
+			rt.Results["auditctl -s 2>/dev/null"] = c.status
+			rt.Results["auditctl -l"] = &api.CommandResult{Stdout: "No rules\n"}
+			rb, err := h.Rollback(context.Background(), rt, pre)
+			if err != nil {
+				t.Fatalf("%s: %v", c.name, err)
+			}
+			if rb.PartialRestore != c.partial || rb.Success == c.partial {
+				t.Errorf("%s: Success=%v Partial=%v detail=%q, want Partial=%v", c.name, rb.Success, rb.PartialRestore, rb.Detail, c.partial)
+			}
+			for _, cmd := range rt.Runs {
+				if strings.Contains(cmd, "augenrules") {
+					t.Errorf("%s: persist_only rollback ran a load: %q", c.name, cmd)
+				}
+			}
+		}
+		for name, pre := range map[string]*api.PreState{
+			"staged":    shellPre("-b 8192", "immutable_staged", "audit_immutable_at_capture"),
+			"committed": shellPre("-b 8192"),
+		} {
+			rt := engine.NewFakeTransport()
+			rt.Results["auditctl -s 2>/dev/null"] = &api.CommandResult{Stdout: "enabled 1\n"}
+			rt.Results["auditctl -l"] = &api.CommandResult{Stdout: "No rules\n"}
+			rb, err := h.Rollback(context.Background(), rt, pre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "-b 8192") {
+				t.Errorf("%s -b 8192: Success=%v Partial=%v detail=%q", name, rb.Success, rb.PartialRestore, rb.Detail)
+			}
+		}
+	})
+}
+
+// A committed shell rollback on a mutable host checks the listing as well:
+// augenrules --load removes a rule only when the compiled rules start with
+// -D. A rule still listed is a partial restore. A listed line the parser
+// cannot read may be the rule, so it is one too.
+//
+// @spec auditnl-rule-set
+// @ac AC-12
+func TestRollback_Shell_CommittedMutableVerifiesListing(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-12", func(t *testing.T) {
+		const added = "-a always,exit -F arch=b64 -S execve -k exec"
+		const listed = "-a always,exit -F arch=b64 -S execve -F key=exec"
+		for _, c := range []struct {
+			name, listing string
+			partial       bool
+		}{
+			{"rule still loaded", listed, true},
+			{"unreadable listed line", "-x something unexpected", true},
+			{"rule gone", "-a always,exit -F arch=b64 -S chmod -F key=other", false},
+		} {
+			tp := engine.NewFakeTransport()
+			tp.Results["auditctl -s 2>/dev/null"] = &api.CommandResult{Stdout: "enabled 1\n"}
+			tp.Results["auditctl -l"] = &api.CommandResult{Stdout: c.listing + "\n"}
+			measuredHost(tp, added, listed)
+			rb, err := auditruleset.New().Rollback(context.Background(), tp, shellPre(added))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.PartialRestore != c.partial || rb.Success == c.partial {
+				t.Errorf("%s: Success=%v Partial=%v detail=%q, want Partial=%v", c.name, rb.Success, rb.PartialRestore, rb.Detail, c.partial)
+			}
+		}
+	})
+}
+
+// A staged -w takes its field type from the path's type at rollback, but
+// auditctl chose path= or dir= at boot, and the path may have changed type
+// since (a tmpfs directory created after the audit rules load, or one removed
+// since). A loaded rule of the other type may be the staged rule, so the
+// rollback reports PartialRestore, never a clean restore.
+//
+// @spec auditnl-rule-set
+// @ac AC-11
+func TestRollback_Netlink_StagedWatchTypeChangedSinceBoot(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-11", func(t *testing.T) {
+		const staged = "-w /var/run/faillock -p wa -k logins"
+		for _, c := range []struct{ boot, kindNow string }{
+			{"-a always,exit -S all -F path=/var/run/faillock -F perm=wa -F key=logins", "dir"},
+			{"-a always,exit -S all -F dir=/var/run/faillock -F perm=wa -F key=logins", "missing"},
+			{"-a always,exit -S all -F dir=/var/run/faillock -F perm=wa -F key=logins", "other"},
+		} {
+			f := auditnl.NewFakeAudit()
+			pre := stagedNetlink(t, f, staged)
+			w, err := auditnl.BuildRule(c.boot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			loadWire(f, w)
+			text, _ := auditnl.RuleText(w)
+			runResults(f)[check.AuditTargetProbe([]string{staged, text})] = &api.CommandResult{
+				Stdout: "machine\tx86_64\nauditctl\tauditctl version 4.0.3\npath\t/var/run/faillock\t" + c.kindNow + "\n",
+			}
+			rb, err := auditruleset.New().Rollback(context.Background(), f, pre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.Success || !rb.PartialRestore {
+				t.Errorf("boot %q, path now %s: Success=%v Partial=%v detail=%q", c.boot, c.kindNow, rb.Success, rb.PartialRestore, rb.Detail)
+			}
+		}
+	})
+}
+
+// An auditctl -s that prints no "enabled" line is a status that cannot be
+// read, so a committed shell rollback verifies through the listing.
+//
+// @spec auditnl-rule-set
+// @ac AC-12
+func TestRollback_Shell_StatusWithoutEnabledLine(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-12", func(t *testing.T) {
+		const added = "-a always,exit -F arch=b64 -S execve -k exec"
+		tp := engine.NewFakeTransport()
+		tp.Results["auditctl -s 2>/dev/null"] = &api.CommandResult{Stdout: "garbage\n"}
+		tp.Results["auditctl -l"] = &api.CommandResult{ExitCode: 1}
+		rb, err := auditruleset.New().Rollback(context.Background(), tp, shellPre(added))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "no enabled line") {
+			t.Errorf("Success=%v Partial=%v detail=%q", rb.Success, rb.PartialRestore, rb.Detail)
 		}
 	})
 }

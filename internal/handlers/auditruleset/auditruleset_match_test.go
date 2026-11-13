@@ -110,6 +110,11 @@ func TestRollback_Shell_StagedVerdictUsesKernelRule(t *testing.T) {
 				t.Errorf("%s: Success=%v PartialRestore=%v, want PartialRestore=%v (detail: %q)",
 					c.name, rb.Success, rb.PartialRestore, c.partial, rb.Detail)
 			}
+			// A loaded form must be identified as the rule (Same), not merely
+			// possibly loaded (Unresolved).
+			if c.partial && !strings.Contains(rb.Detail, "is loaded in the running kernel") {
+				t.Errorf("%s: detail %q does not identify the loaded rule", c.name, rb.Detail)
+			}
 		}
 	})
 }

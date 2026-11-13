@@ -802,7 +802,8 @@ func AuditLoadedIdentity(source, listed string, t *AuditTarget) (AuditIdentity, 
 // rendered by auditnl.RuleText. It returns the first line whose identity
 // with a listed rule is Same, else the first that is Unresolved, else
 // AuditDistinct. Lines that are not rules, such as -e 2, and the "No rules"
-// line are not compared. Only listed rules with the line's keys are
+// line are not compared. A listed line the parser cannot read makes the
+// answer Unresolved at best, since it may be the rule. Only listed rules with the line's keys are
 // compared, since a key difference always makes two rules distinct; the
 // host facts are read for those alone. A failure to read the facts is an
 // error.
@@ -817,6 +818,7 @@ func AuditLoadedAmong(ctx context.Context, transport api.Transport, lines, liste
 			probeLines = append(probeLines, l)
 		}
 	}
+	var unsureLine, unsureWhy string
 	for _, l := range lines {
 		src := parseAuditK(l, auditSource)
 		if !src.ok {
@@ -824,8 +826,18 @@ func AuditLoadedAmong(ctx context.Context, transport api.Transport, lines, liste
 		}
 		for _, r := range listed {
 			r = strings.TrimSpace(r)
+			if r == "" || r == "No rules" {
+				continue
+			}
 			got := parseAuditK(r, auditLoaded)
-			if !got.ok || strings.Join(src.keys, "\x01") != strings.Join(got.keys, "\x01") {
+			if !got.ok {
+				// A listed line the parser cannot read may be the rule.
+				if unsureLine == "" {
+					unsureLine, unsureWhy = l, fmt.Sprintf("the listed line %q could not be read", r)
+				}
+				continue
+			}
+			if strings.Join(src.keys, "\x01") != strings.Join(got.keys, "\x01") {
 				continue
 			}
 			pairs = append(pairs, pair{l, r})
@@ -834,13 +846,15 @@ func AuditLoadedAmong(ctx context.Context, transport api.Transport, lines, liste
 		}
 	}
 	if len(pairs) == 0 {
+		if unsureLine != "" {
+			return unsureLine, AuditUnresolved, unsureWhy, nil
+		}
 		return "", AuditDistinct, "", nil
 	}
 	target, err := ReadAuditTarget(ctx, transport, probeLines)
 	if err != nil {
 		return "", AuditDistinct, "", fmt.Errorf("read the host facts needed to compare audit rules: %w", err)
 	}
-	var unsureLine, unsureWhy string
 	for _, p := range pairs {
 		switch id, why := AuditLoadedIdentity(p.line, p.row, target); id {
 		case AuditSame:
@@ -923,6 +937,14 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 			acc.unsure(fmt.Sprintf("paths %q and %q are not both in clean form", va, vb))
 		}
 		switch {
+		case ka != "" && kb != "" && ka != kb && !acc.cover && (a.watch && a.side == auditSource) != (b.watch && b.side == auditSource) &&
+			(a.side == auditLoaded || b.side == auditLoaded):
+			// A source -w takes its field type from the path's type now, but
+			// auditctl chose path= or dir= from the path's type when it built
+			// the loaded rule, at boot. The path may have been created,
+			// removed or replaced since, so a type mismatch does not show the
+			// loaded rule is another rule.
+			acc.unsure(fmt.Sprintf("a %s field vs a %s field, and the path's type when the rule loaded is not known", ka, kb))
 		case ka != "" && kb != "" && ka != kb:
 			acc.differ(fmt.Sprintf("a %s field vs a %s field", ka, kb))
 		case ka == "" || kb == "":

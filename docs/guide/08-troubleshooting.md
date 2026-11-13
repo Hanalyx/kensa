@@ -65,10 +65,10 @@ this as a partial restore. This is a limitation of immutable auditd itself
 restored file, or set `enabled=1` if your policy permits a mutable audit config.
 
 The same applies to a rule Kensa staged on such a host, if the host rebooted
-before the rollback: `auditd` loaded the rule at boot. In the next release
-(unreleased; not in v0.13.0), Kensa also reports a partial restore when it
-cannot read what the rollback depends on: the loaded rules, the audit status
-or the facts it needs to compare rules. The detail names what could not be
+before the rollback: `auditd` loaded the rule at boot. The next release is
+unreleased and not in v0.13.0. In it, Kensa also reports a partial restore
+when it cannot read what the rollback depends on. That is the loaded rules,
+the audit status, or the facts it needs to compare rules. The detail names what could not be
 read. Check that `auditctl` runs under `--sudo`, then confirm the rule file and
 `auditctl -l` by hand.
 
