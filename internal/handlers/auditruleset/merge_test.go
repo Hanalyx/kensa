@@ -56,38 +56,155 @@ func TestMergeRuleLines_Idempotent(t *testing.T) {
 
 // @spec handler-audit-rule-set
 // @ac AC-02
-func TestRemoveRuleLines_RemovesOwnKeepsSiblings(t *testing.T) {
+func TestRestoreFile_RemovesOwnKeepsSiblings(t *testing.T) {
 	t.Run("handler-audit-rule-set/AC-02", func(t *testing.T) {})
 	t.Log("// @spec handler-audit-rule-set")
 	t.Log("// @ac AC-02")
 
-	content := managedHeader + "\n" +
-		"-a always,exit -F path=/usr/bin/sudo -F perm=x -k privileged\n" +
-		"-a always,exit -F path=/usr/bin/su -F perm=x -k privileged\n"
-	// Roll back only the su rule.
-	reduced, remaining := removeRuleLines(content, []string{"-a always,exit -F path=/usr/bin/su -F perm=x -k privileged"})
-
-	if strings.Contains(reduced, "/usr/bin/su ") || strings.Contains(reduced, "path=/usr/bin/su ") {
-		t.Errorf("rolled-back rule still present: %q", reduced)
+	const su = "-a always,exit -F path=/usr/bin/su -F perm=x -k privileged"
+	// Kensa created the file with the su rule; a sibling merged sudo after.
+	current := managedHeader + "\n" + su + "\n" +
+		"-a always,exit -F path=/usr/bin/sudo -F perm=x -k privileged\n"
+	r := restoreFile(current, true, "", false, true, []string{su})
+	if r.remove || strings.Contains(r.content, "/usr/bin/su ") {
+		t.Errorf("rolled-back rule still present or file removed: %+v", r)
 	}
-	if !strings.Contains(reduced, "/usr/bin/sudo") {
-		t.Errorf("sibling rule was wrongly removed (the clobber, in reverse): %q", reduced)
-	}
-	if !remaining {
-		t.Error("remaining should be true — the sibling rule is still there")
+	if !strings.Contains(r.content, "/usr/bin/sudo") {
+		t.Errorf("sibling rule was wrongly removed (the clobber, in reverse): %q", r.content)
 	}
 }
 
 // @spec handler-audit-rule-set
 // @ac AC-02
-func TestRemoveRuleLines_EmptyWhenLastRuleRemoved(t *testing.T) {
+func TestRestoreFile_RemovesFileKensaCreated(t *testing.T) {
 	t.Run("handler-audit-rule-set/AC-02", func(t *testing.T) {})
 	t.Log("// @spec handler-audit-rule-set")
 	t.Log("// @ac AC-02")
 
-	content := managedHeader + "\n-w /etc/passwd -p wa -k identity\n"
-	_, remaining := removeRuleLines(content, []string{"-w /etc/passwd -p wa -k identity"})
-	if remaining {
-		t.Error("remaining should be false once the only rule line is removed (file can be deleted)")
+	const w = "-w /etc/passwd -p wa -k identity"
+	current := managedHeader + "\n" + w + "\n"
+	if r := restoreFile(current, true, "", false, true, []string{w}); !r.remove {
+		t.Errorf("a file Kensa created and nothing else touched must be removed: %+v", r)
 	}
+}
+
+// A change after Apply that is not an append keeps every byte but the lines
+// Apply added; a file that is gone at rollback stays gone; a pre-state with
+// no capture of the file removes it only when nothing but Kensa's header is
+// left.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_OtherChanges(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const ours = "-a always,exit -F arch=b64 -S execve -k k"
+		prior := "-a always,exit -F arch=b64 -S chmod -k other\n"
+		// An operator edited a line above ours.
+		current := "-a always,exit -F arch=b64 -S chmod -k other_renamed\n" + ours + "\n"
+		if r := restoreFile(current, true, prior, true, true, []string{ours}); r.remove ||
+			r.content != "-a always,exit -F arch=b64 -S chmod -k other_renamed\n" {
+			t.Errorf("edited file: %+v", r)
+		}
+		if r := restoreFile("", false, prior, true, true, []string{ours}); !r.remove {
+			t.Errorf("a file gone at rollback must stay gone: %+v", r)
+		}
+		header := managedHeader + "\n" + ours + "\n"
+		if r := restoreFile(header, true, "", false, false, []string{ours}); !r.remove {
+			t.Errorf("no capture, only the header left: %+v", r)
+		}
+		comment := "# operator\n" + ours + "\n"
+		if r := restoreFile(comment, true, "", false, false, []string{ours}); r.remove || r.content != "# operator\n" {
+			t.Errorf("no capture, an operator comment left: %+v", r)
+		}
+	})
+}
+
+// Out-of-order rollback of two transactions that share a file Kensa created
+// removes the file; an operator's file keeps no header Apply put in it; an
+// operator's copy of our line, or a line appended after Apply, stays.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_SiblingsAndOperatorCopies(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		// A created the file; B was merged after it. Roll back A, then B.
+		afterA := restoreFile(h+a+"\n"+b+"\n", true, "", false, true, []string{a})
+		if afterA.remove || afterA.content != h+b+"\n" {
+			t.Fatalf("rolling back A first: %+v", afterA)
+		}
+		if r := restoreFile(afterA.content, true, h+a+"\n", true, true, []string{b}); !r.remove {
+			t.Errorf("rolling back B second must remove the file Kensa made: %+v", r)
+		}
+		// An operator's empty file, edited after Apply other than by an append.
+		if r := restoreFile("\n"+h+a+"\n", true, "", true, true, []string{a}); r.remove || r.content != "\n" {
+			t.Errorf("operator's file: %+v, want the operator's blank line kept and no header", r)
+		}
+		// An operator appended our rule again after Apply: their copy stays.
+		applied := "-a always,exit -F arch=b64 -S read -k x\n" + a + "\n"
+		r := restoreFile(applied+a+"\n", true, "-a always,exit -F arch=b64 -S read -k x\n", true, true, []string{a})
+		if r.remove || r.content != "-a always,exit -F arch=b64 -S read -k x\n"+a+"\n" {
+			t.Errorf("operator re-append: %+v", r)
+		}
+		// The same, after a non-append edit: one copy goes, the second stays.
+		r = restoreFile("# edited\n"+a+"\n"+a+"\n", true, "", true, true, []string{a})
+		if r.content != "# edited\n"+a+"\n" {
+			t.Errorf("one copy dropped: %+v", r)
+		}
+	})
+}
+
+// An operator's own copy of the header line stays, since Apply adds the
+// header only to a file that held nothing but whitespace; and an operator's
+// blank-line file outlives an out-of-order rollback of two transactions.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_OperatorHeaderAndBlankFile(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		prior := "-w /op -p wa -k op\n-w /op2 -p wa\n"
+		// After Apply the operator put the header line mid-file.
+		current := "-w /op -p wa -k op\n" + h + "-w /op2 -p wa\n" + a + "\n"
+		if r := restoreFile(current, true, prior, true, true, []string{a}); r.remove || r.content != "-w /op -p wa -k op\n"+h+"-w /op2 -p wa\n" {
+			t.Errorf("operator header line: %+v", r)
+		}
+		// The operator's file held one blank line. A then B applied; roll
+		// back A, then B.
+		afterA := restoreFile(h+a+"\n"+b+"\n", true, "\n", true, true, []string{a})
+		if afterA.remove || afterA.content != "\n"+b+"\n" {
+			t.Fatalf("rolling back A first: %+v", afterA)
+		}
+		if r := restoreFile(afterA.content, true, h+a+"\n", true, true, []string{b}); r.remove || r.content != "\n" {
+			t.Errorf("rolling back B second deleted or changed the operator's file: %+v", r)
+		}
+	})
+}
+
+// The removal conditions, one by one: an operator's file reduced to the
+// header line stays when its prior was not Kensa's; a blank-only file stays
+// when the capture is missing; a Kensa stub whose prior starts with blank
+// lines before the header is still recognized.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_RemovalConditions(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		// The operator replaced their own line with the header text after Apply.
+		if r := restoreFile(h+a+"\n", true, "-w /op -p wa\n", true, true, []string{a}); r.remove || r.content != h {
+			t.Errorf("operator file left with the header line: %+v", r)
+		}
+		// No capture, and only blank lines left: kept.
+		if r := restoreFile("\n"+a+"\n", true, "", false, false, []string{a}); r.remove || r.content != "\n" {
+			t.Errorf("no capture, blank lines left: %+v", r)
+		}
+		// A Kensa stub whose prior begins with a blank line before the header.
+		if r := restoreFile("\n"+h+b+"\n", true, "\n"+h+a+"\n", true, true, []string{b}); !r.remove {
+			t.Errorf("Kensa stub with a leading blank line: %+v", r)
+		}
+	})
 }
