@@ -131,3 +131,31 @@ func TestRollback_PreStateFrom2a07253(t *testing.T) {
 		}
 	})
 }
+
+// A committed netlink pre-state whose added_rules holds a control line, which
+// a current Capture never records (BuildRule refuses one), still gives
+// PartialRestore: the listing cannot show the line is undone.
+//
+// @spec auditnl-rule-set
+// @ac AC-15
+func TestRollback_Netlink_AddedControlLineIsPartial(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-15", func(t *testing.T) {
+		f := auditnl.NewFakeAudit()
+		f.Enabled = 1
+		pre := &api.PreState{Mechanism: "audit_rule_set", Capturable: true, Data: map[string]interface{}{
+			"path":             "/etc/audit/rules.d/99-kensa.rules",
+			"file_existed":     false,
+			"prior_content":    "",
+			"added_rules":      []interface{}{"-b 8192"},
+			"file_added_lines": []interface{}{"-b 8192"},
+			"persist_only":     false,
+		}}
+		rb, err := auditruleset.New().Rollback(context.Background(), f, pre)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "-b 8192") {
+			t.Errorf("Success=%v Partial=%v detail=%q", rb.Success, rb.PartialRestore, rb.Detail)
+		}
+	})
+}

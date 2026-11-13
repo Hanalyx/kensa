@@ -879,6 +879,9 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 				ExecutedAt:     time.Now().UTC(),
 			}
 		}
+		// Defensive: a current Capture never records a control line in
+		// added_rules (BuildRule refuses one, and Capture then fails), but a
+		// pre-state from elsewhere might.
 		if l := unshowableLine(added); l != "" {
 			return partial("the line %q cannot be compared with the listing, so its unload could not be verified", l), nil
 		}
