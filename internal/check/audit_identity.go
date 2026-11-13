@@ -367,8 +367,8 @@ type auditK struct {
 	keys          []string      // in order
 	syscalls      []string      // as written, in order
 	namedSyscalls bool
-	// unmodeled names a field written with an operator the comparison does
-	// not model: key, path, dir or perm with other than "=". auditctl -l
+	// unmodeled says why the line cannot be compared field by field: a
+	// field written with an operator the comparison does not model: key, path, dir or perm with other than "=". auditctl -l
 	// prints those fields with "=" (and a watch with no operator at all),
 	// and go-libaudit's printer drops them too, so no listing shows them.
 	unmodeled string
@@ -384,6 +384,15 @@ func parseAuditK(line string, side auditSide) auditK {
 	k := auditK{side: side}
 	fields := splitAuditFlags(strings.Fields(line))
 	isSyscall := false
+	// The kernel ANDs every field, but arch, perm, the path or dir target,
+	// the action and the list are kept as one value each. A second one would
+	// overwrite the first, so a repeat makes the line Unresolved instead.
+	seen := map[string]int{}
+	once := func(what string) {
+		if seen[what]++; seen[what] == 2 && k.unmodeled == "" {
+			k.unmodeled = "a repeated " + what + " field, which this comparison does not model"
+		}
+	}
 	for i := 0; i < len(fields); i++ {
 		f := fields[i]
 		next := ""
@@ -392,6 +401,7 @@ func parseAuditK(line string, side auditSide) auditK {
 		}
 		switch f {
 		case "-w":
+			once("path or dir")
 			k.watch, k.hasTarget = true, true
 			// auditctl drops a -w path's trailing slashes before it builds
 			// the rule (captured: -w /etc/sudoers.d/ lists without one). A
@@ -402,6 +412,7 @@ func parseAuditK(line string, side auditSide) auditK {
 			}
 			i++
 		case "-p":
+			once("perm")
 			k.perm = next
 			i++
 		case "-a", "-A":
@@ -410,8 +421,10 @@ func parseAuditK(line string, side auditSide) auditK {
 			for _, part := range strings.Split(strings.ToLower(next), ",") {
 				switch part {
 				case "always", "never":
+					once("action")
 					k.action = part
 				default:
+					once("list")
 					k.list = part
 				}
 			}
@@ -433,17 +446,20 @@ func parseAuditK(line string, side auditSide) auditK {
 			i++
 			name, op, value := splitAuditField(next)
 			if op != "=" && (name == "key" || name == "path" || name == "dir" || name == "perm") && k.unmodeled == "" {
-				k.unmodeled = name + op
+				k.unmodeled = "a " + name + op + " field, whose operator no listing shows"
 			}
 			switch name {
 			case "key":
 				k.keys = append(k.keys, splitAuditKeys(value)...)
 			case "path", "dir":
+				once("path or dir")
 				k.hasTarget = true
 				k.target = auditTargetField{kind: name, value: value}
 			case "perm":
+				once("perm")
 				k.perm = value
 			case "arch":
+				once("arch")
 				k.arch = &auditFilter{name: name, op: op, raw: strings.ToLower(value)}
 			default:
 				k.filters = append(k.filters, auditFilter{name: name, op: op, raw: value})
@@ -958,7 +974,7 @@ func compareAuditKeys(acc *idAcc, ka, kb []string) {
 func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 	for _, k := range []auditK{a, b} {
 		if k.unmodeled != "" {
-			acc.unsure(fmt.Sprintf("a %s field, whose operator no listing shows", k.unmodeled))
+			acc.unsure(k.unmodeled)
 		}
 	}
 	// The path or dir field.

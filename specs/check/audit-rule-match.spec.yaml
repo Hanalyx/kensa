@@ -1,6 +1,6 @@
 spec:
     id: check-audit-rule-match
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
 
@@ -250,6 +250,16 @@ spec:
               an auditctl -l listing give the same key list.
           type: technical
           enforcement: error
+        - id: C-12
+          description: |
+              The kernel ANDs every field of a rule. The parser keeps arch,
+              perm, the path or dir target, the action and the list as one
+              value each, so a line that repeats any of them (two arch
+              fields, -p with -F perm, -w with -F path) is Unresolved for
+              identity and ambiguous for coverage, never compared on the last
+              value alone. No shipped rule repeats one.
+          type: technical
+          enforcement: error
         - id: C-11
           description: |
               Known limits. Rule order is not modeled: a never rule loaded
@@ -359,6 +369,10 @@ spec:
         - id: AC-22
           description: A source -w whose path is a directory now is Unresolved against a loaded path= rule and Distinct against a source path= rule. AuditLoadedAmong is Unresolved when a listed line cannot be parsed, and Distinct over "No rules" alone.
           references_constraints: [C-10]
+          priority: critical
+        - id: AC-24
+          description: Through the full check, a loaded rule that repeats arch, perm, path or dir does not pass a requirement that the repeated field's last value matches; the same rule loaded once passes.
+          references_constraints: [C-12]
           priority: critical
 
     tags: [check, audit, rollback, tier-1]

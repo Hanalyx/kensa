@@ -6,6 +6,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -150,15 +151,15 @@ func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool
 func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (Result, error) {
 	var details []string
 	var evidence []api.CheckEvidence
-	var firstErr error
+	// Every child error is kept, joined, so errors.Is finds a sentinel such as
+	// ErrAmbiguousEvidence whatever its position or nesting depth.
+	var errs []error
 	allPass := true
 	for _, c := range checks {
 		sub, err := Run(ctx, transport, c)
 		evidence = append(evidence, sub.Evidence...)
 		if err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
+			errs = append(errs, err)
 			details = append(details, err.Error())
 			continue
 		}
@@ -169,8 +170,8 @@ func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) 
 			allPass = false
 		}
 	}
-	if allPass && firstErr != nil {
-		return Result{}, firstErr
+	if allPass && len(errs) > 0 {
+		return Result{}, errors.Join(errs...)
 	}
 	return Result{Passed: allPass, Detail: strings.Join(details, "; "), Evidence: evidence}, nil
 }

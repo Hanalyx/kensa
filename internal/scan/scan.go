@@ -173,7 +173,7 @@ func (r *Runner) ScanWithOverrides(ctx context.Context, transport api.Transport,
 			// missing. That is a skip with a reason, not an error, and calling
 			// it an error would put a permanent red row on every host in a
 			// fleet that has simply not been configured yet.
-			notAssessable := errors.Is(checkErr, check.ErrNotAssessable)
+			notAssessable := check.OnlyNotAssessable(checkErr)
 			status := api.ComplianceError
 			if notAssessable {
 				status = api.ComplianceSkipped

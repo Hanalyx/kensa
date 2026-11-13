@@ -39,6 +39,34 @@ var ErrNotAssessable = errors.New("check: not assessable on this host")
 // the rule skipped with the host unchanged.
 var ErrAmbiguousEvidence = fmt.Errorf("%w: the loaded state may already satisfy the rule", ErrNotAssessable)
 
+// OnlyNotAssessable reports whether err is ErrNotAssessable in every part.
+// A multi check joins its children's errors, and errors.Is finds a sentinel
+// in any one of them. A caller that reports a skip instead of an error must
+// not let one not-assessable child hide another child's real error.
+func OnlyNotAssessable(err error) bool {
+	switch err { //nolint:errorlint // identity with the sentinels is the point; wraps are followed below
+	case nil:
+		return false
+	case ErrNotAssessable, ErrAmbiguousEvidence:
+		return true
+	}
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		parts := j.Unwrap()
+		if len(parts) == 0 {
+			return false
+		}
+		for _, e := range parts {
+			if !OnlyNotAssessable(e) {
+				return false
+			}
+		}
+		return true
+	}
+	// A single wrap, such as fmt.Errorf("%w: detail", ErrNotAssessable), or
+	// a wrap around a joined error: follow it.
+	return OnlyNotAssessable(errors.Unwrap(err))
+}
+
 // checkSetCompare answers "only authorized X are present" by comparing a set
 // observed on the host against a set the operator declared.
 //
