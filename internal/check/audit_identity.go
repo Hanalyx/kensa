@@ -954,6 +954,21 @@ func auditIdentity(a, b auditK, t *AuditTarget) (AuditIdentity, string) {
 	if !a.ok || !b.ok {
 		return AuditDistinct, "not an audit rule"
 	}
+	// A repeated field's value is not known: auditctl keeps the last -p, while
+	// go-libaudit's parser ORs every -p, so the two renderings of one source
+	// line can differ in it. Only the other fields may make the rules
+	// distinct; compared on them alone, equal rules are Unresolved.
+	if a.repeated != "" || b.repeated != "" {
+		why := a.repeated
+		if why == "" {
+			why = b.repeated
+		}
+		r, g := withoutRepeats(a, b)
+		if id, w := auditIdentity(r, g, t); id == AuditDistinct {
+			return id, w
+		}
+		return AuditUnresolved, why
+	}
 	var acc idAcc
 	switch {
 	case a.action != b.action:
@@ -987,9 +1002,6 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 	for _, k := range []auditK{a, b} {
 		if k.unmodeled != "" {
 			acc.unsure(k.unmodeled)
-		}
-		if k.repeated != "" {
-			acc.unsure(k.repeated)
 		}
 	}
 	// The path or dir field.

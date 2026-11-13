@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
 // A rule that gives arch, perm, the path or dir target, the action or the
@@ -97,6 +98,26 @@ func TestAuditRuleExists_RepeatedSpecialFieldIsAmbiguous(t *testing.T) {
 			res, err := Run(context.Background(), ft, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}})
 			if err != nil || res.Passed {
 				t.Errorf("%s: passed=%v err=%v, want a clean fail", c.name, res.Passed, err)
+			}
+		}
+		// For identity, a source line that repeats a field compared with its
+		// netlink rendering is never Distinct on that field: go-libaudit ORs
+		// every -p (perm rwa), where auditctl keeps the last (perm wa).
+		for _, src := range []string{
+			"-w /etc/passwd -p r -p wa -k identity",
+			"-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=r -F perm=wa -k identity",
+			"-a always,exit -F arch=b32 -F arch=b64 -S read -k k",
+		} {
+			w, err := auditnl.BuildRule(src)
+			if err != nil {
+				t.Fatalf("build %q: %v", src, err)
+			}
+			txt, err := auditnl.RuleText(w)
+			if err != nil {
+				t.Fatalf("render %q: %v", src, err)
+			}
+			if id, why := AuditLoadedIdentity(src, txt, testAuditTarget()); id == AuditDistinct {
+				t.Errorf("%q vs its netlink rendering %q: Distinct (%s)", src, txt, why)
 			}
 		}
 		// For identity a repeat is Unresolved, and a difference in another

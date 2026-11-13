@@ -264,8 +264,11 @@ spec:
               the repeated field taken as equal. A difference there is a miss
               for coverage; otherwise coverage is ambiguous, on either side.
               So a repeat on an unrelated loaded line never turns another
-              requirement's miss into a skip. For identity it is Unresolved
-              unless another field already makes the two rules distinct. No
+              requirement's miss into a skip. For identity the same holds: the
+              other fields are compared with the repeated one taken as equal,
+              so a difference there is Distinct and a match is Unresolved. The
+              repeated field never decides on its own, since auditctl keeps the
+              last -p while go-libaudit's parser ORs every -p. No
               shipped rule repeats one; the loaded side is host state.
           type: technical
           enforcement: error
