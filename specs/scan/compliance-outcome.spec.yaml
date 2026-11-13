@@ -1,6 +1,6 @@
 spec:
     id: scan-compliance-outcome
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 2
 
@@ -147,6 +147,20 @@ spec:
               their behavior.
           type: technical
           enforcement: error
+        - id: C-09
+          description: |
+              A multi check keeps every child's error, joined with
+              one line with "; " between the parts, so errors.Is finds
+              ErrAmbiguousEvidence whatever the child's position or nesting
+              depth. When no child conclusively fails, remediate does not
+              reach the engine if any child is ambiguous. A child that
+              conclusively fails decides the AND: the rule is not compliant,
+              remediate runs and a scan reports ComplianceFail. Scan reports a
+              check ComplianceSkipped only when every joined error is
+              ErrNotAssessable (check.OnlyNotAssessable); one not-assessable
+              child does not hide another child's error.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -207,6 +221,10 @@ spec:
         - id: AC-10
           description: An audit watch rule whose pre-check is ambiguous, on a host that loads the same watch under the rule's own key and on one that loads it under another key, never reaches the engine (zero Run invocations), records StatusErrored with HostUnchanged true, no CommittedAt and AlreadyCompliant false, and emits a Skipped progress update. An unreadable ruleset still reaches the engine.
           references_constraints: [C-08]
+          priority: critical
+        - id: AC-11
+          description: A multi check with an ambiguous audit child and a child that errors never reaches the engine with the ambiguous child first, second, nested one level down or two; the record carries ErrAmbiguousEvidence with HostUnchanged true. A scan of each reports ComplianceError, and of all-ambiguous children ComplianceSkipped. An ambiguous child beside a conclusively failing one reaches the engine once and scans as ComplianceFail. The joined error is one line, and OnlyNotAssessable is false for nil, a plain error, an empty join and a join with a plain error.
+          references_constraints: [C-09]
           priority: critical
     depends_on: []
 

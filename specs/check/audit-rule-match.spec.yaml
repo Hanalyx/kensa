@@ -1,6 +1,6 @@
 spec:
     id: check-audit-rule-match
-    version: 0.4.0
+    version: 0.5.0
     status: draft
     tier: 1
 
@@ -250,6 +250,28 @@ spec:
               an auditctl -l listing give the same key list.
           type: technical
           enforcement: error
+        - id: C-12
+          description: |
+              The kernel requires every field of a rule to match. Measured on
+              RHEL 10.2 (audit 4.0.3, kernel 6.12): auditctl loads and lists a
+              repeated arch or perm, a -F perm=r -F perm=w rule records neither
+              a read-only nor a write-only open, the kernel refuses a second
+              path= (EINVAL), auditctl refuses a second -w, and auditctl keeps
+              only the last of two -p. The parser keeps arch, perm, the
+              path or dir target, the action and the list as one value each.
+              A line that repeats any of them (two arch fields, -p with
+              -F perm, -w with -F path) is compared on its other fields with
+              the repeated field taken as equal. A difference there is a miss
+              for coverage; otherwise coverage is ambiguous, on either side.
+              So a repeat on an unrelated loaded line never turns another
+              requirement's miss into a skip. For identity the same holds: the
+              other fields are compared with the repeated one taken as equal,
+              so a difference there is Distinct and a match is Unresolved. The
+              repeated field never decides on its own, since auditctl keeps the
+              last -p while go-libaudit's parser ORs every -p. No
+              shipped rule repeats one; the loaded side is host state.
+          type: technical
+          enforcement: error
         - id: C-11
           description: |
               Known limits. Rule order is not modeled: a never rule loaded
@@ -359,6 +381,10 @@ spec:
         - id: AC-22
           description: A source -w whose path is a directory now is Unresolved against a loaded path= rule and Distinct against a source path= rule. AuditLoadedAmong is Unresolved when a listed line cannot be parsed, and Distinct over "No rules" alone.
           references_constraints: [C-10]
+          priority: critical
+        - id: AC-24
+          description: Through the full check, a line that repeats arch or perm (kernel counterexamples), or path, dir, -w, -p, -w with -F path, -p with -F perm, the action or the list (conservative declines), is ErrAmbiguousEvidence, as the loaded rule and as the requirement; the syscall rules given once pass. A loaded line with a repeat that differs in another field (syscall and key, path and key, a never action, another list), and a requirement with a repeat against another listed rule, give a clean fail. For identity a repeated arch is Unresolved against its last value and Distinct under another key.
+          references_constraints: [C-12]
           priority: critical
 
     tags: [check, audit, rollback, tier-1]

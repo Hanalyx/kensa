@@ -104,6 +104,23 @@ any pair).
 
 ### Fixed
 
+- **`audit_rule_exists` no longer passes on a loaded rule that repeats a
+  field.** The kernel requires every field of a rule to match. The check kept
+  one `arch`, `perm` and `path` or `dir` value per rule, so a loaded rule
+  with `-F arch=b32 -F arch=b64`, which matches no event, passed a b64
+  requirement. On RHEL 10.2 the kernel also ANDs a repeated `perm`: a rule
+  with `-F perm=r -F perm=w` recorded neither a read nor a write. A rule
+  that repeats one of those fields, or the action or list, now reads as
+  ambiguous when its other fields match, and as a miss when they do not. No
+  shipped rule repeats one.
+- **A check made of several checks keeps every child's error.** It kept only
+  the first. A plain error ahead of an audit check that could not decide
+  hid that check's result, and remediate went on to change a host that might
+  already be compliant. Remediate now skips the rule when any child is
+  undecided and none fails, at any position. A child that fails still decides
+  the rule. A scan reports the rule as skipped only when every child is
+  undecided, and as an error when another child erred.
+
 - **Rolling back `audit_rule_set` gives an existing rule file's content
   back byte for byte.** Rollback took out the rule's lines and deleted the
   file when no rule line was left. So it deleted an operator's file that held

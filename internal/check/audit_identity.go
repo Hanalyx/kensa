@@ -367,11 +367,17 @@ type auditK struct {
 	keys          []string      // in order
 	syscalls      []string      // as written, in order
 	namedSyscalls bool
-	// unmodeled names a field written with an operator the comparison does
-	// not model: key, path, dir or perm with other than "=". auditctl -l
-	// prints those fields with "=" (and a watch with no operator at all),
-	// and go-libaudit's printer drops them too, so no listing shows them.
+	// unmodeled names a key, path, dir or perm field written with an
+	// operator other than "=". auditctl -l prints those fields with "=", and
+	// a watch with no operator at all. go-libaudit's printer drops them too,
+	// so no listing shows them.
 	unmodeled string
+	// repeated names a field the line gives twice: arch, perm, the path or
+	// dir target, the action or the list. The parser keeps one value of
+	// each, so the line cannot be compared with them. repeatedKinds holds
+	// every such field.
+	repeated      string
+	repeatedKinds map[string]bool
 	// netlink says the line came from auditnl.RuleText, whose syscall names
 	// are go-libaudit's table, not the host's.
 	netlink bool
@@ -384,6 +390,21 @@ func parseAuditK(line string, side auditSide) auditK {
 	k := auditK{side: side}
 	fields := splitAuditFlags(strings.Fields(line))
 	isSyscall := false
+	// The kernel ANDs every field, but arch, perm, the path or dir target,
+	// the action and the list are kept as one value each. A second one would
+	// overwrite the first, so a repeat makes the line Unresolved instead.
+	seen := map[string]int{}
+	once := func(what string) {
+		if seen[what]++; seen[what] == 2 {
+			if k.repeatedKinds == nil {
+				k.repeatedKinds = map[string]bool{}
+			}
+			k.repeatedKinds[what] = true
+			if k.repeated == "" {
+				k.repeated = "a repeated " + what + " field, which this comparison does not model"
+			}
+		}
+	}
 	for i := 0; i < len(fields); i++ {
 		f := fields[i]
 		next := ""
@@ -392,6 +413,7 @@ func parseAuditK(line string, side auditSide) auditK {
 		}
 		switch f {
 		case "-w":
+			once("path or dir")
 			k.watch, k.hasTarget = true, true
 			// auditctl drops a -w path's trailing slashes before it builds
 			// the rule (captured: -w /etc/sudoers.d/ lists without one). A
@@ -402,6 +424,7 @@ func parseAuditK(line string, side auditSide) auditK {
 			}
 			i++
 		case "-p":
+			once("perm")
 			k.perm = next
 			i++
 		case "-a", "-A":
@@ -410,8 +433,10 @@ func parseAuditK(line string, side auditSide) auditK {
 			for _, part := range strings.Split(strings.ToLower(next), ",") {
 				switch part {
 				case "always", "never":
+					once("action")
 					k.action = part
 				default:
+					once("list")
 					k.list = part
 				}
 			}
@@ -433,17 +458,20 @@ func parseAuditK(line string, side auditSide) auditK {
 			i++
 			name, op, value := splitAuditField(next)
 			if op != "=" && (name == "key" || name == "path" || name == "dir" || name == "perm") && k.unmodeled == "" {
-				k.unmodeled = name + op
+				k.unmodeled = "a " + name + op + " field, whose operator no listing shows"
 			}
 			switch name {
 			case "key":
 				k.keys = append(k.keys, splitAuditKeys(value)...)
 			case "path", "dir":
+				once("path or dir")
 				k.hasTarget = true
 				k.target = auditTargetField{kind: name, value: value}
 			case "perm":
+				once("perm")
 				k.perm = value
 			case "arch":
+				once("arch")
 				k.arch = &auditFilter{name: name, op: op, raw: strings.ToLower(value)}
 			default:
 				k.filters = append(k.filters, auditFilter{name: name, op: op, raw: value})
@@ -926,6 +954,21 @@ func auditIdentity(a, b auditK, t *AuditTarget) (AuditIdentity, string) {
 	if !a.ok || !b.ok {
 		return AuditDistinct, "not an audit rule"
 	}
+	// A repeated field's value is not known: auditctl keeps the last -p, while
+	// go-libaudit's parser ORs every -p, so the two renderings of one source
+	// line can differ in it. Only the other fields may make the rules
+	// distinct; compared on them alone, equal rules are Unresolved.
+	if a.repeated != "" || b.repeated != "" {
+		why := a.repeated
+		if why == "" {
+			why = b.repeated
+		}
+		r, g := withoutRepeats(a, b)
+		if id, w := auditIdentity(r, g, t); id == AuditDistinct {
+			return id, w
+		}
+		return AuditUnresolved, why
+	}
 	var acc idAcc
 	switch {
 	case a.action != b.action:
@@ -958,7 +1001,7 @@ func compareAuditKeys(acc *idAcc, ka, kb []string) {
 func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 	for _, k := range []auditK{a, b} {
 		if k.unmodeled != "" {
-			acc.unsure(fmt.Sprintf("a %s field, whose operator no listing shows", k.unmodeled))
+			acc.unsure(k.unmodeled)
 		}
 	}
 	// The path or dir field.
@@ -1191,6 +1234,36 @@ func sameStringSet(a, b map[string]bool) bool {
 	return true
 }
 
+// withoutRepeats returns copies of a and b in which every field either
+// repeats takes a's value on both sides, and neither is marked repeated, so a
+// comparison sees only their other fields.
+func withoutRepeats(a, b auditK) (auditK, auditK) {
+	kinds := map[string]bool{}
+	for k := range a.repeatedKinds {
+		kinds[k] = true
+	}
+	for k := range b.repeatedKinds {
+		kinds[k] = true
+	}
+	for k := range kinds {
+		switch k {
+		case "arch":
+			b.arch = a.arch
+		case "perm":
+			b.perm = a.perm
+		case "path or dir":
+			b.hasTarget, b.target, b.watch = a.hasTarget, a.target, a.watch
+		case "action":
+			b.action = a.action
+		case "list":
+			b.list = a.list
+		}
+	}
+	a.repeated, b.repeated = "", ""
+	a.repeatedKinds, b.repeatedKinds = nil, nil
+	return a, b
+}
+
 // AuditCoverage is the answer to the compliance question.
 type AuditCoverage int
 
@@ -1212,6 +1285,24 @@ const (
 func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 	if !req.ok || !got.ok {
 		return AuditNotCovered, "not an audit rule"
+	}
+	// The kernel requires every occurrence of a repeated field to match
+	// (measured for perm on RHEL 10.2: perm=r with perm=w recorded neither a
+	// read nor a write), so the field
+	// compared on its last value alone could call a covering rule a miss or
+	// a miss covered. Compare everything else with that field taken as
+	// equal: a difference elsewhere is a miss, and otherwise the answer
+	// turns on the repeated field, which is not decided.
+	if req.repeated != "" || got.repeated != "" {
+		why := req.repeated
+		if why == "" {
+			why = got.repeated
+		}
+		r, g := withoutRepeats(req, got)
+		if c, w := auditRuleCovers(r, g, t); c == AuditNotCovered {
+			return c, w
+		}
+		return AuditCoverAmbiguous, why
 	}
 	if req.action != got.action || req.list != got.list {
 		return AuditNotCovered, "different action or list"
