@@ -108,14 +108,17 @@ any pair).
   field.** The kernel requires every field of a rule to match. The check kept
   one `arch`, `perm` and `path` or `dir` value per rule, so a loaded rule
   with `-F arch=b32 -F arch=b64`, which matches no event, passed a b64
-  requirement. A rule that repeats one of those fields now reads as
-  ambiguous, and so does the action or list. No shipped rule repeats one.
+  requirement. That the kernel ANDs repeated fields comes from its rule
+  semantics; it is not measured here. A rule that repeats one of those
+  fields, or the action or list, now reads as ambiguous. No shipped rule
+  repeats one.
 - **A check made of several checks keeps every child's error.** It kept only
   the first. A plain error ahead of an audit check that could not decide
   hid that check's result, and remediate went on to change a host that might
   already be compliant. Remediate now skips the rule when any child is
-  undecided, at any position. A scan reports the rule as skipped only when
-  every child is undecided, and as an error otherwise.
+  undecided and none fails, at any position. A child that fails still decides
+  the rule. A scan reports the rule as skipped only when every child is
+  undecided, and as an error when another child erred.
 
 - **Rolling back a staged audit rule after a reboot no longer reports a clean
   restore while the rule is still loaded.** On a host whose audit

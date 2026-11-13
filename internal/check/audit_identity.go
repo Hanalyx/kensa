@@ -367,11 +367,15 @@ type auditK struct {
 	keys          []string      // in order
 	syscalls      []string      // as written, in order
 	namedSyscalls bool
-	// unmodeled says why the line cannot be compared field by field: a
-	// field written with an operator the comparison does not model: key, path, dir or perm with other than "=". auditctl -l
-	// prints those fields with "=" (and a watch with no operator at all),
-	// and go-libaudit's printer drops them too, so no listing shows them.
+	// unmodeled names a key, path, dir or perm field written with an
+	// operator other than "=". auditctl -l prints those fields with "=", and
+	// a watch with no operator at all. go-libaudit's printer drops them too,
+	// so no listing shows them.
 	unmodeled string
+	// repeated names a field the line gives twice: arch, perm, the path or
+	// dir target, the action or the list. The parser keeps one value of
+	// each, so the line cannot be compared with them.
+	repeated string
 	// netlink says the line came from auditnl.RuleText, whose syscall names
 	// are go-libaudit's table, not the host's.
 	netlink bool
@@ -389,8 +393,8 @@ func parseAuditK(line string, side auditSide) auditK {
 	// overwrite the first, so a repeat makes the line Unresolved instead.
 	seen := map[string]int{}
 	once := func(what string) {
-		if seen[what]++; seen[what] == 2 && k.unmodeled == "" {
-			k.unmodeled = "a repeated " + what + " field, which this comparison does not model"
+		if seen[what]++; seen[what] == 2 && k.repeated == "" {
+			k.repeated = "a repeated " + what + " field, which this comparison does not model"
 		}
 	}
 	for i := 0; i < len(fields); i++ {
@@ -976,6 +980,9 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 		if k.unmodeled != "" {
 			acc.unsure(k.unmodeled)
 		}
+		if k.repeated != "" {
+			acc.unsure(k.repeated)
+		}
 	}
 	// The path or dir field.
 	switch {
@@ -1228,6 +1235,15 @@ const (
 func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 	if !req.ok || !got.ok {
 		return AuditNotCovered, "not an audit rule"
+	}
+	// The kernel requires every occurrence of a repeated field to match
+	// (from the kernel's rule semantics, not measured here), so a field
+	// compared on its last value alone could call a covering rule a miss or
+	// a miss covered. Decline to decide either way.
+	for _, k := range []auditK{req, got} {
+		if k.repeated != "" {
+			return AuditCoverAmbiguous, k.repeated
+		}
 	}
 	if req.action != got.action || req.list != got.list {
 		return AuditNotCovered, "different action or list"

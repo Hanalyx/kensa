@@ -62,6 +62,33 @@ func TestRemediate_AmbiguousChildAnyPosition(t *testing.T) {
 				t.Errorf("%s: scan status %s, want error", name, got)
 			}
 		}
+		// Ambiguity two levels down, behind an error at each level.
+		deep := api.Check{Checks: []api.Check{erroredChild, {Checks: []api.Check{erroredChild, {Checks: []api.Check{ambiguousChild}}}}}}
+		eng := &fakeEngine{}
+		if _, err := scan.New(eng).Remediate(context.Background(), multiTransport(), []*api.Rule{multiRule(deep)}); err != nil {
+			t.Fatal(err)
+		}
+		if eng.runs != 0 {
+			t.Errorf("nested two levels: engine.Run reached %d times", eng.runs)
+		}
+		// A child that conclusively fails decides the AND: the rule is not
+		// compliant, so remediate runs, and a scan reports fail.
+		failing := api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": "-a always,exit -F arch=b64 -S chmod -k missing"}}
+		withFail := api.Check{Checks: []api.Check{ambiguousChild, failing}}
+		eng = &fakeEngine{}
+		if _, err := scan.New(eng).Remediate(context.Background(), multiTransport(), []*api.Rule{multiRule(withFail)}); err != nil {
+			t.Fatal(err)
+		}
+		if eng.runs != 1 {
+			t.Errorf("an ambiguous child beside a failing one: engine.Run reached %d times, want 1", eng.runs)
+		}
+		fres, err := scan.New(&fakeEngine{}).Scan(context.Background(), multiTransport(), []*api.Rule{multiRule(withFail)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fres.Outcomes[0].Status; got != api.ComplianceFail {
+			t.Errorf("an ambiguous child beside a failing one: scan status %s, want fail", got)
+		}
 		// Every child undecided: the scan reports skipped.
 		both := api.Check{Checks: []api.Check{ambiguousChild, {Checks: []api.Check{ambiguousChild}}}}
 		sres, err := scan.New(&fakeEngine{}).Scan(context.Background(), multiTransport(), []*api.Rule{multiRule(both)})

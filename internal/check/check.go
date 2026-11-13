@@ -6,7 +6,6 @@ package check
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -147,7 +146,8 @@ func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool
 // A child that cleanly fails decides the result even when another child
 // returned an error: under AND, one proven failure makes the whole check
 // fail, whatever the other child could not establish. Only when no child
-// failed is the first error returned.
+// failed are the errors returned: every child's, joined, so errors.Is finds
+// a sentinel such as ErrAmbiguousEvidence at any position or depth.
 func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (Result, error) {
 	var details []string
 	var evidence []api.CheckEvidence
@@ -171,10 +171,25 @@ func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) 
 		}
 	}
 	if allPass && len(errs) > 0 {
-		return Result{}, errors.Join(errs...)
+		return Result{}, joinedError(errs)
 	}
 	return Result{Passed: allPass, Detail: strings.Join(details, "; "), Evidence: evidence}, nil
 }
+
+// joinedError is errors.Join with its parts separated by "; " instead of a
+// newline, so a multi check's error stays on one output row.
+type joinedError []error
+
+func (e joinedError) Error() string {
+	parts := make([]string, len(e))
+	for i, err := range e {
+		parts[i] = err.Error()
+	}
+	return strings.Join(parts, "; ")
+}
+
+// Unwrap returns the parts, so errors.Is and errors.As search each one.
+func (e joinedError) Unwrap() []error { return e }
 
 // stringParam extracts a required string parameter from params.
 func stringParam(params api.Params, key string) (string, error) {

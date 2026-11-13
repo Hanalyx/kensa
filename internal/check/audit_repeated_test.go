@@ -4,40 +4,71 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
 )
 
-// The kernel ANDs every field, so a loaded rule that repeats arch, perm,
-// path or dir matches only events that satisfy both. The parser keeps one
-// value of each, so a repeat must not let the check pass a requirement the
-// second value would decide: the full check does not pass.
+// A rule that gives arch, perm, the path or dir target, the action or the
+// list twice is never decided on its last value. Through the full check it
+// is ambiguous, whichever side repeats, and the same rule given once passes.
+//
+// Two cases are kernel counterexamples: the kernel requires every occurrence
+// to match (from its rule semantics, not measured here), so -F arch=b32
+// -F arch=b64 matches no event, and -F perm=w -F perm=wa records writes. The
+// rest are conservative declines: the kernel is not shown to accept such a
+// rule at all.
 //
 // @spec check-audit-rule-match
 // @ac AC-24
-func TestAuditRuleExists_RepeatedSpecialFieldDoesNotPass(t *testing.T) {
+func TestAuditRuleExists_RepeatedSpecialFieldIsAmbiguous(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-24", func(t *testing.T) {
-		for _, c := range []struct{ name, rule, loaded string }{
-			{"arch", "-a always,exit -F arch=b64 -S read -k k",
+		for _, c := range []struct{ name, kind, rule, loaded string }{
+			{"arch", "kernel counterexample", "-a always,exit -F arch=b64 -S read -k k",
 				"-a always,exit -F arch=b32 -F arch=b64 -S read -F key=k"},
-			{"perm", "-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k k",
-				"-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=x -F perm=wa -F key=k"},
-			{"path", "-a always,exit -F arch=b64 -S open -F path=/etc/shadow -k k",
+			{"perm", "kernel counterexample", "-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=w -k k",
+				"-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=w -F perm=wa -F key=k"},
+			{"path", "conservative decline", "-a always,exit -F arch=b64 -S open -F path=/etc/shadow -k k",
 				"-a always,exit -F arch=b64 -S open -F path=/etc/gshadow -F path=/etc/shadow -F key=k"},
-			{"dir", "-a always,exit -F arch=b64 -S open -F dir=/etc/sudoers.d -k k",
+			{"dir", "conservative decline", "-a always,exit -F arch=b64 -S open -F dir=/etc/sudoers.d -k k",
 				"-a always,exit -F arch=b64 -S open -F dir=/var/tmp -F dir=/etc/sudoers.d -F key=k"},
+			{"-w twice", "conservative decline", "-w /etc/shadow -p wa -k k",
+				"-w /etc/gshadow -w /etc/shadow -p wa -k k"},
+			{"-p twice", "conservative decline", "-w /etc/shadow -p wa -k k",
+				"-w /etc/shadow -p r -p wa -k k"},
+			{"-w with -F path", "conservative decline", "-w /etc/shadow -p wa -k k",
+				"-w /etc/shadow -F path=/etc/gshadow -p wa -k k"},
+			{"-p with -F perm", "conservative decline", "-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k k",
+				"-a always,exit -F arch=b64 -S all -F path=/etc/shadow -p r -F perm=wa -F key=k"},
+			{"action twice", "conservative decline", "-a always,exit -F arch=b64 -S read -k k",
+				"-a never,always,exit -F arch=b64 -S read -F key=k"},
+			{"list twice", "conservative decline", "-a always,exit -F arch=b64 -S read -k k",
+				"-a always,task,exit -F arch=b64 -S read -F key=k"},
 		} {
-			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.loaded)}}
-			res, err := Run(context.Background(), ft, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}})
-			if err == nil && res.Passed {
-				t.Errorf("%s: a loaded rule with a repeated %s field passed %q", c.name, c.name, c.rule)
+			for side, pair := range map[string][2]string{"loaded": {c.rule, c.loaded}, "requirement": {c.loaded, c.loaded}} {
+				ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, pair[1])}}
+				res, err := Run(context.Background(), ft, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": pair[0]}})
+				if res.Passed || (err != nil && !errors.Is(err, ErrAmbiguousEvidence)) {
+					t.Errorf("%s (%s), repeat on the %s side: passed=%v err=%v", c.name, c.kind, side, res.Passed, err)
+				}
+				if p := parseAuditK(pair[1], auditLoaded); p.ok && !errors.Is(err, ErrAmbiguousEvidence) {
+					t.Errorf("%s (%s), repeat on the %s side: err=%v, want ErrAmbiguousEvidence", c.name, c.kind, side, err)
+				}
 			}
-			// The same rule without the repeat still passes.
 			plain := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.rule)}}
-			if res, err := Run(context.Background(), plain, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}}); err != nil || !res.Passed {
+			if res, err := Run(context.Background(), plain, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}}); !strings.HasPrefix(c.rule, "-w") && (err != nil || !res.Passed) {
 				t.Errorf("%s: the rule loaded once: passed=%v err=%v", c.name, res.Passed, err)
 			}
+		}
+		// For identity a repeat is Unresolved, and a difference in another
+		// field still makes two rules distinct.
+		target := testAuditTarget()
+		if id, _ := AuditRuleIdentity("-a always,exit -F arch=b32 -F arch=b64 -S read -k k", "-a always,exit -F arch=b64 -S read -k k", target); id != AuditUnresolved {
+			t.Errorf("repeated arch vs the last value: %v, want Unresolved", id)
+		}
+		if id, _ := AuditRuleIdentity("-a always,exit -F arch=b32 -F arch=b64 -S read -k k", "-a always,exit -F arch=b64 -S read -k other", target); id != AuditDistinct {
+			t.Errorf("repeated arch under another key: %v, want Distinct", id)
 		}
 	})
 }
@@ -64,10 +95,28 @@ func TestOnlyNotAssessable(t *testing.T) {
 			"join with plain":    {errors.Join(wrapped, plain), false},
 			"nested join, plain": {errors.Join(wrapped, errors.Join(wrapped, plain)), false},
 			"plain":              {plain, false},
+			"empty join":         {joinedError(nil), false},
 		} {
 			if got := OnlyNotAssessable(c.err); got != c.want {
 				t.Errorf("%s: %v, want %v", name, got, c.want)
 			}
+		}
+	})
+}
+
+// A multi check's joined error reads as one line, its parts separated by
+// "; ", and errors.Is still finds each part.
+//
+// @spec scan-compliance-outcome
+// @ac AC-11
+func TestJoinedErrorIsOneLine(t *testing.T) {
+	t.Run("scan-compliance-outcome/AC-11", func(t *testing.T) {
+		err := joinedError{errors.New("a"), fmt.Errorf("b: %w", ErrAmbiguousEvidence)}
+		if got := err.Error(); got != "a; b: "+ErrAmbiguousEvidence.Error() || strings.Contains(got, "\n") {
+			t.Errorf("Error() = %q", got)
+		}
+		if !errors.Is(err, ErrAmbiguousEvidence) {
+			t.Error("errors.Is does not find a joined part")
 		}
 	})
 }
