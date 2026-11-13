@@ -54,18 +54,21 @@ const defaultPersistFile = defaultRulesDir + "/99-kensa.rules"
 // silent success.
 const auditStatusCmd = "auditctl -s 2>/dev/null"
 
-// auditRulesScanCmd emits every watch/syscall rule LINE across all drop-ins in
-// /etc/audit/rules.d — the set augenrules compiles and loads at reboot. The
-// conflict guard compares a to-be-written rule against these (not just the
-// live ruleset) so it also catches an unloaded pre-existing duplicate and a
-// sibling staged to another file earlier in the same run. The pattern takes
-// a flag written against its argument (-w/etc/x, -Aexit,always), which
-// auditctl accepts. A missing directory holds no rules and exits 0; grep's
-// exit 1 (no rule lines) is an empty scan; anything else, such as exit 2
-// for a directory a non-root user cannot read, is returned so the guard
-// refuses rather than skipping the scan.
-const auditRulesScanCmd = "[ -d " + defaultRulesDir + " ] || exit 0; " +
-	"grep -rhsE '^[[:space:]]*-(w|a|A)' " + defaultRulesDir + "/; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
+// auditRulesScanCmd emits every watch/syscall rule LINE in the files augenrules
+// compiles and loads at reboot: each *.rules file in /etc/audit/rules.d,
+// followed through a symlink as augenrules reads it. The conflict guard
+// compares a to-be-written rule against these (not just the live ruleset) so
+// it also catches an unloaded pre-existing duplicate and a sibling staged to
+// another file earlier in the same run. The pattern takes a flag written
+// against its argument (-w/etc/x, -Aexit,always), which auditctl accepts.
+// A rules.d directory that does not exist holds no rules and exits 0, but
+// only when /etc/audit itself can be searched: otherwise the directory may
+// exist unseen, and the scan exits 2. grep's exit 1 (no rule lines) is an
+// empty scan; anything else, such as exit 2 for a file the reader cannot
+// open, is returned so the guard refuses rather than skipping the scan.
+const auditRulesScanCmd = "if [ ! -d " + defaultRulesDir + " ]; then [ -x /etc/audit ] && exit 0; exit 2; fi; " +
+	"set -- " + defaultRulesDir + "/*.rules; [ -e \"$1\" ] || [ -L \"$1\" ] || exit 0; " +
+	"grep -hE '^[[:space:]]*-(w|a|A)' \"$@\"; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
 
 // auditImmutableShell reports whether the live audit configuration is
 // immutable (auditctl -s prints "enabled 2"). A read-back error or an
@@ -195,6 +198,9 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 // immutability. A pair the predicate cannot show to be distinct, because a
 // fact it needs is not known, is refused the same way.
 //
+// Lines the same apply adds are compared with each other as well, since a
+// rule whose own lines alias each other would collide the same way.
+//
 // The guard fails closed. When the target drop-in, the rules.d scan or the
 // host facts the comparison depends on cannot be read, it refuses: an apply
 // that cannot show it is not writing a duplicate does not write.
@@ -226,7 +232,7 @@ func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p 
 			onDisk = append(onDisk, l)
 		}
 	}
-	if len(onDisk) == 0 {
+	if len(onDisk) == 0 && len(fileAdded) < 2 {
 		return nil
 	}
 	target, terr := check.ReadAuditTarget(ctx, transport, append(append([]string{}, fileAdded...), onDisk...))
@@ -243,6 +249,19 @@ func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p 
 			case check.AuditUnresolved:
 				return refuse("cannot show that %q and %q in %s are different kernel rules (%s); a duplicate would "+
 					"abort the audit load at reboot", line, d, defaultRulesDir, why)
+			}
+		}
+	}
+	// Two lines this apply adds can also be one kernel rule, written two ways.
+	for i, a := range fileAdded {
+		for _, b := range fileAdded[i+1:] {
+			switch id, why := check.AuditRuleIdentity(a, b, target); id {
+			case check.AuditSame:
+				return refuse("conflict — %q and %q in this rule build the same kernel rule; writing both to %s "+
+					"would abort the audit load at reboot", a, b, p.RuleFile)
+			case check.AuditUnresolved:
+				return refuse("cannot show that %q and %q in this rule are different kernel rules (%s); a "+
+					"duplicate would abort the audit load at reboot", a, b, why)
 			}
 		}
 	}

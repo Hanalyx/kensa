@@ -106,20 +106,21 @@ func TestCheckCommand_NoOutputAssertionExitOnly(t *testing.T) {
 // false pass: a watch rule must match the full path+perms+key, not merely
 // the presence of its -k key. Several per-file watches can share one key
 // (the Ubuntu usergroup_modification cluster), so loading one must NOT
-// satisfy the checks for the others. The transport offers netlink, so the
-// watch's path field is known.
+// satisfy the checks for the others. The loaded watch itself cannot be shown
+// to cover its rule from the listing (a path= and a dir= rule both print as
+// -w), so it is not assessable rather than a pass.
 func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
 	// Only /etc/group is loaded; its key usergroup_modification is present.
-	ft := newNetlinkFake(t, "-w /etc/group -p wa -k usergroup_modification",
-		"-a always,exit -F path=/etc/group -F perm=wa -k usergroup_modification")
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+		"auditctl -l": result(0, "-w /etc/group -p wa -k usergroup_modification")}}
 	watch := func(path string) api.Check {
 		return api.Check{Method: "audit_rule_exists", Params: api.Params{
 			"rule": "-w " + path + " -p wa -k usergroup_modification",
 		}}
 	}
-	// The loaded watch matches itself.
-	if passed, _, err := runForTest(context.Background(), ft, watch("/etc/group")); err != nil || !passed {
-		t.Fatalf("loaded /etc/group watch should pass; passed=%v err=%v", passed, err)
+	// The loaded watch may cover its own rule; the listing cannot prove it.
+	if passed, _, err := runForTest(context.Background(), ft, watch("/etc/group")); !errors.Is(err, ErrAmbiguousEvidence) || passed {
+		t.Fatalf("loaded /etc/group watch should be ambiguous; passed=%v err=%v", passed, err)
 	}
 	// A different file sharing the same key must NOT pass (the old bug).
 	for _, p := range []string{"/etc/passwd", "/etc/shadow", "/etc/gshadow", "/etc/security/opasswd"} {
@@ -212,14 +213,12 @@ func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
 // audit-file-passwd, whose rule names the key identity, while the
 // audit_rule_set guard refused to add the rule because the action was already
 // audited. The check now gives the guard's answer. A rule that needs its own
-// key sets key_required. Loaded lines are auditctl -l output, and the
-// transport offers netlink, so the watch's path field is known.
+// key sets key_required. Loaded lines are auditctl -l output. The path rule
+// here has an arch, so the listing names its field and decides it.
 func TestCheckAuditRuleExists_ActionDecides(t *testing.T) {
-	loaded := "-w /etc/passwd -p wa -k audit_rules_usergroup_modification\n" +
+	loaded := "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -F key=audit_rules_usergroup_modification\n" +
 		"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F key=perm_mod"
-	ft := newNetlinkFake(t, loaded,
-		"-a always,exit -F path=/etc/passwd -F perm=wa -k audit_rules_usergroup_modification",
-		"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -k perm_mod")
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)}}
 	chk := func(rule string, extra api.Params) api.Check {
 		p := api.Params{"rule": rule}
 		for k, v := range extra {
@@ -236,17 +235,17 @@ func TestCheckAuditRuleExists_ActionDecides(t *testing.T) {
 		want   bool
 		detail string
 	}{
-		{"watch under another key passes", "-w /etc/passwd -p wa -k identity", nil, true, "under another key"},
-		{"watch under its own key passes", "-w /etc/passwd -p wa -k audit_rules_usergroup_modification", nil, true, "all rule lines present"},
+		{"path rule under another key passes", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -k identity", nil, true, "under another key"},
+		{"path rule under its own key passes", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -k audit_rules_usergroup_modification", nil, true, "all rule lines present"},
 		{"syscall under another key passes",
 			"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_chng", nil, true, "under another key"},
-		{"watch with other perms fails", "-w /etc/passwd -p rwa -k identity", nil, false, "rule line not loaded"},
-		{"watch on another path fails", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", nil, false, "rule line not loaded"},
+		{"path rule with other perms fails", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=rwa -k identity", nil, false, "rule line not loaded"},
+		{"path rule on another path fails", "-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k audit_rules_usergroup_modification", nil, false, "rule line not loaded"},
 		{"syscall on another arch fails",
 			"-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod", nil, false, "rule line not loaded"},
-		{"key_required refuses another key", "-w /etc/passwd -p wa -k identity", keyRequired, false, "key_required"},
-		{"key_required accepts its own key", "-w /etc/passwd -p wa -k audit_rules_usergroup_modification", keyRequired, true, "all rule lines present"},
-		{"key_required false behaves as unset", "-w /etc/passwd -p wa -k identity", api.Params{"key_required": false}, true, "under another key"},
+		{"key_required refuses another key", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -k identity", keyRequired, false, "key_required"},
+		{"key_required accepts its own key", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -k audit_rules_usergroup_modification", keyRequired, true, "all rule lines present"},
+		{"key_required false behaves as unset", "-a always,exit -F arch=b64 -S all -F path=/etc/passwd -F perm=wa -k identity", api.Params{"key_required": false}, true, "under another key"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

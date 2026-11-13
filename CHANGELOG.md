@@ -67,13 +67,13 @@ any pair).
   never pass. Rule order is still not checked: a `never` rule listed ahead of
   a covering rule suppresses its records, and the check does not see it.
 
-- **A watch check is skipped over SSH when the listing cannot decide it.**
-  `auditctl -l` prints a `path=` watch and a `dir=` rule on the same file or
-  directory both as `-w`, and they record different events. A `dir=` rule on
-  a directory covers the whole tree. On RHEL 10.2, a `dir=` rule on a regular
-  file stopped recording once the file was replaced by rename, which is how
-  `/etc/passwd` and `/etc/shadow` are updated. The test counted one record per
-  operation:
+- **A watch check is skipped when the listing cannot decide it, and
+  remediate leaves those hosts unchanged.** `auditctl -l` prints a `path=`
+  watch and a `dir=` rule on the same file or directory both as `-w`, and they
+  record different events. A `dir=` rule on a directory covers the whole
+  tree. On RHEL 10.2, a `dir=` rule on a regular file stopped recording once
+  the file was replaced by rename, which is how `/etc/passwd` and
+  `/etc/shadow` are updated. The test counted one record per operation:
 
   | operation | `dir=` | `path=` |
   |---|---|---|
@@ -83,15 +83,19 @@ any pair).
   | replace by rename | 1 | 1 |
   | write after the replacement | 0 | 1 |
 
-  So over SSH such a check now returns not assessable, which a scan reports as
-  `skipped` with a detail that says so. Over the agent transport the check
-  reads the kernel rule through audit netlink, which shows the field type, and
-  passes or fails. On a host with every corpus audit rule loaded, 10 rules
-  move from pass to skipped over SSH: 56 of 66 audit rules still pass on
-  RHEL 10.2, and 39 of 49 on Rocky 9.8. The 10 are `audit-file-faillock`,
-  `audit-file-lastlog`, `audit-file-opasswd`, `audit-file-passwd`,
-  `audit-file-shadow`, `audit-logins`, `audit-mac-policy`, `audit-session`,
-  `audit-sudo-log` and `audit-sudoers`. The record test ran on RHEL 10.2 only.
+  So when such a line is loaded, the check now says it cannot tell, and a
+  scan reports the rule `skipped` with a detail that says why. `remediate`
+  does not apply those rules: it reports them skipped with the host
+  unchanged, as for a rule that does not apply to the platform, because the
+  host may already be compliant. A host where the rule was loaded and
+  `remediate` used to report it already compliant (`AlreadyCompliant`) now
+  reports it skipped instead. On a host with every corpus audit rule loaded,
+  10 rules move from pass to skipped: of the rules with an
+  `audit_rule_exists` check, 56 of 66 still pass on RHEL 10.2, and 39 of 49
+  on Rocky 9.8. The 10 are `audit-file-faillock`, `audit-file-lastlog`,
+  `audit-file-opasswd`, `audit-file-passwd`, `audit-file-shadow`,
+  `audit-logins`, `audit-mac-policy`, `audit-session`, `audit-sudo-log` and
+  `audit-sudoers`. The record test ran on RHEL 10.2 only.
 
 ### Fixed
 
@@ -103,15 +107,19 @@ any pair).
   kernel treats each of these as one rule. It also refused rules that were not
   duplicates, such as the same rule under another key, which the kernel loads
   twice. It now builds each line as `auditctl` will on that host: names
-  resolve through the host's files, aliases resolve on x86_64 with audit 3.1.5
-  or 4.0.3, and a `-w` takes its type from the path. It refuses a pair it
-  cannot show to be different, and it refuses when it cannot read the drop-in,
-  the `rules.d` files or the host facts, where before it wrote the rule. A
-  `rules.d` line written with a flag against its argument, such as
-  `-w/etc/passwd`, is now compared too. The comparison was checked against
-  every rule pair loaded on RHEL 10.2 and Rocky 9.8, which give the same
-  results. The shell rollback of a staged rule still uses the earlier
-  comparison to report whether the rule is loaded after a reboot.
+  resolve through the host's files, syscall names through `ausyscall`, arch
+  and errno names for the machine, and a `-w` takes its type from the path.
+  Field, syscall and action names compare without regard to case, `loginuid`
+  is `auid`, and numbers compare as the 32-bit values the kernel stores. It
+  compares the lines one rule adds with each other too. It reads the files
+  `augenrules` loads, each `*.rules` file in `rules.d`, through a symlink as
+  well. It refuses a pair it cannot show to be different, and it refuses when
+  it cannot read the drop-in, the `rules.d` files or the host facts, where
+  before it wrote the rule. A `rules.d` line written with a flag against its
+  argument, such as `-w/etc/passwd`, is now compared too. The comparison was
+  checked against every rule pair loaded on RHEL 10.2 and Rocky 9.8, which
+  give the same results. The shell rollback of a staged rule still uses the
+  earlier comparison to report whether the rule is loaded after a reboot.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

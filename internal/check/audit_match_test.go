@@ -135,7 +135,7 @@ func TestAuditMatch_EquivalentForms(t *testing.T) {
 				t.Errorf("%s: an equivalent loaded rule failed (detail: %s)", c.name, detail)
 			}
 		}
-		// Watches, against the netlink listing that names the field type.
+		// Watches, against a listing line that names the field type.
 		watches := []struct {
 			name, rule, loaded string
 		}{
@@ -319,7 +319,7 @@ func TestAuditMatch_WatchAndPathRule(t *testing.T) {
 			if got != c.want {
 				t.Errorf("%s: %s want %s (detail: %s)", c.name, got, c.want, detail)
 			}
-			if got == skip && !strings.Contains(detail, "agent transport") {
+			if got == skip && !strings.Contains(detail, "coverage is not proven") {
 				t.Errorf("%s: the skip detail does not explain the watch case: %s", c.name, detail)
 			}
 		}

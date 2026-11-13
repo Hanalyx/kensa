@@ -121,7 +121,10 @@ spec:
               immutability. The key is part of the kernel rule: the same rule
               under another key loads twice (captured on RHEL 10.2 and Rocky
               9.8) and is not a duplicate. A pair the predicate cannot show to
-              be distinct is refused like a duplicate. A re-apply of the
+              be distinct is refused like a duplicate. The lines one apply adds
+              are also compared with each other. The rules.d lines compared are
+              the ones augenrules loads: each *.rules file at the top of
+              /etc/audit/rules.d, through a symlink too. A re-apply of the
               rule's own drop-in is idempotent, not a conflict. On refusal
               Apply returns Success:false with a detail naming both lines and
               the reason, and leaves resolution to the operator.
@@ -134,7 +137,9 @@ spec:
               other than 0 or 1), or cannot read the host facts the
               comparison depends on, it refuses rather than write a line it
               cannot show is not a duplicate. A host with no rules.d
-              directory has no rule to collide with.
+              directory has no rule to collide with, but only when
+              /etc/audit can be searched; otherwise rules.d may exist unseen,
+              and Apply refuses.
           type: security
           enforcement: error
 
@@ -206,7 +211,11 @@ spec:
               pair with a name the host does not resolve through files is
               refused with "cannot show"; an empty rules.d proceeds; a rules.d
               line with flags written against their arguments is compared and
-              refused as the duplicate it is.
+              refused as the duplicate it is; two lines of one rule that build
+              one kernel rule are refused with nothing on disk. The scan reads
+              a symlinked *.rules file, and not a .bak or .conf file or a
+              subdirectory; an unreadable *.rules file and an unsearchable
+              /etc/audit make it exit non-zero.
           references_constraints: [C-08]
           priority: critical
 

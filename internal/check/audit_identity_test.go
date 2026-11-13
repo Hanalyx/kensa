@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
-	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
 // The review's counterexamples, each against the predicate it belongs to.
@@ -149,13 +148,25 @@ func TestAuditIdentity_HostFactsAndGate(t *testing.T) {
 				t.Errorf("%+v: the perm-class table was used outside the gate", m)
 			}
 		}
-		// errno names and arch aliases resolve only on a measured target.
+		// errno names resolve on x86_64 and aarch64 whatever the audit
+		// version; the perm-class table only on the measured gate.
 		a, b := "-a always,exit -F arch=b64 -S open -F exit=-EACCES -k k", "-a always,exit -F arch=b64 -S open -F exit=-13 -k k"
 		if id, _ := AuditRuleIdentity(a, b, testAuditTarget()); id != AuditSame {
 			t.Errorf("exit=-EACCES vs -13 on a measured target: %v", id)
 		}
-		if id, _ := AuditRuleIdentity(a, b, &AuditTarget{Machine: "aarch64", AuditctlVersion: "4.0.3"}); id != AuditUnresolved {
-			t.Errorf("exit=-EACCES vs -13 off the gate: %v", id)
+		if id, _ := AuditRuleIdentity(a, b, &AuditTarget{Machine: "aarch64", AuditctlVersion: "3.0.7"}); id != AuditSame {
+			t.Errorf("exit=-EACCES vs -13 on aarch64 with an unmeasured audit version: %v", id)
+		}
+		if id, _ := AuditRuleIdentity(a, b, &AuditTarget{Machine: "riscv64", AuditctlVersion: "4.0.3"}); id != AuditUnresolved {
+			t.Errorf("exit=-EACCES vs -13 on a machine with no errno table: %v", id)
+		}
+		// errno aliases are one number, so one value.
+		alias := "-a always,exit -F arch=b64 -S read -F exit=-EWOULDBLOCK -k k"
+		if id, why := AuditRuleIdentity(alias, strings.Replace(alias, "EWOULDBLOCK", "EAGAIN", 1), testAuditTarget()); id != AuditSame {
+			t.Errorf("exit=-EWOULDBLOCK vs -EAGAIN: %v (%s), want same", id, why)
+		}
+		if id, _ := AuditRuleIdentity(alias, strings.Replace(alias, "EWOULDBLOCK", "EKENSAUNKNOWN", 1), testAuditTarget()); id != AuditUnresolved {
+			t.Errorf("an errno name not in the table: %v, want unresolved", id)
 		}
 		// A probe that cannot run is an error for the check.
 		ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, "-w /etc/shadow -p wa -k k")},
@@ -168,90 +179,41 @@ func TestAuditIdentity_HostFactsAndGate(t *testing.T) {
 	})
 }
 
-// RuleText renders a netlink rule as auditctl syntax, except that a watch
-// keeps its field type as an explicit path= or dir=. Every rule in the
-// netlink captures, rendered from the wire netlink builds, compares with
-// the line auditctl -l printed for it without a provable difference.
-//
-// @spec check-audit-rule-match
-// @ac AC-17
-func TestAuditIdentity_NetlinkRendering(t *testing.T) {
-	t.Run("check-audit-rule-match/AC-17", func(t *testing.T) {
-		for line, want := range map[string]string{
-			"-a always,exit -F path=/etc/shadow -F perm=wa -k k":   "-a always,exit -S all -F path=/etc/shadow -F perm=wa -F key=k",
-			"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k k": "-a always,exit -S all -F dir=/etc/sudoers.d -F perm=wa -F key=k",
-		} {
-			w, err := auditnl.BuildRule(line)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := auditnl.RuleText(w)
-			if err != nil || got != want {
-				t.Errorf("RuleText(%q) = %q, %v; want %q", line, got, err, want)
-			}
-		}
-		target := testAuditTarget()
-		for _, name := range []string{"audit-4.0.3-netlink.tsv", "audit-3.1.5-netlink.tsv"} {
-			for _, row := range capturedPrints(t, name) {
-				w, err := auditnl.BuildRule(row[0])
-				if err != nil {
-					t.Fatalf("build %q: %v", row[0], err)
-				}
-				text, err := auditnl.RuleText(w)
-				if err != nil {
-					t.Fatalf("render %q: %v", row[0], err)
-				}
-				if isNeverRule(row[0]) {
-					// auditctl -l prints this as an always watch; netlink keeps "never".
-					if !strings.HasPrefix(text, "-a never,exit") {
-						t.Errorf("%s: never rule %q renders as %q", name, row[0], text)
-					}
-					continue
-				}
-				a, b := parseAuditK(text, auditLoaded), parseAuditK(row[1], auditLoaded)
-				if id, why := auditIdentity(a, b, target); id == AuditDistinct {
-					t.Errorf("%s: %q renders as %q, which differs from the listing %q (%s)", name, row[0], text, row[1], why)
-				}
-			}
-		}
-	})
-}
-
-// A requirement the listing cannot decide is skipped, with a detail that
-// names the watch case, and the agent transport's netlink read decides it.
-// The netlink read is recorded in the check evidence.
+// A requirement the listing cannot decide is ErrAmbiguousEvidence, which is
+// also ErrNotAssessable, with a detail that names the watch case and says
+// coverage is not proven. An unreadable ruleset is not assessable but not
+// ambiguous: nothing was read, so remediate keeps its usual behavior there.
 //
 // @spec check-audit-rule-match
 // @ac AC-18
-func TestAuditIdentity_SkippedOverSSHDecidedOverNetlink(t *testing.T) {
+func TestAuditIdentity_AmbiguousListingIsSkipped(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-18", func(t *testing.T) {
 		const rule = "-w /etc/shadow -p wa -k identity"
-		listing := "-w /etc/shadow -p wa -k identity"
 		chk := api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": rule}}
-		ssh := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, listing)}}
+		ssh := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, rule)}}
 		_, err := Run(context.Background(), ssh, chk)
-		if !errors.Is(err, ErrNotAssessable) || !strings.Contains(err.Error(), "agent transport") ||
-			!strings.Contains(err.Error(), "replaced by rename") {
-			t.Fatalf("over the listing alone: %v", err)
+		if !errors.Is(err, ErrAmbiguousEvidence) || !errors.Is(err, ErrNotAssessable) {
+			t.Fatalf("over the listing: %v", err)
 		}
-		agentPath := newNetlinkFake(t, listing, "-a always,exit -F path=/etc/shadow -F perm=wa -k identity")
-		res, err := Run(context.Background(), agentPath, chk)
-		if err != nil || !res.Passed {
-			t.Fatalf("netlink path field: passed=%v err=%v", res.Passed, err)
-		}
-		found := false
-		for _, ev := range res.Evidence {
-			if ev.Command == auditNetlinkCommand && strings.Contains(ev.Stdout, "path=/etc/shadow") {
-				found = true
+		for _, want := range []string{"replaced by rename", "coverage is not proven"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("detail lacks %q: %v", want, err)
 			}
 		}
-		if !found {
-			t.Errorf("the netlink read is not in the evidence: %+v", res.Evidence)
+		if strings.Contains(err.Error(), "agent") {
+			t.Errorf("detail claims an agent path that does not exist: %v", err)
 		}
-		agentDir := newNetlinkFake(t, listing, "-a always,exit -F dir=/etc/shadow -F perm=wa -k identity")
-		res, err = Run(context.Background(), agentDir, chk)
+		missing := &fakeTransport{cmdResult: map[string]api.CommandResult{
+			"auditctl -l": {ExitCode: 127, Stderr: "sh: auditctl: command not found"}}}
+		_, err = Run(context.Background(), missing, chk)
+		if !errors.Is(err, ErrNotAssessable) || errors.Is(err, ErrAmbiguousEvidence) {
+			t.Errorf("unreadable ruleset: %v, want not assessable and not ambiguous", err)
+		}
+		// A requirement with no candidate at all fails, not ambiguous.
+		res, err := Run(context.Background(), &fakeTransport{cmdResult: map[string]api.CommandResult{
+			"auditctl -l": result(0, "-w /etc/gshadow -p wa -k identity")}}, chk)
 		if err != nil || res.Passed {
-			t.Fatalf("netlink dir field on a file: passed=%v err=%v, want a fail", res.Passed, err)
+			t.Errorf("no candidate: passed=%v err=%v, want a fail", res.Passed, err)
 		}
 	})
 }
@@ -277,4 +239,117 @@ func TestAuditIdentity_PairsFixtureShape(t *testing.T) {
 	if n != 19 {
 		t.Errorf("%d rows, want 19", n)
 	}
+}
+
+// Off the measured audit versions, syscall masks compare as numbers from
+// ausyscall on the host, so corpus siblings that differ only in -S stay
+// distinct on any version. A name ausyscall cannot resolve keeps the
+// rule unresolved. b64 and b32 are different arches on any machine, and
+// what b64 names is a fact of the machine, not the audit version.
+//
+// @spec check-audit-rule-match
+// @ac AC-19
+func TestAuditIdentity_SyscallNumbersFromHost(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-19", func(t *testing.T) {
+		chmod := "-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid>=1000 -F auid!=unset -k perm_mod"
+		chown := "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod"
+		probe := AuditTargetProbe([]string{chmod, chown, "-a always,exit -F arch=b32 -S chmod -k k",
+			"-a always,exit -S chown -k k", "-a always,exit -F arch=b64 -S 'x;y' -k k"})
+		for _, want := range []string{`sc 'b64' "$a64" 'chmod';`, `sc 'b64' "$a64" 'lchown';`, `sc 'b32' "$a32" 'chmod';`,
+			`sc '' "$a64" 'chown';`, `ausyscall "$2" "$3" --exact`} {
+			if !strings.Contains(probe, want) {
+				t.Errorf("probe lacks %q", want)
+			}
+		}
+		if strings.Contains(probe, "x;y") {
+			t.Error("an unsafe syscall name reached the probe")
+		}
+		out := "machine\tx86_64\nauditctl\tauditctl version 3.1.2\n" +
+			"sc\tb64\tchmod\t90\nsc\tb64\tfchmod\t91\nsc\tb64\tfchmodat\t268\n" +
+			"sc\tb64\tchown\t92\nsc\tb64\tfchown\t93\nsc\tb64\tfchownat\t260\nsc\tb64\tlchown\t94\n" +
+			"sc\tb64\tbad\tx1\n"
+		tg := ParseAuditTarget(out)
+		if tg.measured() {
+			t.Fatal("3.1.2 counted as measured")
+		}
+		if tg.Syscalls["b64"]["lchown"] != 94 {
+			t.Errorf("parse: %+v", tg.Syscalls)
+		}
+		if _, ok := tg.Syscalls["b64"]["bad"]; ok {
+			t.Error("a non-numeric answer was kept")
+		}
+		if id, why := AuditRuleIdentity(chmod, chown, tg); id != AuditDistinct {
+			t.Errorf("siblings off the gate with numbers: %v (%s)", id, why)
+		}
+		if id, _ := AuditRuleIdentity(chmod, strings.Replace(chmod, "-S chmod,fchmod,fchmodat", "-S fchmodat,chmod,fchmod", 1), tg); id != AuditSame {
+			t.Errorf("one mask in another order: %v", id)
+		}
+		delete(tg.Syscalls["b64"], "lchown")
+		if id, _ := AuditRuleIdentity(chmod, chown, tg); id != AuditUnresolved {
+			t.Errorf("a name ausyscall did not resolve: %v", id)
+		}
+		if id, _ := AuditRuleIdentity(strings.Replace(chmod, "b64", "b32", 1), chmod,
+			&AuditTarget{Machine: "riscv64", AuditctlVersion: "9.9"}); id != AuditDistinct {
+			t.Errorf("b32 vs b64 on an unknown machine: %v", id)
+		}
+		if id, _ := AuditRuleIdentity(chmod, strings.Replace(chmod, "b64", "x86_64", 1),
+			&AuditTarget{Machine: "x86_64", AuditctlVersion: "3.0.7"}); id != AuditSame {
+			t.Errorf("b64 vs x86_64 on x86_64 with an unmeasured version: %v", id)
+		}
+		if id, _ := AuditRuleIdentity(chmod, strings.Replace(chmod, "b64", "x86_64", 1),
+			&AuditTarget{Machine: "riscv64", AuditctlVersion: "4.0.3"}); id != AuditUnresolved {
+			t.Errorf("b64 vs x86_64 on another machine: %v", id)
+		}
+		alias := "-a always,exit -F arch=b64 -S read -F exit=-EDEADLOCK -k k"
+		if id, _ := AuditRuleIdentity(alias, strings.Replace(alias, "EDEADLOCK", "EDEADLK", 1),
+			&AuditTarget{Machine: "aarch64", AuditctlVersion: "3.0.7"}); id != AuditSame {
+			t.Errorf("errno alias EDEADLOCK vs EDEADLK: %v, want same", id)
+		}
+	})
+}
+
+// Spellings libaudit builds into the same audit_rule_data are one kernel
+// rule: field, syscall, action, list and comparison names without regard to
+// case, loginuid as auid, and numbers stored in a u32. Each pair was built
+// byte-identical by libaudit 3.1.2 in memory. Values that are not names, such
+// as a path or a key, keep their case.
+//
+// @spec check-audit-rule-match
+// @ac AC-20
+func TestAuditIdentity_LibauditSpellings(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-20", func(t *testing.T) {
+		base := "-a always,exit -F arch=b64 -S chown -F auid>=1000 -F auid!=unset -k k"
+		same := []string{
+			"-a always,exit -F arch=b64 -S chown -F loginuid>=1000 -F loginuid!=unset -k k",
+			"-a always,exit -F arch=b64 -S chown -F AUID>=1000 -F auid!=unset -k k",
+			"-a always,exit -F arch=b64 -S CHOWN -F auid>=1000 -F auid!=unset -k k",
+			"-a ALWAYS,EXIT -F arch=B64 -S chown -F auid>=1000 -F auid!=unset -k k",
+			"-a always,exit -F arch=b64 -S chown -F auid>=1000 -F auid!=4294967295 -k k",
+		}
+		for _, s := range same {
+			if id, why := AuditRuleIdentity(base, s, testAuditTarget()); id != AuditSame {
+				t.Errorf("%q: %v (%s), want same", s, id, why)
+			}
+		}
+		pairs := [][2]string{
+			{"-a always,exit -F arch=b64 -S execve -C EUID!=UID -k k", "-a always,exit -F arch=b64 -S execve -C uid!=euid -k k"},
+			{"-a always,exit -F arch=b64 -S execve -C loginuid!=uid -k k", "-a always,exit -F arch=b64 -S execve -C auid!=uid -k k"},
+			{"-a always,exit -F arch=b64 -S open -F exit=-13 -k k", "-a always,exit -F arch=b64 -S open -F exit=4294967283 -k k"},
+			{"-a always,exit -F arch=b64 -S open -F exit=-eacces -k k", "-a always,exit -F arch=b64 -S open -F exit=-13 -k k"},
+			{"-a always,exit -F arch=b64 -S chown -F uid=-2 -k k", "-a always,exit -F arch=b64 -S chown -F uid=4294967294 -k k"},
+			{"-a always,exit -F arch=b64 -S chown -F uid=4294967296 -k k", "-a always,exit -F arch=b64 -S chown -F uid=0 -k k"},
+			{"-a always,exit -F arch=b64 -S chown -F a0=-1 -k k", "-a always,exit -F arch=b64 -S chown -F a0=4294967295 -k k"},
+		}
+		for _, p := range pairs {
+			if id, why := AuditRuleIdentity(p[0], p[1], testAuditTarget()); id != AuditSame {
+				t.Errorf("%q vs %q: %v (%s), want same", p[0], p[1], id, why)
+			}
+		}
+		if id, _ := AuditRuleIdentity(base, strings.Replace(base, "-k k", "-k K", 1), testAuditTarget()); id != AuditDistinct {
+			t.Errorf("a key in another case: %v, want distinct (keys are strings)", id)
+		}
+		if id, _ := AuditRuleIdentity("-w /etc/Shadow -p wa -k k", "-w /etc/shadow -p wa -k k", testAuditTarget()); id == AuditSame {
+			t.Error("a path in another case compared same")
+		}
+	})
 }

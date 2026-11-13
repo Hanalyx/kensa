@@ -74,7 +74,19 @@ type AuditTarget struct {
 	UIDs  map[string]int64
 	GIDs  map[string]int64
 	Paths map[string]AuditPathKind
+	// Syscalls holds syscall numbers from ausyscall on the host, keyed by
+	// the arch token as a rule writes it ("b64", "b32", "x86_64", ..., or
+	// "" for a rule with no arch, which auditctl reads as the machine's
+	// own) and then by name. A name ausyscall does not resolve is absent.
+	Syscalls map[string]map[string]int64
 }
+
+// auditSyscallNameRe is what a syscall name in a rule may look like before
+// the probe asks ausyscall about it.
+var auditSyscallNameRe = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// auditArchTokenRe is an arch token the probe will look syscalls up for.
+var auditArchTokenRe = regexp.MustCompile(`^(b64|b32|x86_64|i386|aarch64|arm)$`)
 
 // auditMeasuredAuditctl lists the audit userspace versions whose auditctl -l
 // output was captured on x86_64 (RHEL 10.2 and Rocky 9.8). The perm-class
@@ -124,20 +136,35 @@ var auditGIDFields = map[string]bool{
 // makes, is unresolved: auditctl may add, drop or rewrite it.
 var auditPassThrough = map[string]bool{"auid": true, "euid": true, "exit": true}
 
-// auditErrno maps errno names to the asm-generic numbers x86_64 uses. It is
-// trusted only on a measured target.
+// auditErrno maps errno names to the asm-generic numbers. Errno numbers are
+// a fact of the machine arch, not the audit version; x86_64 and aarch64
+// both use these (the name and number pair is captured on x86_64), so the
+// table is used on those two machines.
 var auditErrno = map[string]int64{
 	"EPERM": 1, "ENOENT": 2, "ESRCH": 3, "EINTR": 4, "EIO": 5, "ENXIO": 6, "E2BIG": 7, "ENOEXEC": 8,
 	"EBADF": 9, "ECHILD": 10, "EAGAIN": 11, "ENOMEM": 12, "EACCES": 13, "EFAULT": 14, "ENOTBLK": 15,
 	"EBUSY": 16, "EEXIST": 17, "EXDEV": 18, "ENODEV": 19, "ENOTDIR": 20, "EISDIR": 21, "EINVAL": 22,
 	"ENFILE": 23, "EMFILE": 24, "ENOTTY": 25, "ETXTBSY": 26, "EFBIG": 27, "ENOSPC": 28, "ESPIPE": 29,
-	"EROFS": 30, "EMLINK": 31, "EPIPE": 32, "EDOM": 33, "ERANGE": 34,
+	"EROFS": 30, "EMLINK": 31, "EPIPE": 32, "EDOM": 33, "ERANGE": 34, "EDEADLK": 35, "ENAMETOOLONG": 36,
+	"ENOLCK": 37, "ENOSYS": 38, "ENOTEMPTY": 39, "ELOOP": 40, "EOPNOTSUPP": 95, "ETIMEDOUT": 110,
+	// Aliases: two names, one number. Comparison is by number, so these
+	// resolve as one value.
+	"EWOULDBLOCK": 11, "EDEADLOCK": 35, "ENOTSUP": 95,
 }
 
-// auditArchX86 maps arch spellings to the kernel arch on an x86_64 machine.
-// The b64 and x86_64 pair is captured ("Rule exists"); b32 and i386 follow
-// libaudit's table. Equating spellings can only add a refusal.
-var auditArchX86 = map[string]string{"b64": "x86_64", "x86_64": "x86_64", "b32": "i386", "i386": "i386"}
+// auditArchByMachine maps arch spellings to the kernel arch, per machine.
+// What b64 and b32 mean is a fact about the machine, not the audit version:
+// on x86_64 the b64 and x86_64 pair and the b32 and i386 pair are captured
+// as one rule ("Rule exists"); aarch64 follows libaudit's table. A literal
+// arch name means that arch on any machine. Equating spellings can only add
+// a refusal.
+var auditArchByMachine = map[string]map[string]string{
+	"x86_64":  {"b64": "x86_64", "b32": "i386"},
+	"aarch64": {"b64": "aarch64", "b32": "arm"},
+}
+
+// auditArchNames are the literal arch names the predicate knows.
+var auditArchNames = map[string]bool{"x86_64": true, "i386": true, "aarch64": true, "arm": true}
 
 // AuditTargetProbe returns one read-only shell command that reports, for
 // the given rule lines, the facts AuditTarget holds: the machine arch, the
@@ -145,10 +172,27 @@ var auditArchX86 = map[string]string{"b64": "x86_64", "x86_64": "x86_64", "b32":
 // the type of each watched path.
 func AuditTargetProbe(lines []string) string {
 	users, groups, paths := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	syscalls := map[string]map[string]bool{}
 	for _, l := range lines {
 		k := parseAuditK(l, auditSource)
 		if !k.ok {
 			continue
+		}
+		if k.namedSyscalls && k.list == "exit" {
+			arch := ""
+			if k.arch != nil {
+				arch = k.arch.raw
+			}
+			if arch == "" || auditArchTokenRe.MatchString(arch) {
+				for _, sc := range k.syscalls {
+					if sc != "all" && auditSyscallNameRe.MatchString(sc) {
+						if syscalls[arch] == nil {
+							syscalls[arch] = map[string]bool{}
+						}
+						syscalls[arch][sc] = true
+					}
+				}
+			}
 		}
 		for _, f := range k.filters {
 			if !auditNameRe.MatchString(f.raw) || f.raw == "unset" {
@@ -179,6 +223,30 @@ func AuditTargetProbe(lines []string) string {
 		fmt.Fprintf(&b, `p=%s; if [ -L "$p" ]; then k=symlink; elif [ -d "$p" ]; then k=dir; `+
 			`elif [ -e "$p" ]; then k=other; else k=missing; fi; printf 'path\t%%s\t%%s\n' "$p" "$k"; `, shellQuote(p))
 	}
+	if len(syscalls) > 0 {
+		// The arch auditctl looks a name up in: b64 and a rule with no arch
+		// are the machine's own; b32 is its 32-bit arch.
+		b.WriteString(`m=$(uname -m 2>/dev/null); case "$m" in x86_64) a64=x86_64; a32=i386;; ` +
+			`aarch64) a64=aarch64; a32=arm;; *) a64=; a32=;; esac; ` +
+			`sc() { [ -n "$2" ] || return 0; n=$(ausyscall "$2" "$3" --exact 2>/dev/null) && ` +
+			`printf 'sc\t%s\t%s\t%s\n' "$1" "$3" "$n"; }; `)
+		archs := map[string]bool{}
+		for a := range syscalls {
+			archs[a] = true
+		}
+		for _, arch := range sortedKeys(archs) {
+			lookup := shellQuote(arch)
+			switch arch {
+			case "", "b64":
+				lookup = `"$a64"`
+			case "b32":
+				lookup = `"$a32"`
+			}
+			for _, sc := range sortedKeys(syscalls[arch]) {
+				fmt.Fprintf(&b, "sc %s %s %s; ", shellQuote(arch), lookup, shellQuote(sc))
+			}
+		}
+	}
 	b.WriteString("true")
 	return b.String()
 }
@@ -186,7 +254,8 @@ func AuditTargetProbe(lines []string) string {
 // ParseAuditTarget reads AuditTargetProbe output. Lines it does not
 // recognize are ignored, so a missing fact stays unresolved.
 func ParseAuditTarget(out string) *AuditTarget {
-	t := &AuditTarget{UIDs: map[string]int64{}, GIDs: map[string]int64{}, Paths: map[string]AuditPathKind{}}
+	t := &AuditTarget{UIDs: map[string]int64{}, GIDs: map[string]int64{}, Paths: map[string]AuditPathKind{},
+		Syscalls: map[string]map[string]int64{}}
 	for _, line := range strings.Split(out, "\n") {
 		f := strings.Split(line, "\t")
 		switch {
@@ -210,6 +279,19 @@ func ParseAuditTarget(out string) *AuditTarget {
 			} else {
 				t.GIDs[f[1]] = n
 			}
+		case len(f) == 4 && f[0] == "sc":
+			v := strings.TrimSpace(f[3])
+			if !auditDecimalRe.MatchString(v) || !auditSyscallNameRe.MatchString(f[2]) {
+				continue
+			}
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				continue
+			}
+			if t.Syscalls[f[1]] == nil {
+				t.Syscalls[f[1]] = map[string]int64{}
+			}
+			t.Syscalls[f[1]][f[2]] = n
 		case len(f) == 3 && f[0] == "path":
 			switch k := AuditPathKind(strings.TrimSpace(f[2])); k {
 			case AuditPathDir, AuditPathOther, AuditPathSymlink, AuditPathMissing:
@@ -296,7 +378,8 @@ func parseAuditK(line string, side auditSide) auditK {
 			i++
 		case "-a", "-A":
 			isSyscall = true
-			for _, part := range strings.Split(next, ",") {
+			// libaudit reads the action and list names without regard to case.
+			for _, part := range strings.Split(strings.ToLower(next), ",") {
 				switch part {
 				case "always", "never":
 					k.action = part
@@ -307,7 +390,8 @@ func parseAuditK(line string, side auditSide) auditK {
 			i++
 		case "-S":
 			k.namedSyscalls = true
-			for _, sc := range strings.Split(next, ",") {
+			// Syscall names are looked up without regard to case.
+			for _, sc := range strings.Split(strings.ToLower(next), ",") {
 				if sc != "" {
 					k.syscalls = append(k.syscalls, sc)
 				}
@@ -325,12 +409,12 @@ func parseAuditK(line string, side auditSide) auditK {
 			case "perm":
 				k.perm = value
 			case "arch":
-				k.arch = &auditFilter{name: name, op: op, raw: value}
+				k.arch = &auditFilter{name: name, op: op, raw: strings.ToLower(value)}
 			default:
 				k.filters = append(k.filters, auditFilter{name: name, op: op, raw: value})
 			}
 		case "-C":
-			k.cmps = append(k.cmps, canonAuditCompare(next))
+			k.cmps = append(k.cmps, canonAuditCompare(auditCompareFieldNames(next)))
 			i++
 		case "-k":
 			k.keys = append(k.keys, next)
@@ -349,13 +433,39 @@ func parseAuditK(line string, side auditSide) auditK {
 	return k
 }
 
-// splitAuditField splits a -F token into name, operator and value.
+// auditFieldAlias maps a field name to the one libaudit builds the same
+// field from: loginuid is auid (both AUDIT_LOGINUID).
+var auditFieldAlias = map[string]string{"loginuid": "auid"}
+
+// auditFieldName is a -F or -C field name as libaudit reads it: without
+// regard to case, and with aliases resolved.
+func auditFieldName(name string) string {
+	name = strings.ToLower(name)
+	if a, ok := auditFieldAlias[name]; ok {
+		return a
+	}
+	return name
+}
+
+// auditCompareFieldNames rewrites the two field names of a -C comparison as
+// libaudit reads them.
+func auditCompareFieldNames(tok string) string {
+	for _, op := range []string{"!=", "="} {
+		if l, r, ok := strings.Cut(tok, op); ok {
+			return auditFieldName(l) + op + auditFieldName(r)
+		}
+	}
+	return tok
+}
+
+// splitAuditField splits a -F token into name, operator and value. The
+// name is read as libaudit reads it (auditFieldName).
 func splitAuditField(tok string) (string, string, string) {
 	idx := strings.IndexAny(tok, "!=<>&")
 	if idx <= 0 {
-		return tok, "", ""
+		return auditFieldName(tok), "", ""
 	}
-	name, rest := tok[:idx], tok[idx:]
+	name, rest := auditFieldName(tok[:idx]), tok[idx:]
 	for _, o := range []string{"!=", ">=", "<=", "&=", "=", ">", "<", "&"} {
 		if strings.HasPrefix(rest, o) {
 			return name, o, strings.TrimPrefix(rest, o)
@@ -416,6 +526,35 @@ type auditMask struct {
 	kind  maskKind
 	set   map[string]bool
 	spell string // what decided an unresolved mask, for exact-spelling equality
+	// nums is the set as syscall numbers, when ausyscall on the host
+	// resolved every name for the rule's arch; nil otherwise.
+	nums map[int64]bool
+}
+
+// withNumbers fills m.nums from the host's ausyscall answers for the arch
+// token, when every name resolves.
+func (m auditMask) withNumbers(k auditK, t *AuditTarget) auditMask {
+	if m.kind != maskSet || t == nil {
+		return m
+	}
+	arch := ""
+	if k.arch != nil {
+		if k.arch.op != "=" {
+			return m
+		}
+		arch = k.arch.raw
+	}
+	table := t.Syscalls[arch]
+	nums := map[int64]bool{}
+	for sc := range m.set {
+		n, ok := table[sc]
+		if !ok {
+			return m
+		}
+		nums[n] = true
+	}
+	m.nums = nums
+	return m
 }
 
 func (k auditK) mask(t *AuditTarget) auditMask {
@@ -452,7 +591,12 @@ func (k auditK) mask(t *AuditTarget) auditMask {
 				set[sc] = true
 			}
 		}
-		return auditMask{kind: maskSet, set: set}
+		if k.side == auditSource && k.perm != "" {
+			// Joined with the class list, whose names the probe does not
+			// look up, so the set stays in names.
+			return auditMask{kind: maskSet, set: set}
+		}
+		return auditMask{kind: maskSet, set: set}.withNumbers(k, t)
 	}
 	if k.side == auditLoaded {
 		return auditMask{kind: maskUnresolved, spell: "listed without -S"}
@@ -493,20 +637,31 @@ func (k auditK) classSet(t *AuditTarget) (map[string]bool, bool) {
 	return set, true
 }
 
+// resolvedArch is the kernel arch the rule's arch token names on target t.
 func (k auditK) resolvedArch(t *AuditTarget) (string, bool) {
-	if k.arch == nil || !t.measured() {
+	if k.arch == nil || t == nil {
 		return "", false
 	}
-	a, ok := auditArchX86[k.arch.raw]
+	if auditArchNames[k.arch.raw] {
+		return k.arch.raw, true
+	}
+	a, ok := auditArchByMachine[t.Machine][k.arch.raw]
 	return a, ok
 }
 
-// resolveAuditValue returns a filter value as a number when the target
-// resolves it, so two spellings of one value compare equal.
+// resolveAuditValue returns a filter value as the 32-bit number the kernel
+// stores, when the target resolves it, so two spellings of one value
+// compare equal. libaudit parses a number and stores it in a u32, so -13
+// and 4294967283 are one value, and 4294967296 is 0.
 func resolveAuditValue(f auditFilter, t *AuditTarget) (int64, bool) {
+	n, ok := resolveAuditNumber(f, t)
+	return int64(uint32(n)), ok
+}
+
+func resolveAuditNumber(f auditFilter, t *AuditTarget) (int64, bool) {
 	v := f.raw
 	if auditUIDFields[f.name] || auditGIDFields[f.name] {
-		if v == "unset" || v == "4294967295" {
+		if v == "unset" {
 			return -1, true
 		}
 		if auditDecimalRe.MatchString(v) {
@@ -523,8 +678,8 @@ func resolveAuditValue(f auditFilter, t *AuditTarget) (int64, bool) {
 		n, ok := m[v]
 		return n, ok
 	}
-	if f.name == "exit" && strings.HasPrefix(v, "-E") && t.measured() {
-		if n, ok := auditErrno[strings.TrimPrefix(v, "-")]; ok {
+	if f.name == "exit" && len(v) > 2 && strings.EqualFold(v[:2], "-E") && t != nil && auditArchByMachine[t.Machine] != nil {
+		if n, ok := auditErrno[strings.ToUpper(v[1:])]; ok {
 			return -n, true
 		}
 		return 0, false
@@ -671,8 +826,12 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 	default:
 		ra, oka := a.resolvedArch(t)
 		rb, okb := b.resolvedArch(t)
+		bits := map[string]bool{"b64": true, "b32": true}
 		switch {
 		case oka && okb && ra != rb:
+			acc.differ(fmt.Sprintf("arch %s vs %s", a.arch.raw, b.arch.raw))
+		case bits[a.arch.raw] && bits[b.arch.raw] && a.arch.raw != b.arch.raw:
+			// The machine's 64-bit and 32-bit arches differ on any machine.
 			acc.differ(fmt.Sprintf("arch %s vs %s", a.arch.raw, b.arch.raw))
 		case oka && okb:
 		case a.arch.raw != b.arch.raw:
@@ -743,8 +902,13 @@ func compareAuditValues(acc *idAcc, name string, la, lb []auditFilter, t *AuditT
 		return m
 	}
 	ga, gb := group(la), group(lb)
-	for op, xa := range ga {
-		xb := gb[op]
+	ops := make([]string, 0, len(ga))
+	for op := range ga {
+		ops = append(ops, op)
+	}
+	sort.Strings(ops)
+	for _, op := range ops {
+		xa, xb := ga[op], gb[op]
 		nums := func(l []auditFilter) ([]int64, bool) {
 			out := make([]int64, 0, len(l))
 			for _, f := range l {
@@ -781,7 +945,17 @@ func compareAuditValues(acc *idAcc, name string, la, lb []auditFilter, t *AuditT
 
 func compareAuditMask(acc *idAcc, ma, mb auditMask, t *AuditTarget) {
 	concrete := func(m auditMask) bool { return m.kind == maskAll || m.kind == maskSet }
+	numbered := func(m auditMask) bool { return m.kind == maskAll || m.nums != nil }
 	switch {
+	case numbered(ma) && numbered(mb):
+		// Syscall numbers from ausyscall on the host: a different set of
+		// numbers is a different kernel mask on any audit version. A named
+		// set is never every syscall.
+		if ma.kind != mb.kind {
+			acc.differ("different syscall masks (numbers from ausyscall)")
+		} else if ma.kind == maskSet && fmt.Sprint(sortedInts(ma.nums)) != fmt.Sprint(sortedInts(mb.nums)) {
+			acc.differ("different syscall masks (numbers from ausyscall)")
+		}
 	case concrete(ma) && concrete(mb):
 		if ma.kind == mb.kind && (ma.kind == maskAll || sameStringSet(ma.set, mb.set)) {
 			return
@@ -842,7 +1016,7 @@ func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 		return AuditNotCovered, acc.distinct
 	}
 	mr, mg := req.mask(t), got.mask(t)
-	if req.namedSyscalls && req.perm != "" && mr.kind == maskSet {
+	if req.namedSyscalls && req.perm != "" && req.list == "exit" && explicitNames(req.syscalls) {
 		// An explicit list with a perm filter asks for those syscalls. auditctl
 		// loads more (the class list too) and netlink loads the list as
 		// written; either covers the list, so coverage asks for the list only.
@@ -880,4 +1054,24 @@ func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 		return AuditCoverAmbiguous, strings.Join(acc.unresolved, "; ")
 	}
 	return cover, why
+}
+
+func sortedInts(set map[int64]bool) []int64 {
+	out := make([]int64, 0, len(set))
+	for n := range set {
+		out = append(out, n)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+// explicitNames reports a syscall list of names only, without "all" or a
+// number.
+func explicitNames(scs []string) bool {
+	for _, sc := range scs {
+		if sc == "all" || auditDecimalRe.MatchString(sc) {
+			return false
+		}
+	}
+	return len(scs) > 0
 }

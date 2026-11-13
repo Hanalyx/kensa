@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/Hanalyx/kensa/api"
-	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
 // compareValue reports whether got satisfies (comparator) expected.
@@ -888,12 +887,12 @@ func checkServiceState(ctx context.Context, transport api.Transport, params api.
 // key is compliant, and a rule that needs its own key says so with
 // key_required.
 //
-// When the listing cannot show whether a line is covered, the check reports
-// ErrNotAssessable rather than pass or fail, which a scan reports as
-// skipped. The main case is an arch-less watch: auditctl -l prints a path=
-// rule and a dir= rule on the same file or directory both as -w, and they
-// record different events. Over a transport with audit netlink (the agent),
-// the check reads the kernel rule itself, whose field type settles it.
+// When a loaded line may cover a requirement line but the listing cannot
+// show it, the check reports ErrAmbiguousEvidence (an ErrNotAssessable)
+// rather than pass or fail: a scan reports it as skipped, and remediate
+// leaves the host unchanged. The main case is an arch-less watch: auditctl
+// -l prints a path= rule and a dir= rule on the same file or directory both
+// as -w, and they record different events.
 //
 // Open limit: rule order is not modeled. A never rule loaded ahead of a
 // covering always rule suppresses that rule's records, and the check does
@@ -957,18 +956,8 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	}
 
 	var otherKey, unsure []string
-	var netlink []string
-	netlinkRead := false
 	for _, line := range reqs {
 		v, got, why := auditLineCoverage(line, loaded, target, keyRequired)
-		if v == auditLineAmbiguous {
-			if !netlinkRead {
-				netlink, netlinkRead = auditNetlinkListing(transport), true
-			}
-			if netlink != nil {
-				v, got, why = auditLineCoverage(line, netlink, target, keyRequired)
-			}
-		}
 		switch v {
 		case auditLineOwnKey:
 		case auditLineOtherKey:
@@ -985,7 +974,7 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	}
 	if len(unsure) > 0 {
 		return false, "", fmt.Errorf("%w: audit_rule_exists: the loaded ruleset cannot show whether %d line(s) "+
-			"are covered: %s.%s", ErrNotAssessable, len(unsure), strings.Join(unsure, "; "), auditWatchKindNote(unsure))
+			"are covered: %s.%s", ErrAmbiguousEvidence, len(unsure), strings.Join(unsure, "; "), auditWatchKindNote(unsure))
 	}
 	if len(otherKey) > 0 {
 		return true, fmt.Sprintf("audit_rule_exists: all rule actions present in loaded ruleset; %d line(s) audited under another key: %s",
@@ -1000,10 +989,9 @@ func auditWatchKindNote(unsure []string) string {
 	for _, u := range unsure {
 		if strings.Contains(u, auditWatchKindUnknown) {
 			return " auditctl -l prints a path= watch and a dir= rule on the same file or directory the same way " +
-				"(-w), so this listing cannot tell them apart, and they record different events: a dir= rule on " +
-				"a directory covers its whole subtree, and a dir= rule on a file stops recording once the file " +
-				"is replaced by rename. Over this transport the kernel rule cannot be read; the agent transport " +
-				"reads it through audit netlink and resolves it."
+				"(-w), and they record different events: a dir= rule on a directory covers its whole subtree, and " +
+				"a dir= rule on a file stops recording once the file is replaced by rename. This listing cannot " +
+				"tell them apart, so coverage is not proven."
 		}
 	}
 	return ""
@@ -1066,49 +1054,6 @@ func auditKeysCover(want, got []string) bool {
 		}
 	}
 	return true
-}
-
-// auditNetlinkCommand labels the netlink read in check evidence. It is not a
-// shell command; it names the kernel request the agent made.
-const auditNetlinkCommand = "audit netlink AUDIT_LIST_RULES (agent transport)"
-
-// auditNetlinkListing reads the loaded rules through audit netlink when the
-// transport offers it, rendered so a watch keeps its path or dir field type.
-// Nil when it is not offered or cannot be read; the caller then keeps the
-// auditctl -l answer. Run wraps every transport in a recorder, so the
-// recorder is looked through, and the read is recorded as evidence like a
-// command.
-func auditNetlinkListing(transport api.Transport) []string {
-	inner := transport
-	rec, _ := transport.(*recordingTransport)
-	if rec != nil {
-		inner = rec.inner
-	}
-	at, ok := inner.(interface {
-		AuditClient() (auditnl.AuditClient, error)
-	})
-	if !ok {
-		return nil
-	}
-	c, err := at.AuditClient()
-	if err != nil {
-		return nil
-	}
-	defer c.Close()
-	lines, err := auditnl.RulesText(c)
-	if rec != nil {
-		r := commandRecord{command: auditNetlinkCommand}
-		if err != nil {
-			r.stderr, r.exitCode = err.Error(), 1
-		} else {
-			r.stdout, r.truncated = capEvidenceField(strings.Join(lines, "\n"))
-		}
-		rec.cmds = append(rec.cmds, r)
-	}
-	if err != nil {
-		return nil
-	}
-	return lines
 }
 
 // AuditLineLoaded reports whether a single audit rule line is loaded under

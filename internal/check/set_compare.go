@@ -30,6 +30,15 @@ import (
 // Passed, so every path out of a check was pass, fail, or something broke.
 var ErrNotAssessable = errors.New("check: not assessable on this host")
 
+// ErrAmbiguousEvidence is the ErrNotAssessable case where the host was read,
+// a candidate is present, and what it covers cannot be proven: for
+// audit_rule_exists, a loaded line that may or may not record what the rule
+// asks for. errors.Is reports it as ErrNotAssessable too, so a scan shows it
+// as skipped. Remediate treats it apart from the other cases: the host may
+// already be compliant, so it does not apply the remediation, and reports
+// the rule skipped with the host unchanged.
+var ErrAmbiguousEvidence = fmt.Errorf("%w: the loaded state may already satisfy the rule", ErrNotAssessable)
+
 // checkSetCompare answers "only authorized X are present" by comparing a set
 // observed on the host against a set the operator declared.
 //

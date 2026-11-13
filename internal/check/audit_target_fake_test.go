@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/Hanalyx/kensa/api"
-	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
 // auditProbePrefix is how every AuditTargetProbe command starts.
@@ -76,37 +73,3 @@ func guardRefuses(rule, onDisk string) bool {
 	id, _ := AuditRuleIdentity(rule, onDisk, testAuditTarget())
 	return id != AuditDistinct
 }
-
-// netlinkFake is a fakeTransport that also offers audit netlink, as the
-// agent transport does. Its kernel holds the rules built from lines, each
-// written with an explicit path= or dir= field so the field type does not
-// depend on the machine running the test.
-type netlinkFake struct {
-	*fakeTransport
-	wires [][]byte
-}
-
-func newNetlinkFake(t interface{ Fatalf(string, ...any) }, auditctlListing string, lines ...string) *netlinkFake {
-	f := &netlinkFake{fakeTransport: &fakeTransport{cmdResult: map[string]api.CommandResult{
-		"auditctl -l": result(0, auditctlListing)}}}
-	for _, l := range lines {
-		w, err := auditnl.BuildRule(l)
-		if err != nil {
-			t.Fatalf("build %q: %v", l, err)
-		}
-		f.wires = append(f.wires, w)
-	}
-	return f
-}
-
-func (f *netlinkFake) AuditClient() (auditnl.AuditClient, error) {
-	return netlinkFakeClient{f.wires}, nil
-}
-
-type netlinkFakeClient struct{ wires [][]byte }
-
-func (c netlinkFakeClient) AddRule([]byte) error        { return nil }
-func (c netlinkFakeClient) DeleteRule([]byte) error     { return nil }
-func (c netlinkFakeClient) GetRules() ([][]byte, error) { return c.wires, nil }
-func (c netlinkFakeClient) GetStatus() (int, error)     { return 1, nil }
-func (c netlinkFakeClient) Close() error                { return nil }

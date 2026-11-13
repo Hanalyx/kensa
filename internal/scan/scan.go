@@ -300,6 +300,20 @@ func (r *Runner) RemediateWithOverrides(ctx context.Context, transport api.Trans
 		// Check first: skip rules already in desired state.
 		checkRes, checkErr := check.Run(ctx, transport, impl.Check)
 		passed := checkRes.Passed
+		if errors.Is(checkErr, check.ErrAmbiguousEvidence) {
+			// The host was read and holds something that may already satisfy
+			// the rule, which the check cannot prove either way. Applying
+			// would change a host that may be compliant, and the check after
+			// it could not verify the result. Skip it exactly as the platform
+			// gate does: StatusErrored, HostUnchanged, nothing committed, and
+			// the engine is never run.
+			result.Transactions = append(result.Transactions, erroredResult(rl, checkErr, true))
+			r.emit(progress.Update{
+				Kind: progress.RuleChecked, RuleID: rl.ID,
+				Index: i + 1, Total: total, OK: false, Skipped: true, Detail: checkErr.Error(),
+			})
+			continue
+		}
 		if checkErr == nil && passed {
 			// The host was already in the desired state; nothing was
 			// applied. Three fields have to agree about that, and this

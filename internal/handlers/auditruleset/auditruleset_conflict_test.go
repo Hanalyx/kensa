@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Hanalyx/kensa/api"
+	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 	"github.com/Hanalyx/kensa/internal/check"
 	"github.com/Hanalyx/kensa/internal/engine"
 	"github.com/Hanalyx/kensa/internal/handlers/auditruleset"
@@ -14,8 +15,9 @@ import (
 
 // scanCmd is the rules.d scan the conflict guard runs (must match
 // auditRulesScanCmd in the handler).
-const scanCmd = "[ -d /etc/audit/rules.d ] || exit 0; " +
-	"grep -rhsE '^[[:space:]]*-(w|a|A)' /etc/audit/rules.d/; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
+const scanCmd = "if [ ! -d /etc/audit/rules.d ]; then [ -x /etc/audit ] && exit 0; exit 2; fi; " +
+	"set -- /etc/audit/rules.d/*.rules; [ -e \"$1\" ] || [ -L \"$1\" ] || exit 0; " +
+	"grep -hE '^[[:space:]]*-(w|a|A)' \"$@\"; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
 
 // measuredHost answers the host-facts probe for these lines as an x86_64
 // host with audit-4.0.3 where every probed path is a regular file.
@@ -85,7 +87,7 @@ func TestApply_RefusesCrossFileDuplicate(t *testing.T) {
 //
 // @spec auditnl-rule-set
 // @ac AC-08
-func TestApply_RefusesDuplicateSyscallDifferentKey(t *testing.T) {
+func TestApply_SyscallDuplicateNeedsTheSameKey(t *testing.T) {
 	t.Run("auditnl-rule-set/AC-08", func(t *testing.T) {})
 	const onDisk = "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F key=perm_mod"
 	for _, c := range []struct {
@@ -171,6 +173,21 @@ func TestApply_GuardFailsClosed(t *testing.T) {
 		if res := apply(tp); !res.Success {
 			t.Errorf("empty rules.d: %+v", res)
 		}
+		// Two lines of one rule that alias each other are refused even with
+		// nothing on disk.
+		tp = engine.NewFakeTransport()
+		twoWays := "-a always,exit -F arch=b64 -S chown -F auid>=1000 -k perm_mod\n" +
+			"-a always,exit -F arch=x86_64 -S chown -F auid>=1000 -F key=perm_mod"
+		measuredHost(tp, auditnl.RuleLines(twoWays)...)
+		res, err = auditruleset.New().Apply(context.Background(), tp,
+			api.Params{"rule": twoWays, "persist_file": auditPath}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Success || !strings.Contains(res.Detail, "in this rule build the same kernel rule") {
+			t.Errorf("self-aliasing rule: %+v", res)
+		}
+		assertNotWritten(t, tp)
 		// An attached flag in rules.d reaches the comparison.
 		tp = engine.NewFakeTransport()
 		const attached = "-aalways,exit -Farch=b64 -Schown -Fauid>=1000 -kperm_mod"
