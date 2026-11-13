@@ -85,11 +85,12 @@ any pair).
 
   So when such a line is loaded, the check now says it cannot tell, and a
   scan reports the rule `skipped` with a detail that says why. `remediate`
-  does not apply those rules: it reports them skipped with the host
-  unchanged, as for a rule that does not apply to the platform, because the
-  host may already be compliant. A host where the rule was loaded and
-  `remediate` used to report it already compliant (`AlreadyCompliant`) now
-  reports it skipped instead. On a host with every corpus audit rule loaded,
+  does not apply those rules, because the host may already be compliant. Its
+  record is the one a rule that does not apply to the platform gets: status
+  `errored`, `HostUnchanged` true, nothing committed, and the engine never
+  runs. The CLI row shows the rule as skipped. Where `remediate` used to
+  record such a rule as already compliant (`committed`, `AlreadyCompliant`
+  true), it now records `errored` with `AlreadyCompliant` false. On a host with every corpus audit rule loaded,
   10 rules move from pass to skipped: of the rules with an
   `audit_rule_exists` check, 56 of 66 still pass on RHEL 10.2, and 39 of 49
   on Rocky 9.8. The 10 are `audit-file-faillock`, `audit-file-lastlog`,

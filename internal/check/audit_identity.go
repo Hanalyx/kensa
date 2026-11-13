@@ -225,11 +225,13 @@ func AuditTargetProbe(lines []string) string {
 	}
 	if len(syscalls) > 0 {
 		// The arch auditctl looks a name up in: b64 and a rule with no arch
-		// are the machine's own; b32 is its 32-bit arch.
+		// are the machine's own; b32 is its 32-bit arch. A lookup that fails,
+		// or prints anything but one number (several lines, a word), prints
+		// nothing, so the name stays unresolved.
 		b.WriteString(`m=$(uname -m 2>/dev/null); case "$m" in x86_64) a64=x86_64; a32=i386;; ` +
 			`aarch64) a64=aarch64; a32=arm;; *) a64=; a32=;; esac; ` +
-			`sc() { [ -n "$2" ] || return 0; n=$(ausyscall "$2" "$3" --exact 2>/dev/null) && ` +
-			`printf 'sc\t%s\t%s\t%s\n' "$1" "$3" "$n"; }; `)
+			`sc() { [ -n "$2" ] || return 0; n=$(ausyscall "$2" "$3" --exact 2>/dev/null) || return 0; ` +
+			`case "$n" in ''|*[!0-9]*) return 0;; esac; printf 'sc\t%s\t%s\t%s\n' "$1" "$3" "$n"; }; `)
 		archs := map[string]bool{}
 		for a := range syscalls {
 			archs[a] = true

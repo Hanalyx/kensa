@@ -137,9 +137,10 @@ spec:
               check.ErrAmbiguousEvidence (the host was read and holds
               something that may already satisfy the rule, which the check
               cannot prove either way) MUST NOT reach the engine. It records
-              the same skip seam as the platform gate: a StatusErrored
-              transaction with HostUnchanged true, no CommittedAt, and a
-              Skipped progress update. AlreadyCompliant stays false, because
+              the same record as the platform gate: a StatusErrored
+              transaction with HostUnchanged true and no CommittedAt, which
+              is what an API reader of RemediationResult sees; only the
+              Skipped progress update and the CLI row say skipped. AlreadyCompliant stays false, because
               compliance was not shown. Scan reports such a rule
               ComplianceSkipped, as for any ErrNotAssessable. Other
               not-assessable pre-checks, such as an unreadable ruleset, keep

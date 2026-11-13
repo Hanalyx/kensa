@@ -84,7 +84,9 @@ An audit watch check can also show **skipped**. `auditctl -l` prints a `path=`
 watch and a `dir=` rule on the same file or directory the same way, so when
 such a line is loaded Kensa cannot tell whether it covers the rule. `remediate`
 leaves those rules unchanged rather than write a second rule beside one that
-may already be enough.
+may already be enough. The CLI shows them as skipped; in the API result their
+transaction is `errored` with `HostUnchanged` true, the record a rule that does
+not apply to the platform gets.
 
 ## "No rules found" or the wrong rules load
 

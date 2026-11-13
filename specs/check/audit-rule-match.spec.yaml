@@ -81,7 +81,12 @@ spec:
               and b32 name is a fact of the machine, so arch aliases resolve
               on x86_64 and aarch64 whatever the audit version, as do errno
               names, through the asm-generic table those machines share,
-              aliases included (EWOULDBLOCK is EAGAIN). The perm-class table is
+              aliases included (EWOULDBLOCK is EAGAIN). An ausyscall lookup
+              counts only when it succeeds and prints exactly one number; a
+              failure, any other output, or no ausyscall leaves the name
+              unresolved. ausyscall was measured on RHEL-family 8, 9 and 10
+              releases; on Ubuntu it is not measured, and the Ubuntu guard
+              counts use go-libaudit's syscall tables only. The perm-class table is
               trusted only on x86_64 with audit userspace 3.1.5 or 4.0.3, the
               versions captured. A probe that cannot run is an error for the
               check and a refusal for the guard. The probe reads the host at
@@ -164,9 +169,12 @@ spec:
               cannot show it, the check returns check.ErrAmbiguousEvidence, an
               ErrNotAssessable. A scan reports it as skipped (status
               "skipped", Err nil). Remediate does not apply the remediation:
-              it records the platform gate's skip seam with the host
-              unchanged (scan-compliance-outcome C-08), so for these rules
-              AlreadyCompliant is now false where it was true. Other
+              it records the platform gate's record, StatusErrored with
+              HostUnchanged true and no CommittedAt, and the CLI row and the
+              progress update show the rule as skipped
+              (scan-compliance-outcome C-08). For these rules a remediate
+              record that was committed with AlreadyCompliant true is now
+              errored with AlreadyCompliant false. Other
               not-assessable cases, such as an unreadable ruleset, keep their
               behavior. The main case is an arch-less watch: auditctl -l
               prints a path= rule and a dir= rule on one file or directory
