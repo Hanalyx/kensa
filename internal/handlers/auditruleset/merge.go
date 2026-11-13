@@ -61,11 +61,15 @@ type fileRestore struct {
 //
 // If the file changed after Apply only by lines appended to what Apply
 // wrote, as a sibling rule's merge or an operator's echo appends them, the
-// prior bytes come back followed by those lines (a newline is added between
-// them when the prior file did not end in one). Any other change keeps every
-// byte but the lines Apply added. Either way the file is removed only if
-// Kensa created it and nothing but its own header and blank lines remain. A
-// file that is gone now stays gone.
+// prior bytes come back followed by those lines, kept as they are (a newline
+// is added between them when the prior file did not end in one). Any other
+// change keeps every byte but what Apply added: one copy of each of its
+// lines, and the managed header when the prior file had none. The file is
+// removed only when nothing but the header and blank lines remain and Kensa
+// made the file: it did not exist before this change, or its prior content
+// starts with the header (a sibling rule's transaction created it). A file
+// that is gone now stays gone. Only content is restored; the file's mode,
+// owner and security label are not captured.
 func restoreFile(current string, currentExists bool, prior string, existed, captured bool, added []string) fileRestore {
 	if !currentExists {
 		return fileRestore{remove: true}
@@ -83,24 +87,32 @@ func restoreFile(current string, currentExists bool, prior string, existed, capt
 			if p != "" && !strings.HasSuffix(p, "\n") {
 				p += "\n"
 			}
-			return fileRestore{content: p + dropLines(current[len(applied):], added)}
+			// The appended lines came after Apply, so none of them is ours.
+			return fileRestore{content: p + current[len(applied):]}
 		}
 	}
-	reduced := dropLines(current, added)
-	if (!captured || !existed) && onlyManagedHeader(reduced) {
+	drop := append([]string(nil), added...)
+	if captured && existed && !strings.Contains(prior, managedHeader) {
+		// Apply put the header into a file that had none.
+		drop = append(drop, managedHeader)
+	}
+	reduced := dropLines(current, drop)
+	kensaMade := !captured || !existed || strings.HasPrefix(strings.TrimLeft(prior, " \t\r\n"), managedHeader)
+	if kensaMade && onlyManagedHeader(reduced) {
 		return fileRestore{remove: true}
 	}
 	return fileRestore{content: reduced}
 }
 
-// dropLines removes the lines in drop (exact match after trimming) from
-// content and keeps every other byte, including each kept line's ending and
-// whether the content ends in a newline.
+// dropLines removes one copy of each line in drop (exact match after
+// trimming, first occurrence) from content and keeps every other byte,
+// including each kept line's ending and whether the content ends in a
+// newline. A second copy, such as one an operator added after Apply, stays.
 func dropLines(content string, drop []string) string {
-	rm := map[string]bool{}
+	rm := map[string]int{}
 	for _, l := range drop {
 		if t := strings.TrimSpace(l); t != "" {
-			rm[t] = true
+			rm[t]++
 		}
 	}
 	if len(rm) == 0 {
@@ -108,7 +120,8 @@ func dropLines(content string, drop []string) string {
 	}
 	var b strings.Builder
 	for _, seg := range strings.SplitAfter(content, "\n") {
-		if rm[strings.TrimSpace(seg)] {
+		if t := strings.TrimSpace(seg); rm[t] > 0 {
+			rm[t]--
 			continue
 		}
 		b.WriteString(seg)

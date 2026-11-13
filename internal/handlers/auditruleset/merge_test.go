@@ -118,3 +118,39 @@ func TestRestoreFile_OtherChanges(t *testing.T) {
 		}
 	})
 }
+
+// Out-of-order rollback of two transactions that share a file Kensa created
+// removes the file; an operator's file keeps no header Apply put in it; an
+// operator's copy of our line, or a line appended after Apply, stays.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRestoreFile_SiblingsAndOperatorCopies(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		const a, b = "-a always,exit -F arch=b64 -S chmod -k a", "-a always,exit -F arch=b64 -S chown -k b"
+		h := managedHeader + "\n"
+		// A created the file; B was merged after it. Roll back A, then B.
+		afterA := restoreFile(h+a+"\n"+b+"\n", true, "", false, true, []string{a})
+		if afterA.remove || afterA.content != h+b+"\n" {
+			t.Fatalf("rolling back A first: %+v", afterA)
+		}
+		if r := restoreFile(afterA.content, true, h+a+"\n", true, true, []string{b}); !r.remove {
+			t.Errorf("rolling back B second must remove the file Kensa made: %+v", r)
+		}
+		// An operator's empty file, edited after Apply other than by an append.
+		if r := restoreFile("\n"+h+a+"\n", true, "", true, true, []string{a}); r.remove || r.content != "\n" {
+			t.Errorf("operator's file: %+v, want the operator's blank line kept and no header", r)
+		}
+		// An operator appended our rule again after Apply: their copy stays.
+		applied := "-a always,exit -F arch=b64 -S read -k x\n" + a + "\n"
+		r := restoreFile(applied+a+"\n", true, "-a always,exit -F arch=b64 -S read -k x\n", true, true, []string{a})
+		if r.remove || r.content != "-a always,exit -F arch=b64 -S read -k x\n"+a+"\n" {
+			t.Errorf("operator re-append: %+v", r)
+		}
+		// The same, after a non-append edit: one copy goes, the second stays.
+		r = restoreFile("# edited\n"+a+"\n"+a+"\n", true, "", true, true, []string{a})
+		if r.content != "# edited\n"+a+"\n" {
+			t.Errorf("one copy dropped: %+v", r)
+		}
+	})
+}

@@ -84,18 +84,21 @@ spec:
           enforcement: error
         - id: C-07
           description: |
-              Rollback restores the drop-in byte for byte from the capture
-              (file_existed, prior_content) when the file is exactly what
-              Apply wrote: it removes a file Kensa created, and otherwise
-              writes the prior bytes back, including an empty or comment-only
+              Rollback restores the drop-in's content from the capture
+              (file_existed, prior_content). If the file is exactly what
+              Apply wrote, a file Kensa created is removed. Otherwise the prior
+              bytes are written back. That holds for an empty or comment-only
               file, blank lines, carriage returns and the trailing newline
-              state. If the file changed after Apply only by lines appended to
-              what Apply wrote, the prior bytes come back followed by those
-              lines, with a newline between them when the prior file did not
-              end in one. Any other change keeps every byte but the lines
-              Apply added. The file is then removed only if Kensa created it
-              and nothing but its header and blank lines remain. A file that is gone at rollback stays
-              gone. Both transports.
+              state. If lines were only appended after Apply, the prior bytes
+              come back followed by those lines, kept as they are. A newline
+              goes between them when the prior file did not end in one. Any
+              other change keeps every byte but what Apply added: one copy of
+              each of its lines, and the managed header when the prior file
+              had none. The file is removed only when nothing but the header
+              and blank lines remain and Kensa made it. That means it did not
+              exist before, or its prior content starts with the header. A
+              file gone at rollback stays gone. Both transports. The file's
+              mode, owner and security label are not captured.
           type: security
           enforcement: error
     acceptance_criteria:
@@ -140,11 +143,13 @@ spec:
               newline, one with several, one with blank lines and comments,
               a comment with no newline and a file with carriage returns. A
               sibling rule or an operator comment added after Apply survives
-              after every prior byte, including a trailing blank line, and a
-              file Kensa created is removed. An edit that is not an append
-              keeps every byte but the rule's lines, a file gone at rollback
-              stays gone, and a pre-state without the capture removes the
-              file only when nothing but Kensa's header is left.
+              after every prior byte. A file Kensa created is removed, also
+              when two transactions sharing it roll back out of order. An
+              edit that is not an append keeps every byte but the rule's
+              lines and the header Apply added. An operator's copy of the
+              rule's line stays. A file gone at rollback stays gone. A
+              pre-state without the capture removes the file only when
+              nothing but Kensa's header is left.
           references_constraints: [C-07]
           priority: critical
     depends_on:

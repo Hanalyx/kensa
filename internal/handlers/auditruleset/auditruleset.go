@@ -653,8 +653,8 @@ func (h *Handler) captureShell(ctx context.Context, transport api.Transport, p *
 // rule lines to unload from the kernel on rollback (nil/empty on the shell
 // path). fileAdded is the set of this rule's lines that were NOT already in the
 // drop-in at capture — the lines rollback removes from the (possibly shared)
-// file, so a sibling rule's line survives. prior_content / file_existed are
-// retained as evidence; the file restore is line-based via fileAdded.
+// file, so a sibling rule's line survives. prior_content and file_existed
+// are what rollback restores the file from (restoreFile).
 // immutable records that capture read the audit config as immutable, so a
 // staged -e 2 cannot have changed it; a persist_only directive staged on a
 // mutable host leaves it false.
@@ -819,10 +819,10 @@ func capturedFile(data map[string]interface{}) priorFile {
 	return priorFile{content: content, existed: existed, captured: okE && okC}
 }
 
-// rollbackNetlink restores the drop-in by removing exactly the lines Apply
-// added to the file (fileAdded) — leaving any sibling rule's lines in a shared
-// drop-in intact — and unloads exactly the rule lines Apply added to the kernel
-// (added), never a rule another drop-in owns.
+// rollbackNetlink restores the drop-in from the capture (restoreFile), which
+// keeps any sibling rule's lines in a shared drop-in, and unloads exactly the
+// rule lines Apply added to the kernel (added), never a rule another drop-in
+// owns.
 func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, at auditnl.AuditTransport, path string, prior priorFile, added, fileAdded []string, immutableStaged, wasImmutable bool) (*api.RollbackResult, error) {
 	// Restore the persist layer first (restoreFile): the prior bytes when the
 	// file is as Apply left it, otherwise only this rule's lines removed.
@@ -933,9 +933,8 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 	}, nil
 }
 
-// rollbackShell removes only this rule's lines from the drop-in (preserving
-// siblings in a shared file), deleting the file if no managed rule remains,
-// then reloads augenrules.
+// rollbackShell restores the drop-in from the capture (restoreFile), which
+// keeps any sibling rule's lines in a shared file, then reloads augenrules.
 func (h *Handler) rollbackShell(ctx context.Context, transport api.Transport, path string, prior priorFile, fileAdded []string, immutableStaged, persistOnly, wasImmutable bool) (*api.RollbackResult, error) {
 	current, exists, rerr := h.readFileShellExists(ctx, transport, path)
 	if rerr != nil {

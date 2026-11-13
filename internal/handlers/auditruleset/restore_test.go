@@ -242,3 +242,44 @@ func TestRollback_KeepsSiblingAddedAfterApply(t *testing.T) {
 		}
 	})
 }
+
+// Through Rollback on the netlink path: a file gone at rollback stays gone,
+// and an edit after Apply that is not an append keeps every byte but ours.
+//
+// @spec handler-audit-rule-set
+// @ac AC-07
+func TestRollback_Netlink_GoneFileAndEdit(t *testing.T) {
+	t.Run("handler-audit-rule-set/AC-07", func(t *testing.T) {
+		for name, after := range map[string]*string{"gone": nil, "edited": strPtr("# edited by the operator\n" + restoreRule + "\n")} {
+			f := auditnl.NewFakeAudit()
+			f.Enabled = 1
+			f.Files[auditPath] = "# operator\n"
+			h := auditruleset.New()
+			params := api.Params{"rule": restoreRule, "persist_file": auditPath}
+			pre, err := h.Capture(context.Background(), f, params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := h.Apply(context.Background(), f, params, nil); err != nil {
+				t.Fatal(err)
+			}
+			if after == nil {
+				delete(f.Files, auditPath)
+			} else {
+				f.Files[auditPath] = *after
+			}
+			if _, err := h.Rollback(context.Background(), f, pre); err != nil {
+				t.Fatal(err)
+			}
+			got, ok := f.Files[auditPath]
+			switch {
+			case after == nil && ok:
+				t.Errorf("%s: a file gone at rollback came back as %q", name, got)
+			case after != nil && (!ok || got != "# edited by the operator\n"):
+				t.Errorf("%s: file = %q (exists %v)", name, got, ok)
+			}
+		}
+	})
+}
+
+func strPtr(s string) *string { return &s }
