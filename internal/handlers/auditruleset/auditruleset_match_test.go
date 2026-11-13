@@ -16,41 +16,48 @@ func applyAgainstRulesD(t *testing.T, rule, onDisk string) (refused bool, detail
 	t.Helper()
 	tp := engine.NewFakeTransport()
 	tp.Results[scanCmd] = &api.CommandResult{Stdout: onDisk + "\n"}
+	measuredHost(tp, rule, onDisk)
 	res, err := auditruleset.New().Apply(context.Background(), tp,
 		api.Params{"rule": rule, "persist_file": auditPath}, nil)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	return !res.Success && strings.Contains(res.Detail, "conflict"), res.Detail
+	return !res.Success && strings.Contains(res.Detail, "not applied"), res.Detail
 }
 
-// The guard refuses a write only when the rules.d files already hold the same
-// kernel rule under any key. A never rule, or a rule narrowed by a filter the
-// new rule lacks, is a different kernel rule and loads beside it.
+// The guard refuses a write when the rules.d files already hold the same
+// kernel rule, key included, or when it cannot show they do not. A never
+// rule, a rule narrowed by a filter the new rule lacks, and the same rule
+// under another key are different kernel rules and load beside it.
 //
 // @spec check-audit-rule-match
-// @ac AC-05
+// @ac AC-16
 func TestApply_GuardMatchesTheKernelRule(t *testing.T) {
-	t.Run("check-audit-rule-match/AC-05", func(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-16", func(t *testing.T) {
 		const execve = "-a always,exit -F arch=b64 -S execve -k kensa_exec"
 		cases := []struct {
 			name, rule, onDisk string
 			refuse             bool
 		}{
 			{"never rule on disk is not a duplicate", execve,
-				"-a never,exit -F arch=b64 -S execve -k other", false},
-			{"rule narrowed by success=0 is not a duplicate", execve,
+				"-a never,exit -F arch=b64 -S execve -k kensa_exec", false},
+			{"rule narrowed by success=0 under another key is not a duplicate", execve,
 				"-a always,exit -F arch=b64 -S execve -F success=0 -k exec_fail", false},
 			{"privileged-exec rule is not a plain execve duplicate", execve,
-				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv", false},
-			{"reversed comparison is a duplicate",
-				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -k kensa_emulation",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k kensa_exec", false},
+			{"reversed comparison under one key is a duplicate",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -k user_emulation",
 				"-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation", true},
-			{"same rule under another key is a duplicate", execve,
-				"-a always,exit -F arch=b64 -S execve -k other", true},
-			{"auid!=unset on both sides is a duplicate",
-				"-a always,exit -F arch=b64 -S chown,fchown -F auid>=1000 -F auid!=unset -k perm_mod_kensa",
+			{"same rule under another key is not a duplicate", execve,
+				"-a always,exit -F arch=b64 -S execve -k other", false},
+			{"same rule under the same key is a duplicate", execve,
+				"-a always,exit -F arch=b64 -S execve -F key=kensa_exec", true},
+			{"auid!=unset on both sides under one key is a duplicate",
+				"-a always,exit -F arch=b64 -S chown,fchown -F auid>=1000 -F auid!=unset -k perm_mod",
 				"-a always,exit -F arch=b64 -S chown,fchown -F auid>=1000 -F auid!=unset -k perm_mod", true},
+			{"euid=root vs euid=0 under one key is a duplicate (resolved through files)",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=root -k execpriv", true},
 		}
 		for _, c := range cases {
 			if refused, detail := applyAgainstRulesD(t, c.rule, c.onDisk); refused != c.refuse {

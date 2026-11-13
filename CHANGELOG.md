@@ -44,49 +44,74 @@ any pair).
   library, `spf13/pflag`, moved to v1.1.0, which prints the explicit value
   syntax it accepts, for example `--sudo[=true|false]`. Parsing is unchanged.
 
-- **`audit_rule_exists` grades the audited action, not the key.** A host that
-  watched writes to `/etc/passwd` under `audit_rules_usergroup_modification`
-  failed `audit-file-passwd`, whose rule names the key `identity`. Yet
-  `audit_rule_set` refused to add the rule, because the action was already
-  audited. The check now passes a line when the same kernel rule is loaded
-  under any key: the path and permissions of a watch, or the action and list,
-  syscalls and every `-C` and `-F` filter of a syscall rule. Equivalent forms
-  compare equal, for example `-C euid!=uid` and `-C uid!=euid`, or
-  `auid!=unset` and `auid!=-1`. A `never` rule does not satisfy an `always`
-  rule, and a loaded rule narrowed by an extra filter, such as `success=0`,
-  does not satisfy the broader one. A loaded rule that audits strictly more
-  than the required one does not satisfy it either, so a host with broader
-  rules than a check names now fails that check. The detail names the line
-  found under another key. A rule that needs its own key sets the new optional
-  `key_required: true`. A check line must now name the full rule, not a
-  partial pattern; 12 corpus checks were corrected to the rules their
-  benchmarks and remediations load. A path or dir rule with an arch and a
-  `perm` filter but no `-S` passes against a loaded line whose syscalls
-  include the full list `auditctl -l` prints for it, and against `-S all`, the
-  form a rule loaded through netlink prints. That list is the rule as
-  `auditctl` loads it, so this is not the broader-rule case above. A rule that
-  names `-S all` is still matched exactly, because the expanded list audits
-  fewer syscalls than it does. A `dir=` rule without arch matches the `-w`
-  line it prints as. The syscall lists were taken from `auditctl -l` on RHEL
-  10 (audit 4.0.3) and RHEL 9 (audit 3.1.5). The `/etc/sudoers.d` rule for
+- **`audit_rule_exists` checks that a loaded rule covers the requirement.**
+  A host that watched writes to `/etc/passwd` under
+  `audit_rules_usergroup_modification` failed `audit-file-passwd`, whose rule
+  names the key `identity`. A line now passes when some loaded rule records
+  every event it asks for, under any key. The loaded rule needs the same
+  action and list, the same filters, the same path or `dir` field and the
+  same permissions. For an `always` rule its syscalls must include the
+  requirement's, so a loaded rule over more syscalls passes. A `never` rule
+  needs the same syscalls. A rule that says `-S all` passes only against a
+  rule over every syscall. A path rule with an arch and no `-S` asks for the
+  syscall list `auditctl` loads it with, taken from `auditctl -l` on RHEL 10
+  (audit 4.0.3) and RHEL 9 (audit 3.1.5). That list is trusted only on x86_64
+  with those versions. Equivalent forms compare equal, for example
+  `-C euid!=uid` and `-C uid!=euid`, `auid!=unset` and `auid!=-1`, and a user
+  name and its number as the host's files resolve it. A rule that needs its
+  own key sets the new optional `key_required: true`. A check line must name
+  the full rule, not a partial pattern; 12 corpus checks were corrected to the
+  rules their benchmarks and remediations load. The `/etc/sudoers.d` rule for
   RHEL 10 now uses `dir=/etc/sudoers.d`. Its earlier `path=/etc/sudoers.d/`
   form, with the trailing slash, is refused by the kernel, so that check could
-  never pass.
+  never pass. Rule order is still not checked: a `never` rule listed ahead of
+  a covering rule suppresses its records, and the check does not see it.
+
+- **A watch check is skipped over SSH when the listing cannot decide it.**
+  `auditctl -l` prints a `path=` watch and a `dir=` rule on the same file or
+  directory both as `-w`, and they record different events. A `dir=` rule on
+  a directory covers the whole tree. On RHEL 10.2, a `dir=` rule on a regular
+  file stopped recording once the file was replaced by rename, which is how
+  `/etc/passwd` and `/etc/shadow` are updated. The test counted one record per
+  operation:
+
+  | operation | `dir=` | `path=` |
+  |---|---|---|
+  | write in place | 1 | 1 |
+  | chmod | 1 | 1 |
+  | chown | 1 | 1 |
+  | replace by rename | 1 | 1 |
+  | write after the replacement | 0 | 1 |
+
+  So over SSH such a check now returns not assessable, which a scan reports as
+  `skipped` with a detail that says so. Over the agent transport the check
+  reads the kernel rule through audit netlink, which shows the field type, and
+  passes or fails. On a host with every corpus audit rule loaded, 10 rules
+  move from pass to skipped over SSH: 56 of 66 audit rules still pass on
+  RHEL 10.2, and 39 of 49 on Rocky 9.8. The 10 are `audit-file-faillock`,
+  `audit-file-lastlog`, `audit-file-opasswd`, `audit-file-passwd`,
+  `audit-file-shadow`, `audit-logins`, `audit-mac-policy`, `audit-session`,
+  `audit-sudo-log` and `audit-sudoers`. The record test ran on RHEL 10.2 only.
 
 ### Fixed
 
-- **`audit_rule_set` no longer misses a duplicate written with
-  `auid!=unset`.** Before writing a rule, the handler refuses one whose kernel
-  rule is already in another `rules.d` file, because the duplicate aborts the
-  audit load at the next reboot. It compared `auid!=unset` in the new rule
-  with the same text in the file as different values, so for rules carrying
-  that filter it let the duplicate through. It also refused rules that were
-  not duplicates, such as a `never` rule or a rule with different filters.
-  It now uses the same comparison as `audit_rule_exists`. The shell rollback
-  of a staged rule uses it too, when it reports whether the rule is still
-  loaded after a reboot. There it is combined with the earlier comparison, so
-  a rollback never reports a cleaner restore than before. It now also reports
-  a rule still loaded when `auditctl -l` prints `auid!=unset`.
+- **`audit_rule_set` compares rules the way the kernel does before it writes
+  one.** The handler refuses to write a rule that would duplicate one already
+  in a `rules.d` file, because a duplicate aborts the audit load at the next
+  reboot. It missed real duplicates: a rule written `euid=root` beside one
+  written `euid=0`, or `-EACCES` beside `-13`, or `x86_64` beside `b64`. The
+  kernel treats each of these as one rule. It also refused rules that were not
+  duplicates, such as the same rule under another key, which the kernel loads
+  twice. It now builds each line as `auditctl` will on that host: names
+  resolve through the host's files, aliases resolve on x86_64 with audit 3.1.5
+  or 4.0.3, and a `-w` takes its type from the path. It refuses a pair it
+  cannot show to be different, and it refuses when it cannot read the drop-in,
+  the `rules.d` files or the host facts, where before it wrote the rule. A
+  `rules.d` line written with a flag against its argument, such as
+  `-w/etc/passwd`, is now compared too. The comparison was checked against
+  every rule pair loaded on RHEL 10.2 and Rocky 9.8, which give the same
+  results. The shell rollback of a staged rule still uses the earlier
+  comparison to report whether the rule is loaded after a reboot.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

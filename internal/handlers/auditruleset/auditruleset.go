@@ -56,11 +56,16 @@ const auditStatusCmd = "auditctl -s 2>/dev/null"
 
 // auditRulesScanCmd emits every watch/syscall rule LINE across all drop-ins in
 // /etc/audit/rules.d — the set augenrules compiles and loads at reboot. The
-// conflict guard matches a to-be-written rule's action against these (not just
-// the live ruleset) so it also catches an unloaded pre-existing duplicate and a
-// sibling staged to another file earlier in the same run. Needs root to read
-// the (mode-0700) directory; a non-root/failed read degrades to no scan.
-const auditRulesScanCmd = "grep -rhsE '^[[:space:]]*-(w|a|A)[[:space:]]' " + defaultRulesDir + "/ 2>/dev/null"
+// conflict guard compares a to-be-written rule against these (not just the
+// live ruleset) so it also catches an unloaded pre-existing duplicate and a
+// sibling staged to another file earlier in the same run. The pattern takes
+// a flag written against its argument (-w/etc/x, -Aexit,always), which
+// auditctl accepts. A missing directory holds no rules and exits 0; grep's
+// exit 1 (no rule lines) is an empty scan; anything else, such as exit 2
+// for a directory a non-root user cannot read, is returned so the guard
+// refuses rather than skipping the scan.
+const auditRulesScanCmd = "[ -d " + defaultRulesDir + " ] || exit 0; " +
+	"grep -rhsE '^[[:space:]]*-(w|a|A)' " + defaultRulesDir + "/; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
 
 // auditImmutableShell reports whether the live audit configuration is
 // immutable (auditctl -s prints "enabled 2"). A read-back error or an
@@ -162,13 +167,13 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 	if err != nil {
 		return nil, err
 	}
-	// Conflict guard: refuse to write a rule whose audit action is already
-	// present on the host from a DIFFERENT drop-in. A second file watching the
-	// same path+perms (or a duplicate syscall signature, even under the same
-	// key) collides at load ("Rule exists") and aborts the audit ruleset load —
-	// which drops immutability at the next reboot (observed on a live host). Per
-	// the detect-the-conflict-don't-silently-apply contract, surface it and stop;
-	// reconciling the existing rule is the operator's decision, not Kensa's.
+	// Conflict guard: refuse to write a line that builds the same kernel rule,
+	// key included, as a line already in some rules.d file, or one it cannot
+	// show to be different. The duplicate collides at load ("Rule exists")
+	// and aborts the audit ruleset load, which drops immutability at the next
+	// reboot. Per the detect-the-conflict-don't-silently-apply contract,
+	// surface it and stop; reconciling the existing rule is the operator's
+	// decision, not Kensa's.
 	if res := h.guardConflict(ctx, transport, p); res != nil {
 		return res, nil
 	}
@@ -183,16 +188,23 @@ func (h *Handler) Apply(ctx context.Context, transport api.Transport, params api
 }
 
 // guardConflict returns a non-nil, Success=false StepResult when applying this
-// rule would introduce a cross-file duplicate audit rule — the rule's action is
-// already present in the live ruleset but NOT yet in this rule's own drop-in
-// (so it must come from another file). Writing it would create the reboot-time
-// "Rule exists" collision that aborts the load and drops immutability. Returns
-// nil when there is no conflict, or when the host state cannot be read (best-
-// effort: never block a legitimate apply on an unreadable ruleset).
+// rule could introduce a duplicate audit rule: a line this apply adds builds,
+// on this host, the same kernel rule as a line already in some rules.d file
+// (check.AuditRuleIdentity). At the next reboot augenrules would load both,
+// the kernel would answer "Rule exists", and the load would abort and drop
+// immutability. A pair the predicate cannot show to be distinct, because a
+// fact it needs is not known, is refused the same way.
+//
+// The guard fails closed. When the target drop-in, the rules.d scan or the
+// host facts the comparison depends on cannot be read, it refuses: an apply
+// that cannot show it is not writing a duplicate does not write.
 func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p *Params) *api.StepResult {
+	refuse := func(format string, a ...interface{}) *api.StepResult {
+		return &api.StepResult{Success: false, Detail: "audit_rule_set: not applied: " + fmt.Sprintf(format, a...)}
+	}
 	existing, err := h.readFileShell(ctx, transport, p.RuleFile)
 	if err != nil {
-		return nil // cannot read the target drop-in → best-effort skip
+		return refuse("cannot read %s to check for a duplicate rule: %v", p.RuleFile, err)
 	}
 	// Only lines NOT already in this drop-in can introduce a NEW duplicate;
 	// re-applying our own file is idempotent, not a conflict.
@@ -200,23 +212,37 @@ func (h *Handler) guardConflict(ctx context.Context, transport api.Transport, p 
 	if len(fileAdded) == 0 {
 		return nil
 	}
-	// Scan the on-disk rules.d files — what augenrules actually loads at the
-	// next reboot — NOT just the live ruleset. This catches (a) a pre-existing
-	// duplicate that is not currently loaded (e.g. on a host whose load already
-	// aborted), and (b) a sibling rule staged to another drop-in EARLIER in the
-	// same remediate run (which is on disk but not yet loaded on an immutable
-	// host). grep exit 1 (no rule lines found) is not an error → empty scan.
 	res, rerr := transport.Run(ctx, auditRulesScanCmd)
 	if rerr != nil {
-		return nil // cannot read rules.d → best-effort skip
+		return refuse("cannot read %s to check for a duplicate rule: %v", defaultRulesDir, rerr)
 	}
-	onDisk := strings.Split(res.Stdout, "\n")
+	if !res.OK() {
+		return refuse("cannot read %s to check for a duplicate rule (exit %d): %s", defaultRulesDir,
+			res.ExitCode, strings.TrimSpace(res.Stderr))
+	}
+	var onDisk []string
+	for _, l := range strings.Split(res.Stdout, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			onDisk = append(onDisk, l)
+		}
+	}
+	if len(onDisk) == 0 {
+		return nil
+	}
+	target, terr := check.ReadAuditTarget(ctx, transport, append(append([]string{}, fileAdded...), onDisk...))
+	if terr != nil {
+		return refuse("cannot read the host facts needed to compare audit rules: %v", terr)
+	}
 	for _, line := range fileAdded {
-		if conflict := check.AuditActionLoaded(line, onDisk); conflict != "" {
-			return &api.StepResult{
-				Success: false,
-				Detail: fmt.Sprintf("audit_rule_set: conflict — action already audited as %q; writing to %s would duplicate it and abort the audit load at reboot. Not applied (reconcile the existing rule or accept it as satisfying the control).",
-					conflict, p.RuleFile),
+		for _, d := range onDisk {
+			switch id, why := check.AuditRuleIdentity(line, d, target); id {
+			case check.AuditSame:
+				return refuse("conflict — %q builds the same kernel rule as %q already in %s; writing it to %s "+
+					"would duplicate it and abort the audit load at reboot (reconcile the existing rule or accept "+
+					"it as satisfying the control)", line, d, defaultRulesDir, p.RuleFile)
+			case check.AuditUnresolved:
+				return refuse("cannot show that %q and %q in %s are different kernel rules (%s); a duplicate would "+
+					"abort the audit load at reboot", line, d, defaultRulesDir, why)
 			}
 		}
 	}

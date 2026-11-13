@@ -28,6 +28,11 @@ type fakeTransport struct {
 	cmdResult map[string]api.CommandResult
 	// errOn maps a command string to the error to return.
 	errOn map[string]error
+	// auditTarget answers the audit host-facts probe (AuditTargetProbe).
+	// Nil answers it as testAuditTarget does; see fakeAuditProbe.
+	auditTarget *AuditTarget
+	// noAuditProbe makes the probe fail like an unknown command.
+	noAuditProbe bool
 }
 
 func (f *fakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, error) {
@@ -36,6 +41,9 @@ func (f *fakeTransport) Run(_ context.Context, cmd string) (*api.CommandResult, 
 	}
 	if r, ok := f.cmdResult[cmd]; ok {
 		return &r, nil
+	}
+	if strings.HasPrefix(cmd, auditProbePrefix) && !f.noAuditProbe {
+		return &api.CommandResult{ExitCode: 0, Stdout: fakeAuditProbe(cmd, f.auditTarget), Duration: time.Millisecond}, nil
 	}
 	// Default: non-zero exit.
 	return &api.CommandResult{ExitCode: 1, Duration: time.Millisecond}, nil
@@ -98,14 +106,12 @@ func TestCheckCommand_NoOutputAssertionExitOnly(t *testing.T) {
 // false pass: a watch rule must match the full path+perms+key, not merely
 // the presence of its -k key. Several per-file watches can share one key
 // (the Ubuntu usergroup_modification cluster), so loading one must NOT
-// satisfy the checks for the others.
+// satisfy the checks for the others. The transport offers netlink, so the
+// watch's path field is known.
 func TestCheckAuditRuleExists_WatchFullMatch(t *testing.T) {
 	// Only /etc/group is loaded; its key usergroup_modification is present.
-	ft := &fakeTransport{
-		cmdResult: map[string]api.CommandResult{
-			"auditctl -l": result(0, "-w /etc/group -p wa -k usergroup_modification"),
-		},
-	}
+	ft := newNetlinkFake(t, "-w /etc/group -p wa -k usergroup_modification",
+		"-a always,exit -F path=/etc/group -F perm=wa -k usergroup_modification")
 	watch := func(path string) api.Check {
 		return api.Check{Method: "audit_rule_exists", Params: api.Params{
 			"rule": "-w " + path + " -p wa -k usergroup_modification",
@@ -206,11 +212,14 @@ func TestCheckAuditRuleExists_SyscallSetMatch(t *testing.T) {
 // audit-file-passwd, whose rule names the key identity, while the
 // audit_rule_set guard refused to add the rule because the action was already
 // audited. The check now gives the guard's answer. A rule that needs its own
-// key sets key_required. Loaded lines are auditctl -l output.
+// key sets key_required. Loaded lines are auditctl -l output, and the
+// transport offers netlink, so the watch's path field is known.
 func TestCheckAuditRuleExists_ActionDecides(t *testing.T) {
 	loaded := "-w /etc/passwd -p wa -k audit_rules_usergroup_modification\n" +
 		"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -F key=perm_mod"
-	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, loaded)}}
+	ft := newNetlinkFake(t, loaded,
+		"-a always,exit -F path=/etc/passwd -F perm=wa -k audit_rules_usergroup_modification",
+		"-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=-1 -k perm_mod")
 	chk := func(rule string, extra api.Params) api.Check {
 		p := api.Params{"rule": rule}
 		for k, v := range extra {
@@ -250,14 +259,6 @@ func TestCheckAuditRuleExists_ActionDecides(t *testing.T) {
 			}
 			if !strings.Contains(detail, c.detail) {
 				t.Errorf("detail %q does not say %q", detail, c.detail)
-			}
-			// Without key_required the check and the remediation guard must give
-			// the same answer for a single-line rule.
-			if c.params == nil {
-				guard := AuditActionLoaded(c.rule, strings.Split(loaded, "\n")) != ""
-				if passed != guard {
-					t.Errorf("check passed=%v but the guard says action present=%v", passed, guard)
-				}
 			}
 		})
 	}
@@ -1165,32 +1166,37 @@ func TestCheckKernelModuleState_ModprobeMissingIsAnError(t *testing.T) {
 	})
 }
 
-// TestAuditActionLoaded covers the key-agnostic duplicate-action matcher that
-// audit_rule_set uses to refuse writing a rule whose action is already audited
-// under a different key (the /etc/shadow identity-vs-usergroup collision that
-// broke a live host's immutability).
-func TestAuditActionLoaded(t *testing.T) {
-	loaded := []string{
+// TestAuditRuleIdentity_GuardCases covers the duplicate guard's predicate on
+// rules.d lines: two lines are refused only when they build one kernel rule
+// on the target, or when that cannot be ruled out. A rule under another key
+// loads twice (captured for syscall rules and for watches on a file and on a
+// directory), so it is allowed.
+func TestAuditRuleIdentity_GuardCases(t *testing.T) {
+	onDisk := []string{
 		"-w /etc/shadow -p wa -k audit_rules_usergroup_modification",
-		"-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=-1 -F key=perm_mod",
+		"-a always,exit -F arch=b64 -S chown,fchown,lchown,fchownat -F auid>=1000 -F auid!=unset -k perm_mod",
 	}
 	cases := []struct {
-		name  string
-		rule  string
-		match bool
+		name   string
+		rule   string
+		refuse bool
 	}{
-		{"watch same path+perm, different key", "-w /etc/shadow -p wa -k identity", true},
-		{"watch same path+perm, same key", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", true},
+		{"file watch same path+perm, different key (captured: loads twice)", "-w /etc/shadow -p wa -k identity", false},
+		{"file watch same path+perm, same key", "-w /etc/shadow -p wa -k audit_rules_usergroup_modification", true},
 		{"watch different path", "-w /etc/gshadow -p wa -k identity", false},
 		{"watch different perm", "-w /etc/shadow -p r -k identity", false},
-		{"syscall same action, different key", "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k other", true},
+		{"syscall same rule, different key", "-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k other", false},
+		{"syscall same rule, same key", "-a always,exit -F arch=b64 -S fchown,chown,fchownat,lchown -F auid>=1000 -F auid!=-1 -k perm_mod", true},
 		{"syscall different arch", "-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid>=1000 -F auid!=unset -k perm_mod", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := AuditActionLoaded(tc.rule, loaded) != ""
-			if got != tc.match {
-				t.Errorf("AuditActionLoaded(%q) present=%v, want %v", tc.rule, got, tc.match)
+			refused := false
+			for _, d := range onDisk {
+				refused = refused || guardRefuses(tc.rule, d)
+			}
+			if refused != tc.refuse {
+				t.Errorf("guard refuses %q = %v, want %v", tc.rule, refused, tc.refuse)
 			}
 		})
 	}
@@ -1200,15 +1206,15 @@ func TestAuditActionLoaded(t *testing.T) {
 // substring bug: "-F path=/usr/bin/su" must NOT match a loaded
 // "-F path=/usr/bin/sudo" (su ⊂ sudo). Guards BOTH the compliance check
 // (AuditLineLoaded — a false match is a false-PASS) and the conflict guard
-// (AuditActionLoaded — a false match is a wrongly-refused legitimate rule).
+// (AuditRuleIdentity — a false match is a wrongly-refused legitimate rule).
 func TestAuditMatch_NoPrefixPathFalseMatch(t *testing.T) {
 	loadedSudo := []string{"-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}
 	su := "-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged"
 	if AuditLineLoaded(su, loadedSudo) {
 		t.Error("AuditLineLoaded: /usr/bin/su false-matched /usr/bin/sudo (false-PASS)")
 	}
-	if AuditActionLoaded(su, loadedSudo) != "" {
-		t.Error("AuditActionLoaded: /usr/bin/su false-matched /usr/bin/sudo (false conflict)")
+	if guardRefuses(su, loadedSudo[0]) {
+		t.Error("the guard refused /usr/bin/su as a duplicate of /usr/bin/sudo (false conflict)")
 	}
 	// Sanity: an EXACT path still matches (fix didn't over-tighten).
 	loadedSu := []string{"-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}

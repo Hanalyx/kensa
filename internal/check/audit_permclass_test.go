@@ -39,59 +39,78 @@ func capturedPrints(t *testing.T, name string) [][2]string {
 	return out
 }
 
-// printsAsLimit reports the two captured cases the listing cannot match,
-// both recorded in the spec (C-06): a never path rule prints as the always
-// watch, and, when auditctl loaded it, an explicit syscall list prints
-// widened to the perm class. Loaded through netlink, an explicit list prints
-// as written and matches.
-func printsAsLimit(rule string, viaAuditctl bool) bool {
-	if strings.Contains(rule, "never,") {
-		return true
-	}
-	if !viaAuditctl {
-		return false
-	}
-	f := strings.Fields(rule)
-	for i, x := range f {
-		if x == "-S" && i+1 < len(f) && f[i+1] != "all" {
-			return true
-		}
-	}
-	return false
+// isNeverRule reports the captured limit the listing cannot match: a never
+// path rule prints as the always watch, so its action is lost (C-11).
+func isNeverRule(rule string) bool { return strings.Contains(rule, "never,") }
+
+// explicitWithPerm reports an explicit syscall list with a perm filter, which
+// auditctl loads joined with the class list.
+func explicitWithPerm(rule string) bool {
+	return strings.Contains(rule, " -S ") && !strings.Contains(rule, " -S all") && strings.Contains(rule, "-F perm=")
 }
 
-// Every path= and dir= rule captured on a real host matches the line
-// auditctl -l printed for it: the expanded perm-class list for an arch rule,
-// the -w form for a rule without arch, and -S all for a rule loaded through
-// netlink, on both captured audit versions.
+// archClassRule reports a rule auditctl loads with a perm class list: an
+// equality arch, a path or dir field, a perm and no -S.
+func archClassRule(rule string) bool {
+	return strings.Contains(rule, "-F arch=") && strings.Contains(rule, "-F perm=") &&
+		!strings.Contains(rule, " -S ") && (strings.Contains(rule, "path=") || strings.Contains(rule, "dir="))
+}
+
+// Every path= and dir= rule captured on a real host compares with the line
+// auditctl -l printed for it. Loaded by auditctl, the listed line is the rule
+// auditctl built (AuditLoadedIdentity never says Distinct), and it covers the
+// rule or, for an arch-less watch, cannot show it (never NotCovered).
+// Loaded through netlink, as the agent loads it, a rule with no -S lists as
+// -S all: for an arch rule that is a different kernel rule from the class
+// list auditctl builds (pair 20), and it still covers the rule.
 //
 // @spec check-audit-rule-match
 // @ac AC-09
 func TestAuditPermClass_CapturedPrintsMatch(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-09", func(t *testing.T) {
+		target := testAuditTarget()
 		for _, name := range []string{"audit-4.0.3-auditctl.tsv", "audit-3.1.5-auditctl.tsv", "audit-4.0.3-netlink.tsv",
 			"audit-3.1.5-netlink.tsv"} {
+			netlink := strings.HasSuffix(name, "-netlink.tsv")
 			for _, row := range capturedPrints(t, name) {
 				rule, printed := row[0], row[1]
-				want := !printsAsLimit(rule, !strings.HasSuffix(name, "-netlink.tsv"))
-				if got := AuditLineLoaded(rule, []string{printed}); got != want {
-					t.Errorf("%s: AuditLineLoaded(%q, printed)=%v want %v\n printed: %s", name, rule, got, want, printed)
+				if isNeverRule(rule) {
+					continue
 				}
-				if got := AuditActionLoaded(rule, []string{printed}) != ""; got != want {
-					t.Errorf("%s: AuditActionLoaded(%q, printed)=%v want %v", name, rule, got, want)
+				id, why := AuditLoadedIdentity(rule, printed, target)
+				switch {
+				case netlink && (archClassRule(rule) || explicitWithPerm(rule)):
+					// auditctl builds these with the class list; netlink loads
+					// them as written, a different kernel rule.
+					if id != AuditDistinct {
+						t.Errorf("%s: %q listed as %q: identity %v, want distinct (auditctl and netlink build different rules)",
+							name, rule, printed, id)
+					}
+				case id == AuditDistinct:
+					t.Errorf("%s: %q listed as %q: identity distinct (%s)", name, rule, printed, why)
 				}
-				// The rollback verdict (interim union) counts it as loaded too.
-				if want && !AuditLineMaybeLoaded(rule, []string{printed}) {
-					t.Errorf("%s: AuditLineMaybeLoaded(%q, printed)=false", name, rule)
+				c, cwhy := auditRuleCovers(parseAuditK(rule, auditSource), parseAuditK(printed, auditLoaded), target)
+				if c == AuditNotCovered {
+					t.Errorf("%s: %q not covered by its own listing %q (%s)", name, rule, printed, cwhy)
+				}
+				if c == AuditCoverAmbiguous && !strings.HasPrefix(printed, "-w ") {
+					t.Errorf("%s: %q ambiguous against an explicit listing %q (%s)", name, rule, printed, cwhy)
 				}
 			}
 		}
 	})
 }
 
+// covers reports whether the listed line covers the requirement on the
+// test target.
+func covers(req, listed string) AuditCoverage {
+	c, _ := auditRuleCovers(parseAuditK(req, auditSource), parseAuditK(listed, auditLoaded), testAuditTarget())
+	return c
+}
+
 // The check compares against the printed listing. A loaded line missing one
 // syscall of the class, a different perm, a different arch, or a different
-// path does not satisfy the rule, and the failure detail names what is
+// path does not cover the rule, and the failure detail names what is
 // missing.
 //
 // @spec check-audit-rule-match
@@ -108,8 +127,8 @@ func TestAuditPermClass_CheckRefusesNarrower(t *testing.T) {
 		if printed == "" {
 			t.Fatal("fixture row not found")
 		}
-		if !AuditLineLoaded(rule, []string{printed}) {
-			t.Fatalf("control: the captured line does not satisfy the rule")
+		if covers(rule, printed) != AuditCovered {
+			t.Fatalf("control: the captured line does not cover the rule")
 		}
 		dropped := strings.Replace(printed, ",fchownat,", ",", 1)
 		cases := map[string]string{
@@ -120,8 +139,8 @@ func TestAuditPermClass_CheckRefusesNarrower(t *testing.T) {
 			"never action":        strings.Replace(printed, "always,exit", "never,exit", 1),
 		}
 		for name, loaded := range cases {
-			if AuditLineLoaded(rule, []string{loaded}) || AuditActionLoaded(rule, []string{loaded}) != "" {
-				t.Errorf("%s: matched %q", name, loaded)
+			if c := covers(rule, loaded); c != AuditNotCovered {
+				t.Errorf("%s: coverage %v for %q", name, c, loaded)
 			}
 		}
 		passed, detail := auditCheck(t, rule, dropped)
@@ -134,10 +153,12 @@ func TestAuditPermClass_CheckRefusesNarrower(t *testing.T) {
 	})
 }
 
-// The guard compares against rules.d text as written: no -S, or -S all.
-// Two hand-written path rules with the same arch and path but different perm
-// values are never duplicates, whether the other is written plainly, with
-// -S all, or with the expanded list pasted from a listing; the same perm is.
+// The guard compares rules.d lines as auditctl will load them. A path rule
+// with no -S loads as the class list for its arch and perm, and so does the
+// same rule with that list pasted in (an explicit list with a perm filter
+// loads as the list joined with the class list). Rules with different perm
+// values are never duplicates, and -S all is a different kernel rule from
+// the class list (captured pair 20).
 //
 // @spec check-audit-rule-match
 // @ac AC-11
@@ -146,18 +167,17 @@ func TestAuditPermClass_GuardKeepsPermsApart(t *testing.T) {
 		perms := []string{"r", "w", "x", "a", "wa", "rwa", "rwxa"}
 		for _, arch := range []string{"b32", "b64"} {
 			for _, p := range perms {
-				rule := "-a always,exit -F arch=" + arch + " -F path=/etc/shadow -F perm=" + p + " -k new"
+				rule := "-a always,exit -F arch=" + arch + " -F path=/etc/shadow -F perm=" + p + " -k k"
 				for _, q := range perms {
-					forms := []string{
-						"-a always,exit -F arch=" + arch + " -F path=/etc/shadow -F perm=" + q + " -k old",
-						"-a always,exit -F arch=" + arch + " -S all -F path=/etc/shadow -F perm=" + q + " -k old",
+					forms := map[string]bool{
+						"-a always,exit -F arch=" + arch + " -F path=/etc/shadow -F perm=" + q + " -k k":        p == q,
+						"-a always,exit -F arch=" + arch + " -S all -F path=/etc/shadow -F perm=" + q + " -k k": false,
 						"-a always,exit -F arch=" + arch + " -S " + strings.Join(auditPermClass[arch][q][0], ",") +
-							" -F path=/etc/shadow -F perm=" + q + " -k old",
+							" -F path=/etc/shadow -F perm=" + q + " -k k": p == q,
 					}
-					for _, onDisk := range forms {
-						dup := AuditActionLoaded(rule, []string{onDisk}) != ""
-						if dup != (p == q) {
-							t.Errorf("guard: rule perm=%s against %q: duplicate=%v want %v", p, onDisk, dup, p == q)
+					for onDisk, want := range forms {
+						if dup := guardRefuses(rule, onDisk); dup != want {
+							t.Errorf("guard: rule perm=%s against %q: refuse=%v want %v", p, onDisk, dup, want)
 						}
 					}
 				}
@@ -166,69 +186,122 @@ func TestAuditPermClass_GuardKeepsPermsApart(t *testing.T) {
 	})
 }
 
-// A dir= rule without arch is the -w watch auditctl -l prints for it, with or
-// without a trailing slash on either side.
+// An arch-less dir= or path= rule, or a -w, lists as -w, which cannot show
+// whether the kernel rule has a path or a dir field. Coverage is then
+// ambiguous, unless the listing shows the field: a trailing slash only a
+// dir= rule keeps, or the netlink rendering that names the field.
 //
 // @spec check-audit-rule-match
 // @ac AC-07
-func TestAuditPermClass_DirFoldsIntoWatch(t *testing.T) {
+func TestAuditPermClass_WatchListingNeedsTheFieldType(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-07", func(t *testing.T) {
-		for _, c := range [][2]string{
-			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", "-w /etc/sudoers.d -p wa -k d"},
-			{"-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d"},
-			{"-w /etc/sudoers.d -p wa -k d", "-w /etc/sudoers.d/ -p wa -k d"},
-		} {
-			if !AuditLineLoaded(c[0], []string{c[1]}) {
-				t.Errorf("%q does not match %q", c[0], c[1])
-			}
+		netDir := "-a always,exit -S all -F dir=/etc/sudoers.d -F perm=wa -F key=d"
+		netPath := "-a always,exit -S all -F path=/etc/sudoers.d -F perm=wa -F key=d"
+		cases := []struct {
+			req, listed string
+			want        AuditCoverage
+		}{
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", "-w /etc/sudoers.d -p wa -k d", AuditCoverAmbiguous},
+			{"-w /etc/sudoers.d -p wa -k d", "-w /etc/sudoers.d -p wa -k d", AuditCoverAmbiguous},
+			{"-w /etc/passwd -p wa -k d", "-w /etc/passwd -p wa -k d", AuditCoverAmbiguous},
+			{"-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d", AuditCovered},
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d", AuditNotCovered},
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", netDir, AuditCovered},
+			{"-w /etc/sudoers.d -p wa -k d", netDir, AuditCovered},
+			{"-a always,exit -F path=/etc/sudoers.d -F perm=wa -k d", netDir, AuditNotCovered},
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", netPath, AuditNotCovered},
+			{"-a always,exit -F path=/etc/sudoers.d -F perm=wa -k d", netPath, AuditCovered},
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -F auid>=1000 -k d", netDir, AuditNotCovered},
 		}
-		if AuditLineLoaded("-a always,exit -F dir=/etc/sudoers.d -F perm=wa -F auid>=1000 -k d",
-			[]string{"-w /etc/sudoers.d -p wa -k d"}) {
-			t.Error("a dir rule with another filter matched a plain watch")
+		for _, c := range cases {
+			if got := covers(c.req, c.listed); got != c.want {
+				t.Errorf("%q against %q: %v want %v", c.req, c.listed, got, c.want)
+			}
 		}
 	})
 }
 
-// The guard against the kernel's own duplicate test: for each pair the kernel
-// refused as "Rule exists" (one kernel rule), the guard calls the second a
-// duplicate of the first, so it never lets augenrules hit that refusal at
-// boot. The four name and alias pairs are the C-06 limit (values compared as
-// written), where the guard still misses the duplicate.
+// The guard against the kernel's own duplicate test, on every captured pair
+// (two fixtures, both audit versions): a pair the kernel loads once ("Rule
+// exists") is never Distinct, and a pair it loads twice is Distinct, apart
+// from the named over-refusals, which refuse a rule the kernel would accept.
+// A pair whose rule the kernel or auditctl refuses outright is never
+// Distinct.
 //
 // @spec check-audit-rule-match
 // @ac AC-12
 func TestAuditPermClass_GuardAgreesWithKernelDuplicates(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-12", func(t *testing.T) {
-		nameLimit := map[string]bool{"exit-name-vs-number": true, "auid-name-vs-number": true,
-			"euid-name-vs-number-samekey": true, "arch-alias-samekey": true}
-		f, err := os.ReadFile(filepath.Join("testdata", "auditctl", "audit-4.0.3-pairs.tsv"))
-		if err != nil {
-			t.Fatal(err)
+		target := testAuditTarget()
+		target.Paths["/etc/localtime"] = AuditPathSymlink
+		target.Paths["/etc/kensa-missing"] = AuditPathMissing
+		// Over-refusals: the kernel loads both, the guard cannot show they differ.
+		overRefuse := map[string]AuditIdentity{
+			"field-order-samekey":  AuditSame,       // the kernel compares fields in order; we compare sets
+			"leading-zero-samekey": AuditUnresolved, // auditctl reads 01000 as octal; non-canonical numbers stay unresolved
 		}
-		seen := 0
-		for _, line := range strings.Split(strings.TrimRight(string(f), "\n"), "\n") {
-			if strings.HasPrefix(line, "#") {
-				continue
+		// One kernel rule that the guard reaches only as Unresolved.
+		unresolvedOne := map[string]bool{"symlink-watch-vs-pathrule-samekey": true}
+		type row struct{ name, a, b, aExit, bExit, bErr string }
+		var rows []row
+		for _, f := range []string{"audit-4.0.3-pairs.tsv", "audit-pairs-2.tsv"} {
+			b, err := os.ReadFile(filepath.Join("testdata", "auditctl", f))
+			if err != nil {
+				t.Fatal(err)
 			}
-			c := strings.Split(line, "\t")
-			if len(c) != 5 || c[4] != "Rule exists" {
-				continue
-			}
-			seen++
-			dup := AuditActionLoaded(c[2], []string{c[1]}) != ""
-			if dup == nameLimit[c[0]] {
-				t.Errorf("%s: kernel says one rule; guard duplicate=%v (name limit %v)", c[0], dup, nameLimit[c[0]])
+			for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+				if strings.HasPrefix(line, "#") {
+					continue
+				}
+				c := strings.Split(line, "\t")
+				switch len(c) {
+				case 5:
+					rows = append(rows, row{c[0], c[1], c[2], "0", c[3], c[4]})
+				case 6:
+					rows = append(rows, row{c[0], c[1], c[2], c[3], c[4], c[5]})
+				default:
+					t.Fatalf("%s: bad row %q", f, line)
+				}
 			}
 		}
-		if seen < 10 {
-			t.Fatalf("only %d Rule-exists pairs in the fixture", seen)
+		var one, two int
+		for _, r := range rows {
+			id, why := AuditRuleIdentity(r.b, r.a, target)
+			switch {
+			case r.aExit != "0" || (r.bExit != "0" && r.bErr != "Rule exists"):
+				if id == AuditDistinct {
+					t.Errorf("%s: a rule the host refuses outright compared distinct (%s)", r.name, why)
+				}
+			case r.bErr == "Rule exists":
+				one++
+				want := AuditSame
+				if unresolvedOne[r.name] {
+					want = AuditUnresolved
+				}
+				if id != want {
+					t.Errorf("%s: kernel says one rule; identity %v want %v (%s)", r.name, id, want, why)
+				}
+			default:
+				two++
+				want, ok := overRefuse[r.name]
+				if !ok {
+					want = AuditDistinct
+				}
+				if id != want {
+					t.Errorf("%s: kernel loads both; identity %v want %v (%s)", r.name, id, want, why)
+				}
+			}
+		}
+		if one < 15 || two < 15 {
+			t.Fatalf("too few rows: %d one-rule, %d two-rule", one, two)
 		}
 	})
 }
 
-// A rule that says -S all is matched exactly: the kernel's perm classes hold
-// syscalls auditctl's list lacks, so the expanded line audits less. A rule
-// with an arch filter other than equality never takes the perm-class path.
+// A rule that says -S all needs a loaded rule over every syscall: the
+// kernel's perm classes hold syscalls auditctl's list lacks, so the expanded
+// line covers less. A rule with an arch filter other than equality never
+// takes the perm-class path, so its loaded list is not known.
 //
 // @spec check-audit-rule-match
 // @ac AC-10
@@ -236,17 +309,15 @@ func TestAuditPermClass_ExplicitAllAndArchOperator(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-10", func(t *testing.T) {
 		list := strings.Join(auditPermClass["b32"]["wa"][0], ",")
 		expanded := "-a always,exit -F arch=b32 -S " + list + " -F path=/etc/hosts -F perm=wa -F key=system-locale"
-		if AuditLineLoaded("-a always,exit -F arch=b32 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale",
-			[]string{expanded}) {
-			t.Error("an explicit -S all rule matched the expanded list")
+		if c := covers("-a always,exit -F arch=b32 -S all -F path=/etc/hosts -F perm=wa -F key=system-locale", expanded); c != AuditNotCovered {
+			t.Errorf("an explicit -S all rule: %v against the expanded list", c)
 		}
-		if !AuditLineLoaded("-a always,exit -F arch=b32 -F path=/etc/hosts -F perm=wa -F key=system-locale",
-			[]string{expanded}) {
-			t.Error("control: the rule with no -S did not match its expanded list")
+		if c := covers("-a always,exit -F arch=b32 -F path=/etc/hosts -F perm=wa -F key=system-locale", expanded); c != AuditCovered {
+			t.Errorf("control: the rule with no -S: %v against its expanded list", c)
 		}
 		b64 := strings.Join(auditPermClass["b64"]["wa"][0], ",")
-		if AuditLineLoaded("-a always,exit -F arch!=b64 -F path=/etc/shadow -F perm=wa -k x",
-			[]string{"-a always,exit -F arch!=b64 -S " + b64 + " -F path=/etc/shadow -F perm=wa -F key=x"}) {
+		if c := covers("-a always,exit -F arch!=b64 -F path=/etc/shadow -F perm=wa -k x",
+			"-a always,exit -F arch!=b64 -S "+b64+" -F path=/etc/shadow -F perm=wa -F key=x"); c == AuditCovered {
 			t.Error("an arch!= rule took the perm-class path")
 		}
 	})
