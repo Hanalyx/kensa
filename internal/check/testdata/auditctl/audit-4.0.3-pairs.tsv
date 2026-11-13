@@ -1,4 +1,5 @@
 # Captured audit-4.0.3, RHEL 10.2, kernel 6.12.0-211, 2026-11-12. After auditctl -D, rule A then rule B loaded with auditctl.
+# audit-3.1.5 (Rocky 9.8, kernel 5.14) gave the same exit status and the same printed listing for every row.
 # name\tA\tB\tB exit status\tB error ("Rule exists" means one kernel rule; "-" for none)
 auid-unset-vs-minus1	-a always,exit -F arch=b64 -S chmod -F auid!=unset -k a3	-a always,exit -F arch=b64 -S chmod -F auid!=-1 -k a1	0	-
 reversed-C	-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=unset -k c1	-a always,exit -F arch=b64 -S execve -C euid!=uid -F auid!=unset -k c2	0	-

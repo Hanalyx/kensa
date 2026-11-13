@@ -136,12 +136,19 @@ Each implementation has a `check` and a `remediation`:
   `delimiter`. Set `delimiter: " "` for whitespace-separated files such as
   `/etc/login.defs` (`KEY value`); the default delimiter is `=`.
   In the next release (unreleased; not in v0.13.0), `audit_rule_exists`
-  grades the audited action, not the `-k` key label, and `key_required` is
-  new: a host that watches `/etc/passwd -p wa` under another key passes, and
-  the detail says so. Every other part of the line must match the loaded
-  kernel rule, so write the full rule, filters included, not a partial
-  pattern. Set `key_required: true` when a deployment needs the rule loaded
-  under its own key. Each method declares its own required and
+  checks that a loaded rule covers the line, not the `-k` key label, and
+  `key_required` is new: a host that audits the same events under another key
+  passes, and the detail says so. The loaded rule needs the same action, the
+  same filters, the same path or `dir` field and the same permissions, and
+  for an `always` rule at least the line's syscalls, so write the full rule,
+  filters included, not a partial pattern. Set `key_required: true` when a
+  deployment needs the rule loaded under its own key. A watch line, or a path
+  or `dir` rule with no arch and only a `perm` filter, is skipped when such a
+  line is loaded:
+  `auditctl -l` prints a `path=` watch and a `dir=` rule both as `-w`, and
+  they record different events, so the check cannot tell whether it is
+  covered. To keep such a rule decidable, give it an arch; the listing then
+  names its field. Each method declares its own required and
   optional fields; the canonical rule schema holds the full method table.
 - **`set_compare`** answers "only authorized members are present". It takes
   `observed_command`, run on the host, one member per line of output, and

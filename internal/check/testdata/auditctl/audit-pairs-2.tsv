@@ -1,0 +1,23 @@
+# Captured 2026-11-12 on audit-4.0.3 (RHEL 10.2, kernel 6.12) and audit-3.1.5 (Rocky 9.8, kernel 5.14), x86_64;
+# both give the same result for every row. After auditctl -D, rule A then rule B loaded with auditctl. On the
+# hosts /etc/shadow is a regular file, /etc/sudoers.d a directory, /etc/localtime a symlink, /etc/kensa-missing absent.
+# name\tA\tB\tA exit status\tB exit status\tB error ("Rule exists" means one kernel rule; "-" for none)
+file-watch-diff-key	-w /etc/shadow -p wa -k a	-w /etc/shadow -p wa -k b	0	0	-
+file-pathrule-diff-key	-a always,exit -F path=/etc/shadow -F perm=wa -k a	-a always,exit -F path=/etc/shadow -F perm=wa -k b	0	0	-
+file-watch-vs-pathrule-diff-key	-w /etc/shadow -p wa -k a	-a always,exit -F path=/etc/shadow -F perm=wa -k b	0	0	-
+dir-watch-vs-pathrule-samekey	-w /etc/sudoers.d -p wa -k k1	-a always,exit -F path=/etc/sudoers.d -F perm=wa -k k1	0	0	-
+dirfield-slash-samekey	-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k k1	-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k k1	0	0	-
+dirfield-vs-pathfield-on-dir-samekey	-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k k1	-a always,exit -F path=/etc/sudoers.d -F perm=wa -k k1	0	0	-
+symlink-watch-vs-pathrule-samekey	-w /etc/localtime -p wa -k k1	-a always,exit -F path=/etc/localtime -F perm=wa -k k1	0	255	Rule exists
+missing-watch-vs-pathrule-samekey	-w /etc/kensa-missing -p wa -k k1	-a always,exit -F path=/etc/kensa-missing -F perm=wa -k k1	0	255	Rule exists
+key-order	-a always,exit -F arch=b64 -S chown -k a -k b	-a always,exit -F arch=b64 -S chown -k b -k a	0	0	-
+key-on-one-side	-a always,exit -F arch=b64 -S chown	-a always,exit -F arch=b64 -S chown -k a	0	0	-
+perm-order-samekey	-w /etc/shadow -p wa -k k1	-w /etc/shadow -p aw -k k1	0	255	Rule exists
+watch-default-perm-samekey	-w /etc/shadow -k k1	-w /etc/shadow -p rwxa -k k1	0	255	Rule exists
+nos-vs-all-no-perm-samekey	-a always,exit -F arch=b64 -F auid>=1000 -k k1	-a always,exit -F arch=b64 -S all -F auid>=1000 -k k1	255	0	-
+leading-zero-samekey	-a always,exit -F arch=b64 -S chown -F auid>=1000 -k k1	-a always,exit -F arch=b64 -S chown -F auid>=01000 -k k1	0	0	-
+field-order-samekey	-a always,exit -F arch=b64 -S chown -F auid>=1000 -F auid!=unset -k k1	-a always,exit -F arch=b64 -S chown -F auid!=unset -F auid>=1000 -k k1	0	0	-
+explicit-x-vs-class-x-samekey	-a always,exit -F arch=b64 -S execve -F path=/etc/shadow -F perm=x -k k1	-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=x -k k1	0	255	Rule exists
+explicit-execve-wa-vs-class-wa-samekey	-a always,exit -F arch=b64 -S execve -F path=/etc/shadow -F perm=wa -k k1	-a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa -k k1	0	0	-
+b32-vs-i386-samekey	-a always,exit -F arch=b32 -S chown -k k1	-a always,exit -F arch=i386 -S chown -k k1	0	255	Rule exists
+arch-one-side-samekey	-a always,exit -S chown -k k1	-a always,exit -F arch=b64 -S chown -k k1	0	0	-

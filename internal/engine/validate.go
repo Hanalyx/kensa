@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/check"
@@ -98,6 +99,9 @@ func (e *Engine) recheck(ctx context.Context, transport api.Transport, chk api.C
 	res, err := check.Run(ctx, transport, chk)
 	vr := api.ValidatorResult{Name: "post-apply-recheck", Evidence: res.Detail}
 	switch {
+	case errors.Is(err, check.ErrAmbiguousEvidence):
+		vr.Passed = true
+		vr.Detail = "unverified: post-apply re-check read the host but cannot show the result (change left applied): " + err.Error()
 	case err != nil:
 		vr.Passed = true
 		vr.Detail = "unverified: post-apply re-check could not read host state (ERROR != FAIL, change left applied): " + err.Error()

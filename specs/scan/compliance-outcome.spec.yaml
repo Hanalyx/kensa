@@ -1,6 +1,6 @@
 spec:
     id: scan-compliance-outcome
-    version: 0.2.0
+    version: 0.3.0
     status: draft
     tier: 2
 
@@ -131,6 +131,22 @@ spec:
               standalone-CLI safety net.)
           type: technical
           enforcement: error
+        - id: C-08
+          description: |
+              On the remediate path, a rule whose pre-check returns
+              check.ErrAmbiguousEvidence (the host was read and holds
+              something that may already satisfy the rule, which the check
+              cannot prove either way) MUST NOT reach the engine. It records
+              the same record as the platform gate: a StatusErrored
+              transaction with HostUnchanged true and no CommittedAt, which
+              is what an API reader of RemediationResult sees; only the
+              Skipped progress update and the CLI row say skipped. AlreadyCompliant stays false, because
+              compliance was not shown. Scan reports such a rule
+              ComplianceSkipped, as for any ErrNotAssessable. Other
+              not-assessable pre-checks, such as an unreadable ruleset, keep
+              their behavior.
+          type: technical
+          enforcement: error
 
     acceptance_criteria:
         - id: AC-01
@@ -188,6 +204,10 @@ spec:
               rather than asserting on struct literals.
           references_constraints: [C-01]
           priority: high
+        - id: AC-10
+          description: An audit watch rule whose pre-check is ambiguous, on a host that loads the same watch under the rule's own key and on one that loads it under another key, never reaches the engine (zero Run invocations), records StatusErrored with HostUnchanged true, no CommittedAt and AlreadyCompliant false, and emits a Skipped progress update. An unreadable ruleset still reaches the engine.
+          references_constraints: [C-08]
+          priority: critical
     depends_on: []
 
     tags: [scan, compliance, outcome, api, tier-2]

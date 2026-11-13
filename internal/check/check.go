@@ -142,22 +142,35 @@ func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool
 // separated by semicolons; Evidence concatenates every child's evidence (each
 // child's Run wraps the transport in its own recorder, so commands are
 // attributed to the right sub-check method).
+//
+// A child that cleanly fails decides the result even when another child
+// returned an error: under AND, one proven failure makes the whole check
+// fail, whatever the other child could not establish. Only when no child
+// failed is the first error returned.
 func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (Result, error) {
 	var details []string
 	var evidence []api.CheckEvidence
+	var firstErr error
 	allPass := true
 	for _, c := range checks {
 		sub, err := Run(ctx, transport, c)
-		if err != nil {
-			return Result{}, err
-		}
 		evidence = append(evidence, sub.Evidence...)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			details = append(details, err.Error())
+			continue
+		}
 		if sub.Detail != "" {
 			details = append(details, sub.Detail)
 		}
 		if !sub.Passed {
 			allPass = false
 		}
+	}
+	if allPass && firstErr != nil {
+		return Result{}, firstErr
 	}
 	return Result{Passed: allPass, Detail: strings.Join(details, "; "), Evidence: evidence}, nil
 }
@@ -876,18 +889,27 @@ func checkServiceState(ctx context.Context, transport api.Transport, params api.
 // checkAuditRuleExists verifies that an audit rule is present in the
 // effective kernel ruleset loaded by auditd, read with auditctl -l.
 //
-// The action decides compliance, not the -k key label. A line passes when the
-// loaded ruleset holds the same kernel rule: the same -a action and list, the
-// same syscalls, and the same set of -C comparisons and -F filters, or for a
-// watch the same path and permissions. Only the key may differ. That is the
-// predicate the audit_rule_set remediation guard uses to refuse a duplicate
-// (AuditActionLoaded), so the check and the guard give one answer. A host
-// that audits writes to /etc/passwd under another key is compliant; a rule
-// that needs its own key says so with key_required.
+// A line passes when some loaded rule covers it (auditRuleCovers): the same
+// action and list, the same filters once names and aliases are resolved on
+// the target, the same path or dir field and perm, and for an always rule a
+// syscall mask that contains the requirement's. A loaded rule over more
+// syscalls records every event the requirement asks for, so it passes; it
+// is not a duplicate of the requirement, which is a separate question the
+// audit_rule_set guard asks (AuditRuleIdentity). The key label does not
+// decide compliance: a host that audits writes to /etc/passwd under another
+// key is compliant, and a rule that needs its own key says so with
+// key_required.
 //
-// Open limit: the check reads the loaded ruleset as a set and does not model
-// rule order. A never rule loaded ahead of a matching always rule suppresses
-// that rule's records, and the check does not detect it.
+// When a loaded line may cover a requirement line but the listing cannot
+// show it, the check reports ErrAmbiguousEvidence (an ErrNotAssessable)
+// rather than pass or fail: a scan reports it as skipped, and remediate
+// leaves the host unchanged. The main case is an arch-less watch: auditctl
+// -l prints a path= rule and a dir= rule on the same file or directory both
+// as -w, and they record different events.
+//
+// Open limit: rule order is not modeled. A never rule loaded ahead of a
+// covering always rule suppresses that rule's records, and the check does
+// not detect it.
 //
 // Params: rule (full audit rule string, one or more lines); key_required
 // (optional bool, default false: when true, every line must also be loaded
@@ -934,29 +956,42 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 
 	// A rule may carry several lines — e.g. a syscall control's b32 + b64
 	// variants, or EPERM + EACCES pairs. Every line must be present.
-	//
-	// The line under its own key is tried first, so the detail says when a
-	// line passed only under another key.
-	var otherKey []string
+	var reqs []string
 	for _, line := range strings.Split(rule, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+		if line != "" && !strings.HasPrefix(line, "#") {
+			reqs = append(reqs, line)
 		}
-		if AuditLineLoaded(line, loaded) {
-			continue
-		}
-		if !keyRequired {
-			if got := AuditActionLoaded(line, loaded); got != "" {
-				otherKey = append(otherKey, got)
-				continue
+	}
+	target, err := readAuditCoverageTarget(ctx, transport, append(append([]string{}, reqs...), loaded...))
+	if err != nil {
+		return false, "", fmt.Errorf("check audit_rule_exists: read the host facts audit rules depend on: %w", err)
+	}
+
+	var otherKey, unsure []string
+	for _, line := range reqs {
+		v, got, why := auditLineCoverage(line, loaded, target, keyRequired)
+		switch v {
+		case auditLineOwnKey:
+		case auditLineOtherKey:
+			otherKey = append(otherKey, got)
+		case auditLineAmbiguous:
+			unsure = append(unsure, fmt.Sprintf("%s (%s)", normaliseAuditRule(line), why))
+		default:
+			if keyRequired {
+				return false, fmt.Sprintf("audit_rule_exists: rule line not loaded under its own key (key_required): %s", normaliseAuditRule(line)), nil
 			}
+			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s%s", normaliseAuditRule(line),
+				auditPermClassDetail(line, loaded)), nil
 		}
-		if keyRequired {
-			return false, fmt.Sprintf("audit_rule_exists: rule line not loaded under its own key (key_required): %s", normaliseAuditRule(line)), nil
+	}
+	if len(unsure) > 0 {
+		what := "this line is"
+		if len(unsure) > 1 {
+			what = fmt.Sprintf("these %d lines are", len(unsure))
 		}
-		return false, fmt.Sprintf("audit_rule_exists: rule line not loaded: %s%s", normaliseAuditRule(line),
-			auditPermClassDetail(line, loaded)), nil
+		return false, "", fmt.Errorf("%w. The loaded rules cannot show that %s covered: %s.%s",
+			ErrAmbiguousEvidence, what, strings.Join(unsure, "; "), auditWatchKindNote(unsure))
 	}
 	if len(otherKey) > 0 {
 		return true, fmt.Sprintf("audit_rule_exists: all rule actions present in loaded ruleset; %d line(s) audited under another key: %s",
@@ -965,14 +1000,90 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
 }
 
+// auditWatchKindNote explains the watch case in plain terms. The skipped
+// verdict it produces has a different cause from the other not-assessable
+// cases, where the operator has something to supply: here the listing
+// itself cannot show the answer.
+func auditWatchKindNote(unsure []string) string {
+	for _, u := range unsure {
+		if strings.Contains(u, auditWatchKindUnknown) {
+			return " auditctl -l prints a path= watch and a dir= rule on the same file or directory the same way, " +
+				"as -w. The two record different events. A dir= rule on a directory covers everything below it. " +
+				"A dir= rule on a file stops recording once the file is replaced by rename. This listing cannot " +
+				"tell them apart, so coverage is not proven."
+		}
+	}
+	return ""
+}
+
+type auditLineVerdict int
+
+const (
+	auditLineMissing auditLineVerdict = iota
+	auditLineOwnKey
+	auditLineOtherKey
+	auditLineAmbiguous
+)
+
+// auditLineCoverage finds the best loaded line for one requirement line:
+// covered under its own key, then covered under another key (unless
+// keyRequired), then a line that may cover it, then none.
+func auditLineCoverage(line string, loaded []string, t *AuditTarget, keyRequired bool) (auditLineVerdict, string, string) {
+	req := parseAuditK(line, auditSource)
+	if !req.ok {
+		return auditLineMissing, "", "not an audit rule"
+	}
+	other, why := "", ""
+	ambiguous := false
+	for _, l := range loaded {
+		got := parseAuditK(l, auditLoaded)
+		if !got.ok {
+			continue
+		}
+		c, w := auditRuleCovers(req, got, t)
+		ownKey := auditKeysCover(req.keys, got.keys)
+		switch {
+		case c == AuditCovered && ownKey:
+			return auditLineOwnKey, strings.TrimSpace(l), ""
+		case c == AuditCovered && !keyRequired && other == "":
+			other = strings.TrimSpace(l)
+		case c == AuditCoverAmbiguous && (ownKey || !keyRequired) && !ambiguous:
+			ambiguous, why = true, w
+		}
+	}
+	switch {
+	case other != "":
+		return auditLineOtherKey, other, ""
+	case ambiguous:
+		return auditLineAmbiguous, "", why
+	}
+	return auditLineMissing, "", ""
+}
+
+// auditKeysCover reports whether got carries every key want names. A rule
+// with no key is covered under any key.
+func auditKeysCover(want, got []string) bool {
+	have := map[string]bool{}
+	for _, k := range got {
+		have[k] = true
+	}
+	for _, k := range want {
+		if !have[k] {
+			return false
+		}
+	}
+	return true
+}
+
 // AuditLineLoaded reports whether a single audit rule line is loaded under
-// its own key: some line of loaded (auditctl -l output) is the same kernel
-// rule (see AuditActionLoaded) and carries every -k key the rule names. A
-// rule with no key matches the kernel rule under any key.
+// its own key: some line of loaded (auditctl -l output) has the canonical
+// form parseAuditRule gives the rule, or holds a whole captured class list
+// for it (sameAuditRule), and carries every -k key the rule names. A rule
+// with no key matches under any key.
 //
-// Exported so the audit_rule_set handler's shell-transport rollback can reuse
-// the exact same matcher for its post-reboot honesty verdict — a full-line
-// string compare there wrongly missed normalised syscall rules.
+// It is the earlier matcher, kept only for the audit_rule_set shell
+// staged-rollback verdict (through AuditLineMaybeLoaded). audit_rule_exists
+// uses auditRuleCovers and the duplicate guard uses AuditRuleIdentity.
 func AuditLineLoaded(rule string, loaded []string) bool {
 	want := parseAuditRule(rule)
 	if want.rule == "" {
@@ -995,43 +1106,6 @@ func AuditLineLoaded(rule string, loaded []string) bool {
 		}
 	}
 	return false
-}
-
-// AuditActionLoaded reports a line of loaded that is the same kernel rule as
-// rule while IGNORING the -k key label (empty string if none matches). Two
-// lines are the same kernel rule when they have the same -a action and list,
-// the same syscalls, and the same set of -C comparisons and -F filters other
-// than the key, or for a watch the same path and permissions.
-//
-// Both rules.d source lines and auditctl -l lines compare correctly, because
-// each side is reduced to one canonical form first: "-k k" and "-F key=k"
-// are the key; auid!=unset, auid!=-1 and auid!=4294967295 are one value;
-// "-C euid!=uid" and "-C uid!=euid" are one comparison; "exit,always" and
-// "always,exit" are one action and list, and -A is read as -a; syscall lists
-// and permission letters are sets; an exit rule with no -S is "-S all".
-// A path= or dir= rule with no arch, no syscalls and only a perm filter is
-// the watch it loads as, and auditctl -l prints it as -w. A path= or dir=
-// rule with an arch, a perm filter and no syscalls matches a loaded line
-// whose syscall set is "all" or contains one whole captured list for that
-// arch and perm (auditPermClass): auditctl loads the rule with that list and
-// auditctl -l prints it. A rule that says "-S all" is matched exactly.
-//
-// The audit_rule_set handler uses this to detect that a rule is already
-// present on the host before it writes a second drop-in for it, which would
-// otherwise create a duplicate that aborts the audit ruleset load (and drops
-// immutability) at the next reboot. Distinct from AuditLineLoaded, which is
-// key-STRICT (it answers "is this exact rule, key included, loaded?").
-func AuditActionLoaded(rule string, loaded []string) string {
-	want := parseAuditRule(rule)
-	if want.rule == "" {
-		return ""
-	}
-	for _, l := range loaded {
-		if sameAuditRule(want, parseAuditRule(l)) {
-			return strings.TrimSpace(l)
-		}
-	}
-	return ""
 }
 
 // auditPermClassDetail explains a perm-class rule's miss: for the loaded line
@@ -1067,7 +1141,7 @@ func auditPermClassDetail(rule string, loaded []string) string {
 }
 
 // sameAuditRule reports whether got is the loaded form of want, by the
-// equivalences AuditActionLoaded describes. Equal canonical forms match; that
+// equivalences parseAuditRule applies. Equal canonical forms match; that
 // covers the netlink listing, whose "-S all" is the canonical form of a rule
 // with no -S. Otherwise only a perm-class rule written with no -S at all can
 // match, and only a loaded line with the same arch and filters whose syscalls
@@ -1130,8 +1204,13 @@ type auditRuleForm struct {
 	noSyscalls bool
 }
 
-// parseAuditRule reduces an audit rule line to its canonical form. See
-// AuditActionLoaded for the equivalences it applies.
+// parseAuditRule reduces an audit rule line to its canonical form: "-k k"
+// and "-F key=k" are the key; auid!=unset, auid!=-1 and auid!=4294967295 are
+// one value; a -C comparison's sides are ordered; "exit,always" and
+// "always,exit" are one action and list, and -A is read as -a; syscall lists
+// and permission letters are sets; an exit rule with no -S is "-S all"; and
+// a path= or dir= rule with no arch, no syscalls and only a perm filter is
+// the watch it loads as.
 func parseAuditRule(line string) auditRuleForm {
 	form := auditRuleForm{keys: map[string]bool{}}
 	fields := splitAuditFlags(strings.Fields(line))

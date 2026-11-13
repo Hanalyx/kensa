@@ -2,6 +2,7 @@ package check
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -125,25 +126,31 @@ func TestAuditMatch_EquivalentForms(t *testing.T) {
 			{"prepend form",
 				"-A always,exit -F arch=b64 -S execve -k exec",
 				"-a always,exit -F arch=b64 -S execve -F key=exec"},
-			{"watch perms in another order",
-				"-w /etc/passwd -p aw -k identity",
-				"-w /etc/passwd -p wa -k identity"},
-			{"watch written with a trailing slash",
-				"-w /etc/sudoers.d/ -p wa -k identity",
-				"-w /etc/sudoers.d -p wa -k identity"},
-			{"path rule written with a trailing slash",
-				"-a always,exit -F arch=b64 -F path=/etc/sudoers.d/ -F perm=wa -k identity",
-				"-a always,exit -F arch=b64 -S all -F path=/etc/sudoers.d -F perm=wa -F key=identity"},
 			{"flag arguments written against the flag",
 				"-a always,exit -Farch=b64 -Sexecve -kexec",
 				"-a always,exit -F arch=b64 -S execve -F key=exec"},
-			{"watch perms written against the flag",
-				"-w /etc/passwd -pwa -k identity",
-				"-w /etc/passwd -p wa -k identity"},
 		}
 		for _, c := range cases {
 			if got, detail := auditCheck(t, c.rule, c.loaded); !got {
 				t.Errorf("%s: an equivalent loaded rule failed (detail: %s)", c.name, detail)
+			}
+		}
+		// Watches, against a listing line that names the field type.
+		watches := []struct {
+			name, rule, loaded string
+		}{
+			{"watch perms in another order", "-w /etc/passwd -p aw -k identity",
+				"-a always,exit -S all -F path=/etc/passwd -F perm=wa -F key=identity"},
+			{"watch written with a trailing slash", "-w /etc/sudoers.d/ -p wa -k identity",
+				"-a always,exit -S all -F dir=/etc/sudoers.d -F perm=wa -F key=identity"},
+			{"watch perms written against the flag", "-w /etc/passwd -pwa -k identity",
+				"-a always,exit -S all -F path=/etc/passwd -F perm=wa -F key=identity"},
+			{"watch with no -p is rwxa", "-w /etc/passwd -k identity",
+				"-a always,exit -S all -F path=/etc/passwd -F perm=rwxa -F key=identity"},
+		}
+		for _, c := range watches {
+			if got := covers(c.rule, c.loaded); got != AuditCovered {
+				t.Errorf("%s: coverage %v", c.name, got)
 			}
 		}
 	})
@@ -183,43 +190,52 @@ func TestAuditMatch_DifferentFiltersStayDifferent(t *testing.T) {
 	})
 }
 
-// TestAuditMatch_CheckAndGuardAgree requires the check and the
-// audit_rule_set duplicate guard to give one answer for a single-line rule
-// without key_required. The guard reads rules.d source lines, so each
-// fixture is tried both as auditctl -l prints it and as a rules file
-// writes it.
+// TestAuditMatch_CoverageIsNotIdentity keeps the two questions apart. A
+// loaded rule under another key, or over more syscalls, covers the
+// requirement, and is still a different kernel rule, so the guard lets the
+// requirement be written next to it. A narrower rule is neither.
 //
 // @spec check-audit-rule-match
 // @ac AC-05
-func TestAuditMatch_CheckAndGuardAgree(t *testing.T) {
+func TestAuditMatch_CoverageIsNotIdentity(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-05", func(t *testing.T) {
 		cases := []struct {
-			rule, printed, source string
+			name, rule, listed, source string
+			cover                      AuditCoverage
+			guardRefuses               bool
 		}{
-			{"-a always,exit -F arch=b64 -S execve -k expected",
-				"-a never,exit -F arch=b64 -S execve -F key=other",
-				"-a never,exit -F arch=b64 -S execve -k other"},
-			{"-a always,exit -F arch=b64 -S execve -k exec",
-				"-a always,exit -F arch=b64 -S execve -F success=0 -F key=exec",
-				"-a always,exit -F arch=b64 -S execve -F success=0 -k exec"},
-			{"-a always,exit -F arch=b64 -S execve -k other",
-				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -F key=execpriv",
-				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"},
-			{"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -k other",
+			{"another key covers and is distinct",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=unset -k other",
 				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -F key=user_emulation",
-				"-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation"},
-			{"-w /etc/passwd -p wa -k identity",
-				"-w /etc/passwd -p wa -k audit_rules_usergroup_modification",
-				"-w /etc/passwd -p wa -k audit_rules_usergroup_modification"},
+				"-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation",
+				AuditCovered, false},
+			{"a superset covers and is distinct",
+				"-a always,exit -F arch=b64 -S execve -k exec",
+				"-a always,exit -F arch=b64 -S execve,execveat -F key=exec",
+				"-a always,exit -F arch=b64 -S execve,execveat -k exec",
+				AuditCovered, false},
+			{"a narrower rule does not cover; its one-sided success filter is unresolved for the guard",
+				"-a always,exit -F arch=b64 -S execve -k exec",
+				"-a always,exit -F arch=b64 -S execve -F success=0 -F key=exec",
+				"-a always,exit -F arch=b64 -S execve -F success=0 -k exec",
+				AuditNotCovered, true},
+			{"a never rule neither covers nor duplicates",
+				"-a always,exit -F arch=b64 -S execve -k exec",
+				"-a never,exit -F arch=b64 -S execve -F key=exec",
+				"-a never,exit -F arch=b64 -S execve -k exec",
+				AuditNotCovered, false},
+			{"the same rule and key covers and duplicates",
+				"-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user_emulation",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -F key=user_emulation",
+				"-a always,exit -F arch=b64 -S execve -C uid!=euid -F auid!=-1 -k user_emulation",
+				AuditCovered, true},
 		}
 		for _, c := range cases {
-			passed, detail := auditCheck(t, c.rule, c.printed)
-			for _, loaded := range []string{c.printed, c.source} {
-				guard := AuditActionLoaded(c.rule, []string{loaded}) != ""
-				if passed != guard {
-					t.Errorf("rule %q against %q: check passed=%v but the guard says action present=%v (check detail: %s)",
-						c.rule, loaded, passed, guard, detail)
-				}
+			if got := covers(c.rule, c.listed); got != c.cover {
+				t.Errorf("%s: coverage %v want %v", c.name, got, c.cover)
+			}
+			if got := guardRefuses(c.rule, c.source); got != c.guardRefuses {
+				t.Errorf("%s: guard refuses %v want %v", c.name, got, c.guardRefuses)
 			}
 		}
 	})
@@ -249,52 +265,72 @@ func TestAuditMatch_LineLoadedForRollback(t *testing.T) {
 	})
 }
 
-// TestAuditMatch_WatchAndPathRule covers the watch form against the -a path
-// form. An always,exit path or dir rule with no arch, no syscalls and only a
-// perm filter is the kernel rule -w loads, so the two are one rule. A path
-// rule with an arch covers one ABI only and is not the watch.
+// TestAuditMatch_WatchAndPathRule covers watches and arch-less path rules
+// through the check. auditctl -l prints a path= and a dir= rule on the same
+// path both as -w, so over that listing alone a watch requirement is
+// skipped (not assessable), never passed or failed. A rule with an arch
+// covers one ABI only and is not the watch, and a path rule with another
+// filter lists as -a, so both are decided from the listing.
 //
 // @spec check-audit-rule-match
 // @ac AC-07
 func TestAuditMatch_WatchAndPathRule(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-07", func(t *testing.T) {
+		const pass, fail, skip = "pass", "fail", "skip"
 		cases := []struct {
 			name, rule, loaded string
-			want               bool
+			want               string
 		}{
-			{"path rule with no arch is the watch",
+			{"path rule with no arch against a -w listing",
 				"-a always,exit -F path=/etc/passwd -F perm=wa -k identity",
-				"-w /etc/passwd -p wa -k identity", true},
-			{"watch against a path rule with no arch",
-				"-w /etc/passwd -p wa -k identity",
-				"-a always,exit -S all -F path=/etc/passwd -F perm=wa -F key=identity", true},
+				"-w /etc/passwd -p wa -k identity", skip},
+			{"watch against a -w listing",
+				"-w /etc/shadow -p wa -k identity",
+				"-w /etc/shadow -p wa -k identity", skip},
 			{"watch against a b64 path rule fails",
 				"-w /etc/passwd -p wa -k identity",
-				"-a always,exit -F arch=b64 -F path=/etc/passwd -F perm=wa -F key=identity", false},
+				"-a always,exit -F arch=b64 -F path=/etc/passwd -F perm=wa -F key=identity", fail},
 			{"b64 path rule against a watch fails",
 				"-a always,exit -F arch=b64 -F path=/etc/passwd -F perm=wa -k identity",
-				"-w /etc/passwd -p wa -k identity", false},
+				"-w /etc/passwd -p wa -k identity", fail},
 			{"path rule with an auid filter is not the watch",
 				"-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=unset -k priv",
-				"-w /usr/bin/sudo -p x -k priv", false},
-			{"dir rule with no arch is the watch auditctl -l prints for it",
+				"-w /usr/bin/sudo -p x -k priv", fail},
+			{"a listed slash shows a dir field",
 				"-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k identity",
-				"-w /etc/sudoers.d/ -p wa -k identity", true},
-			{"watch on RHEL 9 still passes against its listing",
-				"-w /etc/shadow -p wa -k identity",
-				"-w /etc/shadow -p wa -k identity", true},
+				"-w /etc/sudoers.d/ -p wa -k identity", pass},
+			{"watch on another path fails",
+				"-w /etc/gshadow -p wa -k identity",
+				"-w /etc/shadow -p wa -k identity", fail},
 		}
 		for _, c := range cases {
-			if got, detail := auditCheck(t, c.rule, c.loaded); got != c.want {
-				t.Errorf("%s: passed=%v want %v (detail: %s)", c.name, got, c.want, detail)
+			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.loaded)}}
+			passed, detail, err := runForTest(context.Background(), ft,
+				api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}})
+			got := fail
+			switch {
+			case errors.Is(err, ErrNotAssessable):
+				got, detail = skip, err.Error()
+			case err != nil:
+				t.Fatalf("%s: %v", c.name, err)
+			case passed:
+				got = pass
+			}
+			if got != c.want {
+				t.Errorf("%s: %s want %s (detail: %s)", c.name, got, c.want, detail)
+			}
+			if got == skip && !strings.Contains(detail, "coverage is not proven") {
+				t.Errorf("%s: the skip detail does not explain the watch case: %s", c.name, detail)
 			}
 		}
 	})
 }
 
-// TestAuditMatch_SupersetIsNotEqual records a known limit: the match is
-// equality, so a loaded rule that audits strictly more than the required
-// one does not satisfy it.
+// TestAuditMatch_SupersetIsNotEqual pins the coverage policy's two edges. A
+// loaded rule with fewer filters records more, and still does not cover the
+// requirement, because the policy needs the same filters. A loaded rule
+// with the same filters over more syscalls covers an always requirement,
+// and does not cover a never requirement, which needs the same syscalls.
 //
 // @spec check-audit-rule-match
 // @ac AC-08
@@ -302,7 +338,14 @@ func TestAuditMatch_SupersetIsNotEqual(t *testing.T) {
 	t.Run("check-audit-rule-match/AC-08", func(t *testing.T) {
 		rule := "-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k execpriv"
 		if got, detail := auditCheck(t, rule, "-a always,exit -F arch=b64 -S execve -F key=exec"); got {
-			t.Errorf("a broader loaded rule passed; the match is equality (detail: %s)", detail)
+			t.Errorf("a loaded rule with fewer filters passed (detail: %s)", detail)
+		}
+		if got, detail := auditCheck(t, rule,
+			"-a always,exit -F arch=b64 -S execve,execveat -C uid!=euid -F euid=0 -F key=execpriv"); !got {
+			t.Errorf("a loaded rule with the same filters over more syscalls failed (detail: %s)", detail)
+		}
+		if got := covers("-a never,exit -F arch=b64 -S execve -k n", "-a never,exit -F arch=b64 -S execve,execveat -F key=n"); got != AuditNotCovered {
+			t.Errorf("a never requirement was covered by a wider never rule: %v", got)
 		}
 	})
 }

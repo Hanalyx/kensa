@@ -64,6 +64,37 @@ this as a partial restore. This is a limitation of immutable auditd itself
 (`augenrules` has the same constraint), not of Kensa. Reboot to apply the
 restored file, or set `enabled=1` if your policy permits a mutable audit config.
 
+## An audit rule is refused, or skipped
+
+In the next release (unreleased; not in v0.13.0), `audit_rule_set` refuses to
+write a rule in two cases, and says which in its detail:
+
+- **"conflict".** A file in `/etc/audit/rules.d` already holds the same kernel
+  rule, key included, perhaps written another way. Writing it again would make
+  the next boot's audit load stop at "Rule exists". Keep the existing rule, or
+  remove it before you remediate.
+- **"cannot show" or "cannot read".** Kensa could not establish that the two
+  rules differ, or could not read the drop-in, the `rules.d` files or the
+  facts the comparison needs: the machine type, the audit version, user and
+  group names, syscall numbers from `ausyscall`, and the type of each watched
+  path. Run with `--sudo`, and check that `ausyscall` is installed (it ships
+  with the `audit` or `auditd` package). User and group names count only when
+  the host's own files resolve them, because `auditctl` reads them at boot,
+  before a directory service such as LDAP or SSSD may be up; write such a
+  rule with the numeric id instead. On arm64, a rule that names a 64-bit
+  syscall arm64 does not have (for example `chmod` or `unlink`, where arm64
+  has only `fchmodat` and `unlinkat`) cannot be resolved, so it is refused.
+
+An audit watch check can also show **skipped**. `auditctl -l` prints a `path=`
+watch and a `dir=` rule on the same file or directory the same way, so when
+such a line is loaded Kensa cannot tell whether it covers the rule. In that case
+`remediate` leaves the rule unchanged rather than write a second rule beside
+one that may already be enough. This applies only to that case: when
+`auditctl -l` cannot run at all, the check is skipped but `remediate` still
+applies the rule. The CLI shows them as skipped; in the API result their
+transaction is `errored` with `HostUnchanged` true, the record a rule that does
+not apply to the platform gets.
+
 ## "No rules found" or the wrong rules load
 
 Rule-directory resolution follows a fixed order: an explicit `--rules-dir` wins;

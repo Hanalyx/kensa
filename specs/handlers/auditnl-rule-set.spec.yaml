@@ -1,6 +1,6 @@
 spec:
     id: auditnl-rule-set
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
 
@@ -113,19 +113,33 @@ spec:
           enforcement: error
         - id: C-07
           description: |
-              Apply MUST NOT write a drop-in for a rule whose audit action is
-              already present on the host from a different source. The action
-              is the kernel rule other than the -k key: a watch's path and
-              permissions, or a syscall rule's action, list, syscalls and every
-              -C and -F filter, compared as check-audit-rule-match defines. A
-              second drop-in with the same action collides
-              at load ("Rule exists") and aborts the whole ruleset load —
-              observed to drop a host out of immutable state at the next reboot.
-              Detection is key-agnostic and best-effort (an unreadable live
-              ruleset never blocks a legitimate apply); a re-apply of the rule's
-              own drop-in is idempotent, not a conflict. On conflict Apply
-              returns Success:false with a detail naming the existing rule, and
-              leaves resolution (accept-as-satisfied / relabel) to the operator.
+              Apply MUST NOT write a drop-in line that builds, on the host,
+              the same kernel rule as a line already in some rules.d file, as
+              check.AuditRuleIdentity defines it in check-audit-rule-match: at
+              the next reboot augenrules would load both, the kernel would
+              answer "Rule exists", and the load would abort, dropping
+              immutability. The key is part of the kernel rule: the same rule
+              under another key loads twice (captured on RHEL 10.2 and Rocky
+              9.8) and is not a duplicate. A pair the predicate cannot show to
+              be distinct is refused like a duplicate. The lines one apply adds
+              are also compared with each other. The rules.d lines compared are
+              the ones augenrules loads: each *.rules file at the top of
+              /etc/audit/rules.d, through a symlink too. A re-apply of the
+              rule's own drop-in is idempotent, not a conflict. On refusal
+              Apply returns Success:false with a detail naming both lines and
+              the reason, and leaves resolution to the operator.
+          type: security
+          enforcement: error
+        - id: C-08
+          description: |
+              The duplicate check fails closed. When Apply cannot read the
+              target drop-in, cannot read the rules.d files (the scan exits
+              other than 0 or 1), or cannot read the host facts the
+              comparison depends on, it refuses rather than write a line it
+              cannot show is not a duplicate. A host with no rules.d
+              directory has no rule to collide with, but only when
+              /etc/audit can be searched; otherwise rules.d may exist unseen,
+              and Apply refuses.
           type: security
           enforcement: error
 
@@ -182,17 +196,27 @@ spec:
           priority: critical
         - id: AC-08
           description: |
-              When a rule's audit ACTION (a watch's path+perms, or a syscall
-              signature) is already present in the live ruleset but NOT in this
-              rule's own drop-in, Apply refuses with Success:false and does NOT
-              write the drop-in — writing a second file for the same action
-              would collide at load and abort the ruleset (dropping immutability
-              at reboot). Detection is key-agnostic (check.AuditActionLoaded,
-              as check-audit-rule-match defines it): a never rule, or a rule
-              with different filters, is not the same action. An absent
-              action, or a re-apply of the rule's own drop-in, is not a
-              conflict and proceeds.
+              A line already in another rules.d file as the same kernel rule
+              under the same key (a watch against its path= rule, a syscall
+              rule with its syscalls in another order and auid!=-1 for
+              auid!=unset) is refused with Success:false and the drop-in is
+              not written. The same line under another key is written. An
+              absent rule, or a re-apply of the rule's own drop-in, proceeds.
           references_constraints: [C-07]
+          priority: critical
+        - id: AC-09
+          description: |
+              An unreadable rules.d (scan exit 2), a failed host-facts probe
+              and an unreadable target drop-in each refuse without writing; a
+              pair with a name the host does not resolve through files is
+              refused with "cannot show"; an empty rules.d proceeds; a rules.d
+              line with flags written against their arguments is compared and
+              refused as the duplicate it is; two lines of one rule that build
+              one kernel rule are refused with nothing on disk. The scan reads
+              a symlinked *.rules file, and not a .bak or .conf file or a
+              subdirectory; an unreadable *.rules file and an unsearchable
+              /etc/audit make it exit non-zero.
+          references_constraints: [C-08]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]
