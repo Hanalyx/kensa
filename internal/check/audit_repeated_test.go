@@ -62,6 +62,22 @@ func TestAuditRuleExists_RepeatedSpecialFieldIsAmbiguous(t *testing.T) {
 				t.Errorf("%s: the rule loaded once: passed=%v err=%v", c.name, res.Passed, err)
 			}
 		}
+		// The repeated field's last value may differ from the requirement:
+		// the comparison takes it as equal and stays ambiguous, not a miss.
+		for _, c := range []struct{ name, rule, loaded string }{
+			{"arch, last value b32", "-a always,exit -F arch=b64 -S read -k k",
+				"-a always,exit -F arch=b64 -F arch=b32 -S read -F key=k"},
+			{"action, last value never", "-a always,exit -F arch=b64 -S read -k k",
+				"-a always,never,exit -F arch=b64 -S read -F key=k"},
+			{"list, last value task", "-a always,exit -F arch=b64 -S read -k k",
+				"-a always,exit,task -F arch=b64 -S read -F key=k"},
+		} {
+			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.loaded)}}
+			_, err := Run(context.Background(), ft, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}})
+			if !errors.Is(err, ErrAmbiguousEvidence) {
+				t.Errorf("%s: err=%v, want ErrAmbiguousEvidence", c.name, err)
+			}
+		}
 		// A repeat decides nothing beyond its own field: an unrelated loaded
 		// line with a repeat leaves a missing requirement a clean fail, so one
 		// such line on a host does not turn every absent control into a skip.
