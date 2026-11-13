@@ -205,7 +205,7 @@ func TestAuditPermClass_WatchListingNeedsTheFieldType(t *testing.T) {
 			{"-w /etc/sudoers.d -p wa -k d", "-w /etc/sudoers.d -p wa -k d", AuditCoverAmbiguous},
 			{"-w /etc/passwd -p wa -k d", "-w /etc/passwd -p wa -k d", AuditCoverAmbiguous},
 			{"-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d", AuditCovered},
-			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d", AuditNotCovered},
+			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", "-w /etc/sudoers.d/ -p wa -k d", AuditCoverAmbiguous},
 			{"-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k d", netDir, AuditCovered},
 			{"-w /etc/sudoers.d -p wa -k d", netDir, AuditCovered},
 			{"-a always,exit -F path=/etc/sudoers.d -F perm=wa -k d", netDir, AuditNotCovered},

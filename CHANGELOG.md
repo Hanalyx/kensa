@@ -96,7 +96,11 @@ any pair).
   on Rocky 9.8. The 10 are `audit-file-faillock`, `audit-file-lastlog`,
   `audit-file-opasswd`, `audit-file-passwd`, `audit-file-shadow`,
   `audit-logins`, `audit-mac-policy`, `audit-session`, `audit-sudo-log` and
-  `audit-sudoers`. The record test ran on RHEL 10.2 only.
+  `audit-sudoers`. RHEL 8.10 has the same 10 such rules. On Ubuntu, 17 of the
+  45 rules with an `audit_rule_exists` check have a line of this shape (the
+  `audit-watch-*` and `audit-usergroup-*` rules, and `audit-file-lastlog`), so
+  they are skipped when it is loaded; that is a count by rule shape, since no
+  Ubuntu listing was measured. The record test ran on RHEL 10.2 only.
 
 ### Fixed
 
@@ -121,6 +125,13 @@ any pair).
   checked against every rule pair loaded on RHEL 10.2 and Rocky 9.8, which
   give the same results. The shell rollback of a staged rule still uses the
   earlier comparison to report whether the rule is loaded after a reboot.
+
+- **A check made of several checks fails when one of them fails.** Before,
+  the first part that returned an error decided the result, even when another
+  part had failed. A rule whose file check failed and whose audit check
+  could not be decided was reported as an error, and remediate then left a
+  host that was provably non-compliant unchanged. The proven failure now
+  decides it, and the error is reported only when no part failed.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

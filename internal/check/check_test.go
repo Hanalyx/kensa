@@ -1280,3 +1280,25 @@ func TestCheckAuditRuleExists_UnreadableRulesetIsNotAssessable(t *testing.T) {
 		t.Error("rule is genuinely not loaded; must fail, not pass")
 	}
 }
+
+// A composite check with one member that provably fails is a fail, even
+// when another member cannot be decided: under AND the proven failure
+// settles it.
+func TestRunMulti_ProvenFailBeatsAnUndecidedMember(t *testing.T) {
+	ft := &fakeTransport{cmdResult: map[string]api.CommandResult{
+		"auditctl -l": result(0, "-w /etc/passwd -p wa -k identity"),
+	}}
+	chk := api.Check{Checks: []api.Check{
+		{Method: "file_exists", Params: api.Params{"path": "/etc/kensa-absent"}},
+		{Method: "audit_rule_exists", Params: api.Params{"rule": "-w /etc/passwd -p wa -k identity"}},
+	}}
+	res, err := Run(context.Background(), ft, chk)
+	if err != nil || res.Passed {
+		t.Fatalf("passed=%v err=%v, want a clean fail", res.Passed, err)
+	}
+	// With no member failing, the undecided member's error stands.
+	only := api.Check{Checks: []api.Check{chk.Checks[1]}}
+	if _, err := Run(context.Background(), ft, only); !errors.Is(err, ErrAmbiguousEvidence) {
+		t.Errorf("undecided alone: %v", err)
+	}
+}

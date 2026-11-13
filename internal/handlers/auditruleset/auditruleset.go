@@ -63,10 +63,12 @@ const auditStatusCmd = "auditctl -s 2>/dev/null"
 // against its argument (-w/etc/x, -Aexit,always), which auditctl accepts.
 // A rules.d directory that does not exist holds no rules and exits 0, but
 // only when /etc/audit itself can be searched: otherwise the directory may
-// exist unseen, and the scan exits 2. grep's exit 1 (no rule lines) is an
+// exist unseen, and the scan exits 2. A rules.d the reader cannot list or
+// search exits 2 too, since an unexpanded glob would read as no files. grep's exit 1 (no rule lines) is an
 // empty scan; anything else, such as exit 2 for a file the reader cannot
 // open, is returned so the guard refuses rather than skipping the scan.
 const auditRulesScanCmd = "if [ ! -d " + defaultRulesDir + " ]; then [ -x /etc/audit ] && exit 0; exit 2; fi; " +
+	"[ -r " + defaultRulesDir + " ] && [ -x " + defaultRulesDir + " ] || exit 2; " +
 	"set -- " + defaultRulesDir + "/*.rules; [ -e \"$1\" ] || [ -L \"$1\" ] || exit 0; " +
 	"grep -hE '^[[:space:]]*-(w|a|A)' \"$@\"; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
 

@@ -90,6 +90,18 @@ func TestRulesScan_ReadsWhatAugenrulesLoads(t *testing.T) {
 			t.Errorf("unreadable rules file: rc=%d", rc)
 		}
 		_ = os.Chmod(locked, 0o644)
+		// A rules.d that cannot be listed or searched may hold rules: refuse.
+		for _, mode := range []os.FileMode{0o100, 0o400, 0} {
+			if err := os.Chmod(d, mode); err != nil {
+				t.Fatal(err)
+			}
+			if _, rc := runScan(t, root); rc == 0 || rc == 1 {
+				t.Errorf("rules.d mode %o: rc=%d", mode, rc)
+			}
+		}
+		if err := os.Chmod(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
 		// A parent that cannot be searched may hide rules.d: refuse.
 		if err := os.Chmod(audit, 0o600); err != nil {
 			t.Fatal(err)

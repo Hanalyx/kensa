@@ -16,6 +16,7 @@ import (
 // scanCmd is the rules.d scan the conflict guard runs (must match
 // auditRulesScanCmd in the handler).
 const scanCmd = "if [ ! -d /etc/audit/rules.d ]; then [ -x /etc/audit ] && exit 0; exit 2; fi; " +
+	"[ -r /etc/audit/rules.d ] && [ -x /etc/audit/rules.d ] || exit 2; " +
 	"set -- /etc/audit/rules.d/*.rules; [ -e \"$1\" ] || [ -L \"$1\" ] || exit 0; " +
 	"grep -hE '^[[:space:]]*-(w|a|A)' \"$@\"; rc=$?; [ $rc -le 1 ] && exit 0; exit $rc"
 

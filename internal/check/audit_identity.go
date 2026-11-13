@@ -137,9 +137,10 @@ var auditGIDFields = map[string]bool{
 var auditPassThrough = map[string]bool{"auid": true, "euid": true, "exit": true}
 
 // auditErrno maps errno names to the asm-generic numbers. Errno numbers are
-// a fact of the machine arch, not the audit version; x86_64 and aarch64
-// both use these (the name and number pair is captured on x86_64), so the
-// table is used on those two machines.
+// a fact of the machine arch, not the audit version. Numbers 1 to 34 (the
+// asm-generic errno-base set) are the same on every Linux arch; the rest are
+// used only on x86_64 and aarch64, which share them. The name and number
+// pair is captured on x86_64.
 var auditErrno = map[string]int64{
 	"EPERM": 1, "ENOENT": 2, "ESRCH": 3, "EINTR": 4, "EIO": 5, "ENXIO": 6, "E2BIG": 7, "ENOEXEC": 8,
 	"EBADF": 9, "ECHILD": 10, "EAGAIN": 11, "ENOMEM": 12, "EACCES": 13, "EFAULT": 14, "ENOTBLK": 15,
@@ -171,6 +172,12 @@ var auditArchNames = map[string]bool{"x86_64": true, "i386": true, "aarch64": tr
 // auditctl version, each uid and gid name through the files service, and
 // the type of each watched path.
 func AuditTargetProbe(lines []string) string {
+	return auditTargetProbe(lines, true)
+}
+
+// auditTargetProbe builds the probe; withSyscalls adds the ausyscall
+// lookups, which only the duplicate guard uses.
+func auditTargetProbe(lines []string, withSyscalls bool) string {
 	users, groups, paths := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	syscalls := map[string]map[string]bool{}
 	for _, l := range lines {
@@ -178,7 +185,7 @@ func AuditTargetProbe(lines []string) string {
 		if !k.ok {
 			continue
 		}
-		if k.namedSyscalls && k.list == "exit" {
+		if withSyscalls && k.namedSyscalls && k.list == "exit" {
 			arch := ""
 			if k.arch != nil {
 				arch = k.arch.raw
@@ -307,7 +314,18 @@ func ParseAuditTarget(out string) *AuditTarget {
 // ReadAuditTarget runs AuditTargetProbe for lines on the target. A transport
 // error or a non-zero exit is an error: the caller cannot resolve anything.
 func ReadAuditTarget(ctx context.Context, transport api.Transport, lines []string) (*AuditTarget, error) {
-	res, err := transport.Run(ctx, AuditTargetProbe(lines))
+	return readAuditTarget(ctx, transport, auditTargetProbe(lines, true))
+}
+
+// readAuditCoverageTarget reads the facts coverage needs, which do not
+// include syscall numbers: coverage compares a listing's names with the
+// requirement's names.
+func readAuditCoverageTarget(ctx context.Context, transport api.Transport, lines []string) (*AuditTarget, error) {
+	return readAuditTarget(ctx, transport, auditTargetProbe(lines, false))
+}
+
+func readAuditTarget(ctx context.Context, transport api.Transport, probe string) (*AuditTarget, error) {
+	res, err := transport.Run(ctx, probe)
 	if err != nil {
 		return nil, err
 	}
@@ -392,8 +410,12 @@ func parseAuditK(line string, side auditSide) auditK {
 			i++
 		case "-S":
 			k.namedSyscalls = true
-			// Syscall names are looked up without regard to case.
+			// Syscall names are looked up without regard to case, and an
+			// alias is read as the name it stands for.
 			for _, sc := range strings.Split(strings.ToLower(next), ",") {
+				if a, ok := auditSyscallAlias[sc]; ok {
+					sc = a
+				}
 				if sc != "" {
 					k.syscalls = append(k.syscalls, sc)
 				}
@@ -434,6 +456,11 @@ func parseAuditK(line string, side auditSide) auditK {
 	}
 	return k
 }
+
+// auditSyscallAlias maps a syscall name to the one libaudit gives the same
+// number. libaudit 3.1.2's i386, x86_64, arm and aarch64 tables have one such
+// pair: madvise1 is madvise (219 on i386).
+var auditSyscallAlias = map[string]string{"madvise1": "madvise"}
 
 // auditFieldAlias maps a field name to the one libaudit builds the same
 // field from: loginuid is auid (both AUDIT_LOGINUID).
@@ -680,8 +707,15 @@ func resolveAuditNumber(f auditFilter, t *AuditTarget) (int64, bool) {
 		n, ok := m[v]
 		return n, ok
 	}
-	if f.name == "exit" && len(v) > 2 && strings.EqualFold(v[:2], "-E") && t != nil && auditArchByMachine[t.Machine] != nil {
-		if n, ok := auditErrno[strings.ToUpper(v[1:])]; ok {
+	if f.name == "exit" && len(v) > 2 && strings.EqualFold(v[:2], "-E") {
+		n, ok := auditErrno[strings.ToUpper(v[1:])]
+		switch {
+		case !ok:
+			return 0, false
+		case n <= 34:
+			// asm-generic errno-base numbers, the same on every Linux arch.
+			return -n, true
+		case t != nil && auditArchByMachine[t.Machine] != nil:
 			return -n, true
 		}
 		return 0, false
@@ -696,7 +730,8 @@ func resolveAuditNumber(f auditFilter, t *AuditTarget) (int64, bool) {
 // idAcc collects the comparison of two rules part by part. In cover mode it
 // compares a requirement with a listed rule for coverage: there a field the
 // listing lacks or adds is a real difference in the loaded rule, not a
-// question of what auditctl may build, and perm letters compare as a set.
+// question of what auditctl may build. In both modes perm letters compare as
+// sets that must be equal, in any order.
 type idAcc struct {
 	distinct   string
 	unresolved []string
@@ -753,8 +788,15 @@ func auditIdentity(a, b auditK, t *AuditTarget) (AuditIdentity, string) {
 		return AuditDistinct, "not an audit rule"
 	}
 	var acc idAcc
-	if a.action != b.action || a.list != b.list {
-		acc.differ(fmt.Sprintf("action and list %s,%s vs %s,%s", a.action, a.list, b.action, b.list))
+	switch {
+	case a.action != b.action:
+		acc.differ(fmt.Sprintf("action %s vs %s", a.action, b.action))
+	case a.list != b.list && (a.list == "entry" || b.list == "entry") && (a.list == "exit" || b.list == "exit"):
+		// auditctl may rewrite a deprecated entry rule as an exit rule; not
+		// measured.
+		acc.unsure("an entry rule and an exit rule")
+	case a.list != b.list:
+		acc.differ(fmt.Sprintf("list %s vs %s", a.list, b.list))
 	}
 	compareAuditKeys(&acc, a.keys, b.keys)
 	compareAuditBody(&acc, a, b, t)
@@ -785,8 +827,14 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 		switch {
 		case va == vb:
 		case ka == "dir" && kb == "dir" && strings.TrimSuffix(va, "/") == strings.TrimSuffix(vb, "/"):
-			// Captured: dir=/etc/sudoers.d and dir=/etc/sudoers.d/ load twice.
-			acc.differ(fmt.Sprintf("dir %s vs %s", va, vb))
+			// Captured: dir=/etc/sudoers.d and dir=/etc/sudoers.d/ load
+			// twice, so for identity they differ. Whether they record the
+			// same events is not measured, so for coverage it is unknown.
+			if acc.cover {
+				acc.unsure(fmt.Sprintf("dir %s and %s differ only by a trailing slash", va, vb))
+			} else {
+				acc.differ(fmt.Sprintf("dir %s vs %s", va, vb))
+			}
 		case cleanAuditPath(va) && cleanAuditPath(vb):
 			acc.differ(fmt.Sprintf("paths %s vs %s", va, vb))
 		default:

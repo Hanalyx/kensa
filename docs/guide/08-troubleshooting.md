@@ -77,14 +77,18 @@ write a rule in two cases, and says which in its detail:
   rules differ, or could not read the drop-in, the `rules.d` files or the
   facts the comparison needs: the machine type, the audit version, user and
   group names, syscall numbers from `ausyscall`, and the type of each watched
-  path. Run with `--sudo`, and check that `ausyscall` is installed (it ships
+  path. User and group names count only when the host's own files resolve
+  them, because `auditctl` reads them at boot, before a directory service such
+  as LDAP or SSSD may be up. Write such a rule with the numeric id instead. Run with `--sudo`, and check that `ausyscall` is installed (it ships
   with the `audit` or `auditd` package).
 
 An audit watch check can also show **skipped**. `auditctl -l` prints a `path=`
 watch and a `dir=` rule on the same file or directory the same way, so when
-such a line is loaded Kensa cannot tell whether it covers the rule. `remediate`
-leaves those rules unchanged rather than write a second rule beside one that
-may already be enough. The CLI shows them as skipped; in the API result their
+such a line is loaded Kensa cannot tell whether it covers the rule. In that case
+`remediate` leaves the rule unchanged rather than write a second rule beside
+one that may already be enough. This applies only to that case: when
+`auditctl -l` cannot run at all, the check is skipped but `remediate` still
+applies the rule. The CLI shows them as skipped; in the API result their
 transaction is `errored` with `HostUnchanged` true, the record a rule that does
 not apply to the platform gets.
 

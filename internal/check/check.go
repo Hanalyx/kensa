@@ -142,22 +142,35 @@ func dispatch(ctx context.Context, transport api.Transport, chk api.Check) (bool
 // separated by semicolons; Evidence concatenates every child's evidence (each
 // child's Run wraps the transport in its own recorder, so commands are
 // attributed to the right sub-check method).
+//
+// A child that cleanly fails decides the result even when another child
+// returned an error: under AND, one proven failure makes the whole check
+// fail, whatever the other child could not establish. Only when no child
+// failed is the first error returned.
 func runMulti(ctx context.Context, transport api.Transport, checks []api.Check) (Result, error) {
 	var details []string
 	var evidence []api.CheckEvidence
+	var firstErr error
 	allPass := true
 	for _, c := range checks {
 		sub, err := Run(ctx, transport, c)
-		if err != nil {
-			return Result{}, err
-		}
 		evidence = append(evidence, sub.Evidence...)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			details = append(details, err.Error())
+			continue
+		}
 		if sub.Detail != "" {
 			details = append(details, sub.Detail)
 		}
 		if !sub.Passed {
 			allPass = false
 		}
+	}
+	if allPass && firstErr != nil {
+		return Result{}, firstErr
 	}
 	return Result{Passed: allPass, Detail: strings.Join(details, "; "), Evidence: evidence}, nil
 }
@@ -950,7 +963,7 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 			reqs = append(reqs, line)
 		}
 	}
-	target, err := ReadAuditTarget(ctx, transport, append(append([]string{}, reqs...), loaded...))
+	target, err := readAuditCoverageTarget(ctx, transport, append(append([]string{}, reqs...), loaded...))
 	if err != nil {
 		return false, "", fmt.Errorf("check audit_rule_exists: read the host facts audit rules depend on: %w", err)
 	}
@@ -973,8 +986,12 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 		}
 	}
 	if len(unsure) > 0 {
-		return false, "", fmt.Errorf("%w: audit_rule_exists: the loaded ruleset cannot show whether %d line(s) "+
-			"are covered: %s.%s", ErrAmbiguousEvidence, len(unsure), strings.Join(unsure, "; "), auditWatchKindNote(unsure))
+		what := "this line is"
+		if len(unsure) > 1 {
+			what = fmt.Sprintf("these %d lines are", len(unsure))
+		}
+		return false, "", fmt.Errorf("%w. The loaded rules cannot show that %s covered: %s.%s",
+			ErrAmbiguousEvidence, what, strings.Join(unsure, "; "), auditWatchKindNote(unsure))
 	}
 	if len(otherKey) > 0 {
 		return true, fmt.Sprintf("audit_rule_exists: all rule actions present in loaded ruleset; %d line(s) audited under another key: %s",
@@ -983,14 +1000,16 @@ func checkAuditRuleExists(ctx context.Context, transport api.Transport, params a
 	return true, "audit_rule_exists: all rule lines present in loaded ruleset", nil
 }
 
-// auditWatchKindNote explains the watch case in plain terms, because the
-// skipped verdict it produces is not one only the operator can resolve.
+// auditWatchKindNote explains the watch case in plain terms. The skipped
+// verdict it produces has a different cause from the other not-assessable
+// cases, where the operator has something to supply: here the listing
+// itself cannot show the answer.
 func auditWatchKindNote(unsure []string) string {
 	for _, u := range unsure {
 		if strings.Contains(u, auditWatchKindUnknown) {
-			return " auditctl -l prints a path= watch and a dir= rule on the same file or directory the same way " +
-				"(-w), and they record different events: a dir= rule on a directory covers its whole subtree, and " +
-				"a dir= rule on a file stops recording once the file is replaced by rename. This listing cannot " +
+			return " auditctl -l prints a path= watch and a dir= rule on the same file or directory the same way, " +
+				"as -w. The two record different events. A dir= rule on a directory covers everything below it. " +
+				"A dir= rule on a file stops recording once the file is replaced by rename. This listing cannot " +
 				"tell them apart, so coverage is not proven."
 		}
 	}

@@ -157,8 +157,10 @@ func TestAuditIdentity_HostFactsAndGate(t *testing.T) {
 		if id, _ := AuditRuleIdentity(a, b, &AuditTarget{Machine: "aarch64", AuditctlVersion: "3.0.7"}); id != AuditSame {
 			t.Errorf("exit=-EACCES vs -13 on aarch64 with an unmeasured audit version: %v", id)
 		}
-		if id, _ := AuditRuleIdentity(a, b, &AuditTarget{Machine: "riscv64", AuditctlVersion: "4.0.3"}); id != AuditUnresolved {
-			t.Errorf("exit=-EACCES vs -13 on a machine with no errno table: %v", id)
+		hi := "-a always,exit -F arch=b64 -S open -F exit=-ETIMEDOUT -k k"
+		if id, _ := AuditRuleIdentity(hi, strings.Replace(hi, "-ETIMEDOUT", "-110", 1),
+			&AuditTarget{Machine: "riscv64", AuditctlVersion: "4.0.3"}); id != AuditUnresolved {
+			t.Errorf("exit=-ETIMEDOUT vs -110 on a machine with no table above errno-base: %v", id)
 		}
 		// errno aliases are one number, so one value.
 		alias := "-a always,exit -F arch=b64 -S read -F exit=-EWOULDBLOCK -k k"
@@ -352,4 +354,52 @@ func TestAuditIdentity_LibauditSpellings(t *testing.T) {
 			t.Error("a path in another case compared same")
 		}
 	})
+}
+
+// For coverage, a dir value that differs from the requirement's only by a
+// trailing slash is not proven either way: the two load as separate rules,
+// but whether they record the same events is not measured. So it is
+// ambiguous, never a false fail that would send remediate to write a
+// second rule.
+func TestAuditCover_DirSlashIsAmbiguous(t *testing.T) {
+	if got := covers("-w /etc/sudoers.d/ -p wa -k scope", "-w /etc/sudoers.d/ -p wa -k scope"); got != AuditCoverAmbiguous {
+		t.Errorf("coverage %v, want ambiguous", got)
+	}
+	if id, _ := AuditRuleIdentity("-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k s",
+		"-a always,exit -F dir=/etc/sudoers.d/ -F perm=wa -k s", testAuditTarget()); id != AuditDistinct {
+		t.Errorf("identity %v, want distinct (captured: they load twice)", id)
+	}
+}
+
+// Review round 2: a syscall alias is one name; an entry rule against an exit
+// rule is unresolved, since auditctl may rewrite it; errno-base names resolve
+// on any machine; and the check's probe asks ausyscall nothing, since
+// coverage compares names.
+func TestAuditIdentity_AliasesEntryErrnoBaseAndProbeCost(t *testing.T) {
+	a := "-a always,exit -F arch=b32 -S madvise -k k"
+	for _, tg := range []*AuditTarget{testAuditTarget(), {Machine: "riscv64", AuditctlVersion: "9"}} {
+		if id, why := AuditRuleIdentity(a, strings.Replace(a, "madvise", "madvise1", 1), tg); id != AuditSame {
+			t.Errorf("madvise vs madvise1 on %s: %v (%s), want same", tg.Machine, id, why)
+		}
+		p := "-a always,exit -F arch=b32 -S madvise -F path=/etc/shadow -F perm=wa -k k"
+		if id, why := AuditRuleIdentity(p, strings.Replace(p, "madvise", "madvise1", 1), tg); id == AuditDistinct {
+			t.Errorf("madvise vs madvise1 with perm on %s: distinct (%s)", tg.Machine, why)
+		}
+	}
+	if id, _ := AuditRuleIdentity("-a always,entry -F arch=b64 -S chown -k k", "-a always,exit -F arch=b64 -S chown -k k", testAuditTarget()); id != AuditUnresolved {
+		t.Errorf("entry vs exit: %v, want unresolved", id)
+	}
+	e := "-a always,exit -F arch=b64 -S open -F exit=-EACCES -k k"
+	if id, _ := AuditRuleIdentity(e, strings.Replace(e, "-EACCES", "-13", 1), &AuditTarget{Machine: "s390x", AuditctlVersion: "3.1.2"}); id != AuditSame {
+		t.Errorf("EACCES vs -13 on s390x: %v, want same (errno-base)", id)
+	}
+	if id, _ := AuditRuleIdentity(e, strings.Replace(e, "-EACCES", "-EPERM", 1), &AuditTarget{Machine: "s390x", AuditctlVersion: "3.1.2"}); id != AuditDistinct {
+		t.Errorf("EACCES vs EPERM on s390x: %v, want distinct", id)
+	}
+	if strings.Contains(auditTargetProbe([]string{e}, false), "ausyscall") {
+		t.Error("the coverage probe asks ausyscall")
+	}
+	if !strings.Contains(AuditTargetProbe([]string{e}), "ausyscall") {
+		t.Error("the guard probe does not ask ausyscall")
+	}
 }

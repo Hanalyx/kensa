@@ -79,9 +79,14 @@ spec:
               name known only through a directory service may not resolve
               when auditctl runs at boot, so it is left unresolved. What b64
               and b32 name is a fact of the machine, so arch aliases resolve
-              on x86_64 and aarch64 whatever the audit version, as do errno
-              names, through the asm-generic table those machines share,
-              aliases included (EWOULDBLOCK is EAGAIN). An ausyscall lookup
+              on x86_64 and aarch64 whatever the audit version. errno names
+              resolve through the asm-generic table, aliases included
+              (EWOULDBLOCK is EAGAIN): numbers 1 to 34 on any machine, the
+              rest on x86_64 and aarch64. A syscall alias is read as the name
+              it stands for (madvise1 is madvise). An entry rule against an
+              exit rule is unresolved, since auditctl may rewrite the entry
+              list. The check's probe does not ask ausyscall; only the guard
+              uses syscall numbers. An ausyscall lookup
               counts only when it succeeds and prints exactly one number; a
               failure, any other output, or no ausyscall leaves the name
               unresolved. ausyscall was measured on RHEL-family 8, 9 and 10
@@ -193,7 +198,10 @@ spec:
               rules; 39 pass after): audit-file-faillock, audit-file-lastlog,
               audit-file-opasswd, audit-file-passwd, audit-file-shadow,
               audit-logins, audit-mac-policy, audit-session, audit-sudo-log
-              and audit-sudoers.
+              and audit-sudoers. RHEL 8.10 has the same 10 such rules. On
+              Ubuntu 22.04, 24.04 and 26.04, 17 of 45 rules have a line of
+              that shape, a count by rule shape with no Ubuntu listing
+              measured.
           type: technical
           enforcement: error
         - id: C-09
@@ -257,7 +265,7 @@ spec:
           references_constraints: [C-10]
           priority: critical
         - id: AC-07
-          description: Through the check, a watch or arch-less path rule against a -w listing is skipped with a detail that says coverage is not proven, never passed or failed; a b64 path rule against a watch, a watch against a b64 path rule, a path rule with an auid filter against a watch, and a watch on another path fail; a listed trailing slash shows a dir field. Against a listing that names the field (a -a line with -F dir= or -F path=), a dir requirement is covered by a dir field and not by a path field, and the reverse.
+          description: Through the check, a watch or arch-less path rule against a -w listing is skipped with a detail that says coverage is not proven, never passed or failed; a b64 path rule against a watch, a watch against a b64 path rule, a path rule with an auid filter against a watch, and a watch on another path fail; a listed trailing slash shows a dir field, and a dir value that differs from the requirement's only by that slash is ambiguous, not a fail. Against a listing that names the field (a -a line with -F dir= or -F path=), a dir requirement is covered by a dir field and not by a path field, and the reverse.
           references_constraints: [C-08]
           priority: critical
         - id: AC-08
