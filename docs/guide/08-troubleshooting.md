@@ -66,11 +66,11 @@ restored file, or set `enabled=1` if your policy permits a mutable audit config.
 
 The same applies to a rule Kensa staged on such a host, if the host rebooted
 before the rollback: `auditd` loaded the rule at boot. The next release is
-unreleased and not in v0.13.0. In it, Kensa also reports a partial restore
-when it cannot read what the rollback depends on. That is the loaded rules,
-the audit status, or the facts it needs to compare rules. The detail names what could not be
-read. Check that `auditctl` runs under `--sudo`, then confirm the rule file and
-`auditctl -l` by hand.
+unreleased and not in v0.13.0. In it, Kensa also reports a partial restore when
+it cannot read what the rollback depends on. That is the loaded rules, the
+audit status, or the facts it needs to compare rules. The detail names what
+could not be read. Check that `auditctl` runs under `--sudo`, then confirm the
+rule file and `auditctl -l` by hand.
 
 ## An audit rule is refused, or skipped
 

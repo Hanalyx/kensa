@@ -121,17 +121,22 @@ any pair).
   where it also missed the reloaded rule. Both rollbacks now render the loaded
   rules and compare each by kernel rule identity, the same comparison the
   duplicate guard uses. A rule that is loaded, or may be, is a partial
-  restore. So is any read the result depends on that fails: the rule listing,
-  the host facts the comparison needs, or `auditctl -l` over SSH, which before
-  this change read as "not loaded". A rule added with `-A` is now read. The
-  kernel and libaudit sources show it lists with a prepend flag the renderer
-  rejected; that is not measured. A staged `-e 2` that took effect at boot is
-  a partial restore too. So is a staged control line, such as `-b 8192`, that
-  no rule listing can show. A committed rollback over SSH now checks `auditctl
-  -l` for the rule, because `augenrules --load` removes a rule only when the
-  compiled rules start with `-D`. A `persist_only` rollback over SSH no longer
-  runs `augenrules --load`, which on a mutable host loaded every rules.d file
-  although the remediation loaded nothing. These changes can report a partial
+  restore. So is any read the result depends on that fails. That covers the
+  rule listing and the host facts the comparison needs. It also covers
+  `auditctl -l` over SSH, which before this change read as "not loaded". A
+  rule added with `-A` is now read. The kernel and libaudit sources show it
+  lists with a prepend flag the renderer rejected; that is not measured. A
+  staged `-e 2` that took effect at boot is a partial restore too. So is a
+  staged control line, such as `-b 8192`, that no rule listing can show. A
+  committed rollback over SSH now checks `auditctl -l` for the rule. Going by
+  the `augenrules` script, `augenrules --load` removes a rule only when the
+  compiled rules start with `-D`; that is not measured. A `persist_only`
+  rollback over SSH no longer runs `augenrules --load`. On a mutable host that
+  load put every rules.d file in the kernel, although the remediation loaded
+  nothing. A transaction recorded by an earlier version gets the same
+  treatment when its rule file line is a control line such as `-e 2`. A rule
+  that a reboot reloaded on a mutable host is reported, not removed: the
+  loaded copy may be an operator's rule. These changes can report a partial
   restore of a host that is clean. They do not report a clean restore of a
   host that is not.
 

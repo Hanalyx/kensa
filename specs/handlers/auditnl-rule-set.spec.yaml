@@ -190,15 +190,29 @@ spec:
               added, there is nothing to verify and the restore is clean. This
               can report a partial restore of a clean host; it never reports a
               clean restore of a host that is not.
+          type: security
+          enforcement: error
         - id: C-11
           description: |
               A committed netlink rollback verifies the unload by kernel
               identity over RulesText, not by wire bytes. If the host rebooted
               after Apply, auditctl loaded the drop-in line at boot in its own
               form, which DeleteRule of the BuildRule wire misses with ENOENT.
-              A rule Apply added that is still loaded, or may be, and a
-              listing, render or fact read that fails each give
-              PartialRestore.
+              A rule Apply added that is still loaded, or may be, a line the
+              listing cannot show, and a listing, render or fact read that
+              fails each give PartialRestore. The rollback reports such a copy
+              and deletes nothing beyond the BuildRule wire Apply loaded: a
+              loaded copy may be an operator's rule.
+        - id: C-12
+          description: |
+              Capture always records persist_only. Rollback reads a pre-state
+              without it as captured before the field existed. When such a
+              pre-state's added lines hold a control line (-e 2, or any line
+              that is not a rule), Rollback treats it as staged with no load:
+              it never runs a bare augenrules --load, and the live status and
+              the control-line check decide the verdict. A pre-state without
+              audit_immutable_at_capture reads as mutable, so the status is
+              read.
           type: security
           enforcement: error
 
@@ -331,6 +345,17 @@ spec:
               unreadable status. A -b 8192 line gives PartialRestore on the
               shell staged and committed paths.
           references_constraints: [C-09, C-10]
+          priority: critical
+        - id: AC-15
+          description: |
+              Pre-states captured at 2a07253, after a JSON round trip, roll
+              back with no bare augenrules --load for a persist_only or staged
+              line and no load at all for a persist_only line. A persist_only
+              -e 2 from a mutable host is clean with enabled 1 and partial with
+              enabled 2 or an unreadable status; one from an immutable host is
+              partial. Rule pre-states are clean when the listing lacks the
+              rule and partial when it shows it.
+          references_constraints: [C-12]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

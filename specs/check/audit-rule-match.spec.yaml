@@ -341,5 +341,9 @@ spec:
           description: A two-key source line is Same as its auditctl -l form with one key flag per key, and Distinct from the keys in another order or from one key alone. Its netlink rendering, which keeps the joined key string, is never Distinct from it, and its keys read as a set carry each key.
           references_constraints: [C-10]
           priority: critical
+        - id: AC-22
+          description: A source -w whose path is a directory now is Unresolved against a loaded path= rule and Distinct against a source path= rule. AuditLoadedAmong is Unresolved when a listed line cannot be parsed, and Distinct over "No rules" alone.
+          references_constraints: [C-10]
+          priority: critical
 
     tags: [check, audit, rollback, tier-1]

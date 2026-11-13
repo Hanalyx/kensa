@@ -672,10 +672,10 @@ func (h *Handler) preState(p *Params, fileExisted bool, priorContent string, add
 	if immutable {
 		data["audit_immutable_at_capture"] = true
 	}
-	if p.PersistOnly {
-		// Apply writes the drop-in and runs no load, so Rollback runs none.
-		data["persist_only"] = true
-	}
+	// Always recorded, so Rollback can tell a pre-state from before the field
+	// existed. A persist_only Apply writes the drop-in and runs no load, so
+	// Rollback runs none.
+	data["persist_only"] = p.PersistOnly
 	return &api.PreState{
 		Mechanism:  mechanism,
 		Capturable: true,
@@ -709,7 +709,9 @@ func (h *Handler) DescribePreState(pre *api.PreState) string {
 	if n, ok := prestate.Count(pre.Data, "added_rules"); ok && n > 0 {
 		unloaded = fmt.Sprintf("%d rule(s) not loaded in the kernel", n)
 	}
-	if immutable, _ := prestate.Bool(pre.Data, "immutable_staged"); immutable {
+	if po, _ := prestate.Bool(pre.Data, "persist_only"); po {
+		staged = "persist_only directive, staged for reboot"
+	} else if immutable, _ := prestate.Bool(pre.Data, "immutable_staged"); immutable {
 		staged = "audit config immutable, change staged for reboot"
 	}
 	return prestate.Join(file, pending, unloaded, staged)
@@ -775,6 +777,15 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 	// so its rollback removes the drop-in only and reports success — never a
 	// partial restore over an unreconcilable-runtime claim.
 	immutableStaged, _ := pre.Data["immutable_staged"].(bool)
+	// A pre-state from before persist_only was recorded does not say whether
+	// a control line such as -e 2 was a persist_only directive. Every Apply
+	// of one either staged it without a load or loaded it, so roll it back
+	// as staged, with no load: the live status and the control-line check
+	// decide the verdict, and a bare augenrules --load never runs.
+	persistOnly, known := pre.Data["persist_only"].(bool)
+	if !known && (stagedImmutableDirective(fileAdded) || unshowableLine(fileAdded) != "") {
+		persistOnly, immutableStaged = true, true
+	}
 
 	if at, ok := transport.(auditnl.AuditTransport); ok {
 		res, err := h.rollbackNetlink(ctx, transport, at, path, added, fileAdded, immutableStaged, capturedImmutable(pre.Data))
@@ -783,7 +794,6 @@ func (h *Handler) Rollback(ctx context.Context, transport api.Transport, pre *ap
 		}
 		// Netlink unavailable → shell rollback.
 	}
-	persistOnly, _ := pre.Data["persist_only"].(bool)
 	return h.rollbackShell(ctx, transport, path, fileAdded, immutableStaged, persistOnly, capturedImmutable(pre.Data))
 }
 
@@ -869,6 +879,9 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 				ExecutedAt:     time.Now().UTC(),
 			}
 		}
+		if l := unshowableLine(added); l != "" {
+			return partial("the line %q cannot be compared with the listing, so its unload could not be verified", l), nil
+		}
 		listed, skipped, lerr := auditnl.RulesText(c)
 		if lerr == nil {
 			lerr = unrenderedList(added, skipped)
@@ -881,7 +894,10 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 		case err != nil:
 			return partial("could not verify live rules: %v", err), nil
 		case id == check.AuditSame:
-			return partial("rule %q still loaded after unload; remedy: reboot", line), nil
+			// Capture decides added_rules by wire bytes, so this copy may have
+			// been loaded before the transaction, in auditctl's form, or may
+			// have been reloaded at a boot since Apply. Report it either way.
+			return partial("rule %q still loaded after unload: it may predate this change, or a reboot since Apply reloaded it from the drop-in", line), nil
 		case id == check.AuditUnresolved:
 			return partial("a loaded rule may be %q (%s), so the unload could not be verified", line, why), nil
 		}

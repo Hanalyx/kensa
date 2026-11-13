@@ -1,10 +1,13 @@
 package check
 
 import (
+	"context"
 	"encoding/binary"
+	"io/fs"
 	"strings"
 	"testing"
 
+	"github.com/Hanalyx/kensa/api"
 	"github.com/Hanalyx/kensa/internal/agent/auditnl"
 )
 
@@ -123,6 +126,49 @@ func TestAuditIdentity_TwoKeys(t *testing.T) {
 			if got := parseAuditK(text, auditLoaded).keys; !auditKeysCover([]string{"b"}, got) {
 				t.Errorf("%q: keys %q do not carry b", text, got)
 			}
+		}
+	})
+}
+
+// stubTransport answers every command with one result.
+type stubTransport struct{ out string }
+
+func (s stubTransport) Run(context.Context, string) (*api.CommandResult, error) {
+	return &api.CommandResult{Stdout: s.out}, nil
+}
+func (stubTransport) Put(context.Context, string, string, fs.FileMode) error { return nil }
+func (stubTransport) Get(context.Context, string, string) error              { return nil }
+func (stubTransport) Close() error                                           { return nil }
+func (stubTransport) ControlChannelSensitive() bool                          { return false }
+
+// Against a loaded rule, a source -w whose path's type now differs from the
+// field auditctl chose at boot is Unresolved, not Distinct; between two
+// source lines the mismatch stays Distinct. AuditLoadedAmong reads a listed
+// line it cannot parse as possibly the rule.
+//
+// @spec check-audit-rule-match
+// @ac AC-22
+func TestAuditLoaded_BootTypeAndUnreadableLines(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-22", func(t *testing.T) {
+		target := testAuditTarget()
+		target.Paths["/var/run/faillock"] = AuditPathDir
+		const watch = "-w /var/run/faillock -p wa -k logins"
+		const loadedPath = "-a always,exit -S all -F path=/var/run/faillock -F perm=wa -F key=logins"
+		if id, why := AuditLoadedIdentity(watch, loadedPath, target); id != AuditUnresolved {
+			t.Errorf("source -w (dir now) vs loaded path=: %v (%s), want Unresolved", id, why)
+		}
+		if id, _ := AuditRuleIdentity(watch, "-a always,exit -F path=/var/run/faillock -F perm=wa -k logins", target); id != AuditDistinct {
+			t.Errorf("source -w (dir now) vs source path=: %v, want Distinct", id)
+		}
+		probe := "machine\tx86_64\nauditctl\tauditctl version 4.0.3\n"
+		line, id, why, err := AuditLoadedAmong(context.Background(), stubTransport{probe},
+			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules", "-x not a rule"})
+		if err != nil || id != AuditUnresolved || line == "" {
+			t.Errorf("unreadable listed line: line=%q id=%v why=%q err=%v, want Unresolved", line, id, why, err)
+		}
+		if _, id, _, _ := AuditLoadedAmong(context.Background(), stubTransport{probe},
+			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules"}); id != AuditDistinct {
+			t.Errorf("No rules: %v, want Distinct", id)
 		}
 	})
 }
