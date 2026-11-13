@@ -1275,7 +1275,8 @@ func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 		return AuditNotCovered, "not an audit rule"
 	}
 	// The kernel requires every occurrence of a repeated field to match
-	// (from the kernel's rule semantics, not measured here), so the field
+	// (measured for perm on RHEL 10.2: perm=r with perm=w recorded neither a
+	// read nor a write), so the field
 	// compared on its last value alone could call a covering rule a miss or
 	// a miss covered. Compare everything else with that field taken as
 	// equal: a difference elsewhere is a miss, and otherwise the answer

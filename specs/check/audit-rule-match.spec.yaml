@@ -252,8 +252,12 @@ spec:
           enforcement: error
         - id: C-12
           description: |
-              The kernel requires every field of a rule to match (from its rule
-              semantics, not measured here). The parser keeps arch, perm, the
+              The kernel requires every field of a rule to match. Measured on
+              RHEL 10.2 (audit 4.0.3, kernel 6.12): auditctl loads and lists a
+              repeated arch or perm, a -F perm=r -F perm=w rule records neither
+              a read-only nor a write-only open, the kernel refuses a second
+              path= (EINVAL), auditctl refuses a second -w, and auditctl keeps
+              only the last of two -p. The parser keeps arch, perm, the
               path or dir target, the action and the list as one value each.
               A line that repeats any of them (two arch fields, -p with
               -F perm, -w with -F path) is compared on its other fields with

@@ -14,11 +14,12 @@ import (
 // list twice is never decided on its last value. Through the full check it
 // is ambiguous, whichever side repeats, and the same rule given once passes.
 //
-// Two cases are kernel counterexamples: the kernel requires every occurrence
-// to match (from its rule semantics, not measured here), so -F arch=b32
-// -F arch=b64 matches no event, and -F perm=w -F perm=wa records writes. The
-// rest are conservative declines: the kernel is not shown to accept such a
-// rule at all.
+// Two cases are kernel counterexamples, which auditctl loads and lists on
+// RHEL 10.2: the kernel requires every occurrence to match (measured for
+// perm), so -F arch=b32 -F arch=b64 matches no event, and -F perm=w
+// -F perm=wa records writes. The rest are conservative declines: the kernel
+// refuses a second path= or dir=, auditctl refuses a second -w and keeps the
+// last -p, and a repeated action or list is not measured.
 //
 // @spec check-audit-rule-match
 // @ac AC-24
