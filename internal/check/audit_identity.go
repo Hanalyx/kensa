@@ -374,8 +374,10 @@ type auditK struct {
 	unmodeled string
 	// repeated names a field the line gives twice: arch, perm, the path or
 	// dir target, the action or the list. The parser keeps one value of
-	// each, so the line cannot be compared with them.
-	repeated string
+	// each, so the line cannot be compared with them. repeatedKinds holds
+	// every such field.
+	repeated      string
+	repeatedKinds map[string]bool
 	// netlink says the line came from auditnl.RuleText, whose syscall names
 	// are go-libaudit's table, not the host's.
 	netlink bool
@@ -393,8 +395,14 @@ func parseAuditK(line string, side auditSide) auditK {
 	// overwrite the first, so a repeat makes the line Unresolved instead.
 	seen := map[string]int{}
 	once := func(what string) {
-		if seen[what]++; seen[what] == 2 && k.repeated == "" {
-			k.repeated = "a repeated " + what + " field, which this comparison does not model"
+		if seen[what]++; seen[what] == 2 {
+			if k.repeatedKinds == nil {
+				k.repeatedKinds = map[string]bool{}
+			}
+			k.repeatedKinds[what] = true
+			if k.repeated == "" {
+				k.repeated = "a repeated " + what + " field, which this comparison does not model"
+			}
 		}
 	}
 	for i := 0; i < len(fields); i++ {
@@ -1214,6 +1222,36 @@ func sameStringSet(a, b map[string]bool) bool {
 	return true
 }
 
+// withoutRepeats returns copies of a and b in which every field either
+// repeats takes a's value on both sides, and neither is marked repeated, so a
+// comparison sees only their other fields.
+func withoutRepeats(a, b auditK) (auditK, auditK) {
+	kinds := map[string]bool{}
+	for k := range a.repeatedKinds {
+		kinds[k] = true
+	}
+	for k := range b.repeatedKinds {
+		kinds[k] = true
+	}
+	for k := range kinds {
+		switch k {
+		case "arch":
+			b.arch = a.arch
+		case "perm":
+			b.perm = a.perm
+		case "path or dir":
+			b.hasTarget, b.target, b.watch = a.hasTarget, a.target, a.watch
+		case "action":
+			b.action = a.action
+		case "list":
+			b.list = a.list
+		}
+	}
+	a.repeated, b.repeated = "", ""
+	a.repeatedKinds, b.repeatedKinds = nil, nil
+	return a, b
+}
+
 // AuditCoverage is the answer to the compliance question.
 type AuditCoverage int
 
@@ -1237,13 +1275,21 @@ func auditRuleCovers(req, got auditK, t *AuditTarget) (AuditCoverage, string) {
 		return AuditNotCovered, "not an audit rule"
 	}
 	// The kernel requires every occurrence of a repeated field to match
-	// (from the kernel's rule semantics, not measured here), so a field
+	// (from the kernel's rule semantics, not measured here), so the field
 	// compared on its last value alone could call a covering rule a miss or
-	// a miss covered. Decline to decide either way.
-	for _, k := range []auditK{req, got} {
-		if k.repeated != "" {
-			return AuditCoverAmbiguous, k.repeated
+	// a miss covered. Compare everything else with that field taken as
+	// equal: a difference elsewhere is a miss, and otherwise the answer
+	// turns on the repeated field, which is not decided.
+	if req.repeated != "" || got.repeated != "" {
+		why := req.repeated
+		if why == "" {
+			why = got.repeated
 		}
+		r, g := withoutRepeats(req, got)
+		if c, w := auditRuleCovers(r, g, t); c == AuditNotCovered {
+			return c, w
+		}
+		return AuditCoverAmbiguous, why
 	}
 	if req.action != got.action || req.list != got.list {
 		return AuditNotCovered, "different action or list"

@@ -61,6 +61,27 @@ func TestAuditRuleExists_RepeatedSpecialFieldIsAmbiguous(t *testing.T) {
 				t.Errorf("%s: the rule loaded once: passed=%v err=%v", c.name, res.Passed, err)
 			}
 		}
+		// A repeat decides nothing beyond its own field: an unrelated loaded
+		// line with a repeat leaves a missing requirement a clean fail, so one
+		// such line on a host does not turn every absent control into a skip.
+		for _, c := range []struct{ name, rule, loaded string }{
+			{"other syscall and key", "-a always,exit -F arch=b64 -S chmod -k perm_mod",
+				"-a always,exit -F arch=b32 -F arch=b64 -S execve -F key=weird"},
+			{"other path and key", "-w /etc/shadow -p wa -k identity",
+				"-a always,exit -F arch=b64 -S all -F path=/var/log/x -F perm=w -F perm=wa -F key=weird"},
+			{"a never rule", "-a always,exit -F arch=b64 -S read -k k",
+				"-a never,exit -F arch=b32 -F arch=b64 -S read -F key=k"},
+			{"another list", "-a always,exit -F arch=b64 -S all -F path=/etc/shadow -F perm=wa -k k",
+				"-a always,exclude -F msgtype=CWD -F perm=w -F perm=wa"},
+			{"a repeat on the requirement, another listed rule", "-a always,exit -F arch=b32 -F arch=b64 -S read -k k",
+				"-a always,exit -F arch=b64 -S chmod -F key=other"},
+		} {
+			ft := &fakeTransport{cmdResult: map[string]api.CommandResult{"auditctl -l": result(0, c.loaded)}}
+			res, err := Run(context.Background(), ft, api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": c.rule}})
+			if err != nil || res.Passed {
+				t.Errorf("%s: passed=%v err=%v, want a clean fail", c.name, res.Passed, err)
+			}
+		}
 		// For identity a repeat is Unresolved, and a difference in another
 		// field still makes two rules distinct.
 		target := testAuditTarget()
