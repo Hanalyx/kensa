@@ -185,6 +185,7 @@ func TestRollback_Shell_StagedSyscallPostRebootReportsPartial(t *testing.T) {
 			"file_existed":     false,
 			"prior_content":    "",
 			"file_added_lines": []string{syscallRule},
+			"persist_only":     false,
 			"immutable_staged": true,
 		},
 	}

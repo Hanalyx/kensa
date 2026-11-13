@@ -166,7 +166,7 @@ func stagedVerdict(ctx context.Context, transport api.Transport, path string, fi
 	case err != nil:
 		return partial("whether the staged rule is loaded could not be read: %v (%s)", err, via)
 	case id == check.AuditSame:
-		return partial("the rule %q is loaded in the running kernel (host rebooted before rollback) and the audit config is immutable; runtime clears on next reboot (%s)", line, via)
+		return partial("the rule %q is loaded in the running kernel (host rebooted before rollback); this rollback does not unload a staged rule, and it clears on next reboot (%s)", line, via)
 	case id == check.AuditUnresolved:
 		return partial("a loaded rule may be the staged rule %q (%s), so the host may have loaded it at boot; runtime clears on next reboot (%s)", line, why, via)
 	}

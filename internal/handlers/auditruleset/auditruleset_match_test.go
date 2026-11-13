@@ -99,6 +99,7 @@ func TestRollback_Shell_StagedVerdictUsesKernelRule(t *testing.T) {
 					"file_existed":     false,
 					"prior_content":    "",
 					"file_added_lines": []string{staged},
+					"persist_only":     false,
 					"immutable_staged": true,
 				},
 			}
@@ -136,6 +137,7 @@ func TestRollback_Shell_StagedWatchTrailingSlash(t *testing.T) {
 				"file_existed":     false,
 				"prior_content":    "",
 				"file_added_lines": []string{"-w /etc/sudoers.d/ -p wa -k identity"},
+				"persist_only":     false,
 				"immutable_staged": true,
 			},
 		}

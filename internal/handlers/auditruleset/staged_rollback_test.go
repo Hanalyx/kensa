@@ -285,6 +285,7 @@ func stagedShellPre(line string) *api.PreState {
 			"file_existed":               false,
 			"prior_content":              "",
 			"file_added_lines":           []string{line},
+			"persist_only":               false,
 			"immutable_staged":           true,
 			"audit_immutable_at_capture": true,
 		},
@@ -365,6 +366,7 @@ func TestRollback_Shell_CommittedStatusUnreadable(t *testing.T) {
 					"file_existed":     false,
 					"prior_content":    "",
 					"file_added_lines": []string{line},
+					"persist_only":     false,
 				},
 			}
 		}
@@ -462,6 +464,7 @@ func shellPre(line string, flags ...string) *api.PreState {
 		"file_existed":     false,
 		"prior_content":    "",
 		"file_added_lines": []string{line},
+		"persist_only":     false,
 	}
 	for _, f := range flags {
 		data[f] = true
@@ -625,6 +628,37 @@ func TestRollback_Shell_StatusWithoutEnabledLine(t *testing.T) {
 			t.Fatal(err)
 		}
 		if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "no enabled line") {
+			t.Errorf("Success=%v Partial=%v detail=%q", rb.Success, rb.PartialRestore, rb.Detail)
+		}
+	})
+}
+
+// A committed netlink rollback whose added rule is on a list the listing
+// left a rule out of cannot show the rule is gone, so it gives
+// PartialRestore. No shipped rule is on a list other than exit; a custom
+// rule can be.
+//
+// @spec auditnl-rule-set
+// @ac AC-11
+func TestRollback_Netlink_CommittedUnrenderedList(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-11", func(t *testing.T) {
+		const excludeRule = "-a always,exclude -F msgtype=CWD"
+		f := auditnl.NewFakeAudit()
+		f.Enabled = 1
+		loadWire(f, corrupt(t, excludeRule, 5))
+		pre := &api.PreState{Mechanism: "audit_rule_set", Capturable: true, Data: map[string]interface{}{
+			"path":             auditPath,
+			"file_existed":     false,
+			"prior_content":    "",
+			"added_rules":      []interface{}{excludeRule},
+			"file_added_lines": []interface{}{excludeRule},
+			"persist_only":     false,
+		}}
+		rb, err := auditruleset.New().Rollback(context.Background(), f, pre)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "exclude list") {
 			t.Errorf("Success=%v Partial=%v detail=%q", rb.Success, rb.PartialRestore, rb.Detail)
 		}
 	})
