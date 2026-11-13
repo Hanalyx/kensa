@@ -163,13 +163,59 @@ func TestAuditLoaded_BootTypeAndUnreadableLines(t *testing.T) {
 		}
 		probe := "machine\tx86_64\nauditctl\tauditctl version 4.0.3\n"
 		line, id, why, err := AuditLoadedAmong(context.Background(), stubTransport{probe},
-			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules", "-x not a rule"})
+			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules", "-x not a rule"}, false)
 		if err != nil || id != AuditUnresolved || line == "" {
 			t.Errorf("unreadable listed line: line=%q id=%v why=%q err=%v, want Unresolved", line, id, why, err)
 		}
 		if _, id, _, _ := AuditLoadedAmong(context.Background(), stubTransport{probe},
-			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules"}); id != AuditDistinct {
+			[]string{"-a always,exit -F arch=b64 -S execve -k exec"}, []string{"No rules"}, false); id != AuditDistinct {
 			t.Errorf("No rules: %v, want Distinct", id)
+		}
+	})
+}
+
+// Syscall names from a netlink rendering are go-libaudit's, not the
+// host's, so two name sets that differ are Unresolved there unless ausyscall
+// numbers decide; the same sets from auditctl -l on a measured host are
+// Distinct. A field with an operator no listing shows (path!=, key!=) is
+// Unresolved against its listed form.
+//
+// @spec check-audit-rule-match
+// @ac AC-23
+func TestAuditLoaded_ForeignNamesAndUnmodeledOperators(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-23", func(t *testing.T) {
+		target := testAuditTarget()
+		src := parseAuditK("-a always,exit -F arch=b64 -S chmod -k k", auditSource)
+		listed := parseAuditK("-a always,exit -F arch=b64 -S fchmod -F key=k", auditLoaded)
+		if id, why := auditIdentity(src, listed, target); id != AuditDistinct {
+			t.Errorf("auditctl names: %v (%s), want Distinct", id, why)
+		}
+		listed.netlink = true
+		if id, why := auditIdentity(src, listed, target); id != AuditUnresolved {
+			t.Errorf("netlink names: %v (%s), want Unresolved", id, why)
+		}
+		for _, c := range [][2]string{
+			{"-a always,exit -F path!=/etc/shadow -F perm=wa -k k", "-w /etc/shadow -p wa -k k"},
+			{"-a always,exit -F arch=b64 -S execve -F key!=k", "-a always,exit -F arch=b64 -S execve -F key=k"},
+		} {
+			if id, why := AuditLoadedIdentity(c[0], c[1], target); id != AuditUnresolved {
+				t.Errorf("%q vs %q: %v (%s), want Unresolved", c[0], c[1], id, why)
+			}
+		}
+		probe := stubTransport{"machine\tx86_64\nauditctl\tauditctl version 4.0.3\n"}
+		for netlink, want := range map[bool]AuditIdentity{false: AuditDistinct, true: AuditUnresolved} {
+			_, id, why, err := AuditLoadedAmong(context.Background(), probe,
+				[]string{"-a always,exit -F arch=b64 -S chmod -k k"},
+				[]string{"-a always,exit -F arch=b64 -S fchmod -F key=k"}, netlink)
+			if err != nil || id != want {
+				t.Errorf("AuditLoadedAmong netlink=%v: %v (%s) %v, want %v", netlink, id, why, err, want)
+			}
+		}
+		if f := AuditLineControlFlag("-a always,exit -F arch=b64 -S execve -k k -b 8192"); f != "-b" {
+			t.Errorf("control flag = %q, want -b", f)
+		}
+		if f := AuditLineControlFlag("-a always,exit -F arch=b64 -S execve -F exit=-EACCES -k k"); f != "" {
+			t.Errorf("rule line read as carrying %q", f)
 		}
 	})
 }

@@ -203,6 +203,18 @@ spec:
               fails each give PartialRestore. The rollback reports such a copy
               and deletes nothing beyond the BuildRule wire Apply loaded: a
               loaded copy may be an operator's rule.
+        - id: C-13
+          description: |
+              The netlink listing keeps each field's operator: arch on any
+              rule, and path, dir, key and perm in a watch, which
+              go-libaudit's printer writes with "=" or none. A rule written
+              arch!=, path!= or dir!= that is loaded gives PartialRestore on
+              the staged and committed netlink paths. A rule line that also
+              carries a control option (for example -b 8192), which auditctl
+              acts on when it loads the line, gives PartialRestore like a
+              control line.
+          type: security
+          enforcement: error
         - id: C-12
           description: |
               Capture always records persist_only. Rollback reads a pre-state
@@ -356,6 +368,14 @@ spec:
               partial. Rule pre-states are clean when the listing lacks the
               rule and partial when it shows it.
           references_constraints: [C-12]
+          priority: critical
+        - id: AC-16
+          description: |
+              Rules written arch!=, path!= and dir!= give PartialRestore when
+              loaded at boot after a staged netlink apply, and when still
+              loaded after a committed netlink rollback. A shell staged rule
+              line with -b 8192 after the rule gives PartialRestore naming it.
+          references_constraints: [C-13]
           priority: critical
 
     tags: [handler, auditnl, audit, netlink, agent, tier-1, phase-5]

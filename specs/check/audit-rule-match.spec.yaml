@@ -235,7 +235,17 @@ spec:
               clears AUDIT_FILTER_PREPEND from the list word (measured on RHEL
               10.2: the kernel does not return it for a -A rule, so this is
               defensive), and writes a watch with an explicit
-              path= or dir= field. The kernel joins a rule's keys with \x01;
+              path= or dir= field. go-libaudit's printer writes arch with "="
+              and a watch with no operators, so RuleText reads each field's
+              operator from the wire and writes it, and refuses an operator it
+              does not know. A key, path, dir or perm field with other than
+              "=" is Unresolved against any line, since auditctl -l prints
+              those fields with "=" or none. Syscall names in a netlink
+              rendering are go-libaudit's, so two name sets that differ there
+              are Unresolved unless ausyscall numbers decide. AuditLineControlFlag
+              names an option other than a rule option in a rule line (for
+              example -b 8192 after the rule), which auditctl also acts on.
+              The kernel joins a rule's keys with \x01;
               the parser splits a key value on \x01, so a netlink listing and
               an auditctl -l listing give the same key list.
           type: technical
@@ -340,6 +350,10 @@ spec:
           priority: critical
         - id: AC-21
           description: A two-key source line is Same as its auditctl -l form with one key flag per key, and Distinct from the keys in another order or from one key alone. Its netlink rendering, which keeps the joined key string, is never Distinct from it, and its keys read as a set carry each key.
+          references_constraints: [C-10]
+          priority: critical
+        - id: AC-23
+          description: Names from a netlink rendering that differ from the source's are Unresolved, directly and through AuditLoadedAmong, where auditctl names are Distinct. path!= against its -w listing and key!= against key= are Unresolved. AuditLineControlFlag finds -b after a rule and nothing in a rule with exit=-EACCES.
           references_constraints: [C-10]
           priority: critical
         - id: AC-22

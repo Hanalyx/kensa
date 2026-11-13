@@ -161,7 +161,7 @@ func stagedVerdict(ctx context.Context, transport api.Transport, path string, fi
 	if listErr != nil {
 		return partial("the loaded audit rules could not be read, so whether the host rebooted and loaded the staged rule is unknown: %v (%s)", listErr, via)
 	}
-	line, id, why, err := check.AuditLoadedAmong(ctx, transport, fileAdded, listed)
+	line, id, why, err := check.AuditLoadedAmong(ctx, transport, fileAdded, listed, via == "netlink")
 	switch {
 	case err != nil:
 		return partial("whether the staged rule is loaded could not be read: %v (%s)", err, via)
@@ -892,7 +892,7 @@ func (h *Handler) rollbackNetlink(ctx context.Context, transport api.Transport, 
 		if lerr != nil {
 			return partial("could not verify live rules: %v", lerr), nil
 		}
-		line, id, why, err := check.AuditLoadedAmong(ctx, transport, added, listed)
+		line, id, why, err := check.AuditLoadedAmong(ctx, transport, added, listed, true)
 		switch {
 		case err != nil:
 			return partial("could not verify live rules: %v", err), nil
@@ -1037,7 +1037,7 @@ func verifyUnloadedShell(ctx context.Context, transport api.Transport, path stri
 	if lerr != nil {
 		return partial("the loaded rules could not be read, so the unload could not be verified: %v", lerr)
 	}
-	line, id, why, err := check.AuditLoadedAmong(ctx, transport, fileAdded, listed)
+	line, id, why, err := check.AuditLoadedAmong(ctx, transport, fileAdded, listed, false)
 	switch {
 	case err != nil:
 		return partial("the unload could not be verified: %v", err)
@@ -1054,7 +1054,8 @@ func verifyUnloadedShell(ctx context.Context, transport api.Transport, path stri
 }
 
 // unshowableLine returns the first line that is neither an audit rule nor
-// -e 2, such as -b 8192, -f 2, -e 0 or --loginuid-immutable. Such a line
+// -e 2, such as -b 8192, -f 2, -e 0 or --loginuid-immutable, or a rule line
+// that also carries such an option. Such a line
 // changes kernel audit settings when it loads, which no rule listing shows,
 // so a rollback cannot show it is undone.
 func unshowableLine(lines []string) string {
@@ -1064,6 +1065,9 @@ func unshowableLine(lines []string) string {
 			continue
 		}
 		if _, ok := check.AuditRuleList(t); !ok {
+			return t
+		}
+		if f := check.AuditLineControlFlag(t); f != "" {
 			return t
 		}
 	}

@@ -15,8 +15,11 @@ const (
 	auditFilterPrepend = 0x10 // AUDIT_FILTER_PREPEND: the rule was added with -A
 	auditNever         = 0    // AUDIT_NEVER
 	auditAlways        = 2    // AUDIT_ALWAYS
+	auditArchField     = 11   // AUDIT_ARCH
 	auditWatchField    = 105  // AUDIT_WATCH: path=, an inode watch
+	auditPermField     = 106  // AUDIT_PERM
 	auditDirField      = 107  // AUDIT_DIR: dir=, a subtree watch
+	auditKeyField      = 210  // AUDIT_FILTERKEY
 	auditMaxFields     = 64
 	auditHeaderSize    = 12 + 4*4*auditMaxFields + 4 // through buflen
 )
@@ -49,6 +52,19 @@ func RuleText(wire []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// ToCommandLine prints arch with "=" whatever the operator, and a watch
+	// with no operators at all. Read the operators from the wire.
+	ops, err := fieldOps(w)
+	if err != nil {
+		return "", err
+	}
+	if op := ops[auditArchField]; op != "" && op != "=" {
+		const tok = " -F arch="
+		if strings.Count(text, tok) != 1 {
+			return "", fmt.Errorf("auditnl: cannot place the arch operator in %q", text)
+		}
+		text = strings.Replace(text, tok, " -F arch"+op, 1)
+	}
 	if !strings.HasPrefix(text, "-w ") {
 		return text, nil
 	}
@@ -75,11 +91,42 @@ func RuleText(wire []byte) (string, error) {
 	if typ == auditDirField {
 		name = "dir"
 	}
-	out := fmt.Sprintf("-a %s,exit -S all -F %s=%s -F perm=%s", action, name, path, perm)
+	out := fmt.Sprintf("-a %s,exit -S all -F %s%s%s -F perm%s%s", action, name, ops[typ], path, ops[auditPermField], perm)
 	for _, k := range keys {
-		out += " -F key=" + k
+		out += " -F key" + ops[auditKeyField] + k
 	}
 	return out, nil
+}
+
+// auditOperators names the kernel's field operators as auditctl writes them.
+var auditOperators = map[uint32]string{
+	0x40000000: "=", 0x30000000: "!=", 0x10000000: "<", 0x20000000: ">",
+	0x50000000: "<=", 0x60000000: ">=", 0x08000000: "&", 0x48000000: "&=",
+}
+
+// fieldOps returns the operator of the first occurrence of each field type
+// in a wire rule, read from fieldflags[]. An operator the table lacks is an
+// error, so a rule is never rendered with a guessed one.
+func fieldOps(wire []byte) (map[uint32]string, error) {
+	const fieldsAt = 12 + 4*auditMaxFields
+	const flagsAt = 12 + 4*3*auditMaxFields
+	ne := binary.NativeEndian
+	count := ne.Uint32(wire[8:])
+	if count > auditMaxFields {
+		return nil, fmt.Errorf("auditnl: rule has %d fields", count)
+	}
+	ops := map[uint32]string{}
+	for i := uint32(0); i < count; i++ {
+		f, fl := ne.Uint32(wire[fieldsAt+4*i:]), ne.Uint32(wire[flagsAt+4*i:])
+		op, ok := auditOperators[fl]
+		if !ok {
+			return nil, fmt.Errorf("auditnl: field %d has operator %#x", f, fl)
+		}
+		if _, seen := ops[f]; !seen {
+			ops[f] = op
+		}
+	}
+	return ops, nil
 }
 
 // watchFieldType reads the wire header of a rule ToCommandLine printed as a

@@ -52,3 +52,33 @@ func TestRulesText_UnrenderableRules(t *testing.T) {
 		}
 	})
 }
+
+// RuleText writes the operator the wire holds for every field ToCommandLine
+// prints with a fixed "=" or none: arch on any rule, and path, dir and key
+// in a watch.
+//
+// @spec check-audit-rule-match
+// @ac AC-17
+func TestRuleText_KeepsFieldOperators(t *testing.T) {
+	t.Run("check-audit-rule-match/AC-17", func(t *testing.T) {
+		for line, want := range map[string]string{
+			"-a always,exit -F arch!=b32 -S execve -k k":                      "-a always,exit -F arch!=b32 -S execve -F key=k",
+			"-a always,exit -F path!=/etc/shadow -F perm=wa -k k":             "-a always,exit -S all -F path!=/etc/shadow -F perm=wa -F key=k",
+			"-a always,exit -F dir!=/etc/sudoers.d -F perm=wa -k k":           "-a always,exit -S all -F dir!=/etc/sudoers.d -F perm=wa -F key=k",
+			"-a always,exit -F arch=b64 -F path!=/etc/shadow -F perm=wa -k k": "-a always,exit -F arch=b64 -S all -F path!=/etc/shadow -F perm=wa -F key=k",
+		} {
+			w, err := BuildRule(line)
+			if err != nil {
+				t.Fatalf("build %q: %v", line, err)
+			}
+			if got, err := RuleText(w); err != nil || got != want {
+				t.Errorf("RuleText(%q) = %q, %v; want %q", line, got, err, want)
+			}
+		}
+		w, _ := BuildRule("-a always,exit -F arch=b64 -S execve -k k")
+		binary.NativeEndian.PutUint32(w[12+3*256:], 0x7fffffff)
+		if got, err := RuleText(w); err == nil {
+			t.Errorf("unknown operator rendered as %q", got)
+		}
+	})
+}

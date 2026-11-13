@@ -663,3 +663,84 @@ func TestRollback_Netlink_CommittedUnrenderedList(t *testing.T) {
 		}
 	})
 }
+
+// A staged or committed rule written with a non-"=" operator on arch, path
+// or dir is found loaded through the netlink listing: RuleText keeps the
+// operator, and a path or dir operator, which no listing shows, compares as
+// possibly the rule. Before this, RuleText printed "=", the rule read as
+// another one, and the rollback reported a clean restore.
+//
+// @spec auditnl-rule-set
+// @ac AC-16
+func TestRollback_Netlink_FieldOperators(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-16", func(t *testing.T) {
+		lines := []string{
+			"-a always,exit -F arch!=b32 -S execve -k k",
+			"-a always,exit -F path!=/etc/shadow -F perm=wa -k k",
+			"-a always,exit -F dir!=/etc/sudoers.d -F perm=wa -k k",
+		}
+		for _, line := range lines {
+			w, err := auditnl.BuildRule(line)
+			if err != nil {
+				t.Fatal(err)
+			}
+			text, _ := auditnl.RuleText(w)
+
+			// Staged: loaded at boot.
+			f := auditnl.NewFakeAudit()
+			pre := stagedNetlink(t, f, line)
+			loadWire(f, w)
+			answerProbe(f, "4.0.3", line, text)
+			rb, err := auditruleset.New().Rollback(context.Background(), f, pre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.Success || !rb.PartialRestore {
+				t.Errorf("staged %q: Success=%v Partial=%v detail=%q", line, rb.Success, rb.PartialRestore, rb.Detail)
+			}
+
+			// Committed: a kernel that keeps the rule after DeleteRule.
+			f = auditnl.NewFakeAudit()
+			f.Enabled = 1
+			h := auditruleset.New()
+			params := api.Params{"rule": line, "persist_file": auditPath}
+			pre, err = h.Capture(context.Background(), f, params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res, err := h.Apply(context.Background(), f, params, nil); err != nil || !res.Success {
+				t.Fatalf("Apply %q: err=%v res=%+v", line, err, res)
+			}
+			f.DeleteNoop = true
+			answerProbe(f, "4.0.3", line, text)
+			rb, err = h.Rollback(context.Background(), f, pre)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rb.Success || !rb.PartialRestore {
+				t.Errorf("committed %q: Success=%v Partial=%v detail=%q", line, rb.Success, rb.PartialRestore, rb.Detail)
+			}
+		}
+	})
+}
+
+// A rule line that also carries a control option, such as -b 8192, sets
+// that option when auditctl loads it, which no listing shows, so the shell
+// staged rollback reports PartialRestore.
+//
+// @spec auditnl-rule-set
+// @ac AC-16
+func TestRollback_Shell_ControlFlagInRuleLine(t *testing.T) {
+	t.Run("auditnl-rule-set/AC-16", func(t *testing.T) {
+		const line = "-a always,exit -F arch=b64 -S execve -k k -b 8192"
+		tp := engine.NewFakeTransport()
+		tp.Results["auditctl -l"] = &api.CommandResult{Stdout: "No rules\n"}
+		rb, err := auditruleset.New().Rollback(context.Background(), tp, stagedShellPre(line))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rb.Success || !rb.PartialRestore || !strings.Contains(rb.Detail, "-b 8192") {
+			t.Errorf("Success=%v Partial=%v detail=%q", rb.Success, rb.PartialRestore, rb.Detail)
+		}
+	})
+}

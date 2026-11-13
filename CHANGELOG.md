@@ -129,11 +129,16 @@ any pair).
   comparison needs. It also covers `auditctl -l` over SSH, which before this
   change read as "not loaded". A staged `-e 2` that took effect at boot is a
   partial restore too. So is a staged control line, such as `-b 8192`, that no
-  rule listing can show. A committed rollback over SSH now checks `auditctl
-  -l` for the rule. `augenrules --load` removes a rule only when the compiled
-  rules start with `-D`. The stock RHEL 10 rules do. A `persist_only` rollback
-  over SSH no longer runs `augenrules --load`. On a mutable host that load put
-  every rules.d file in the kernel, although the remediation loaded nothing. A
+  rule listing can show, and a rule line that carries one after the rule. In
+  agent mode the listing keeps each field's operator, so a rule written
+  `arch!=` is no longer read as `arch=`; a `path`, `dir`, `key` or `perm`
+  field written with other than `=` counts as possibly loaded, since no
+  listing shows that operator. No shipped rule uses those operators. A
+  committed rollback over SSH now checks `auditctl -l` for the rule.
+  `augenrules --load` removes a rule only when the compiled rules start with
+  `-D`. The stock RHEL 10 rules do. A `persist_only` rollback over SSH no
+  longer runs `augenrules --load`. On a mutable host that load put every
+  rules.d file in the kernel, although the remediation loaded nothing. A
   transaction recorded by an earlier version gets the same treatment when its
   rule file line is a control line such as `-e 2`. A rule that a reboot
   reloaded on a mutable host is reported, not removed: the loaded copy may be
