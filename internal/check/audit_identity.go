@@ -367,6 +367,14 @@ type auditK struct {
 	keys          []string      // in order
 	syscalls      []string      // as written, in order
 	namedSyscalls bool
+	// unmodeled names a field written with an operator the comparison does
+	// not model: key, path, dir or perm with other than "=". auditctl -l
+	// prints those fields with "=" (and a watch with no operator at all),
+	// and go-libaudit's printer drops them too, so no listing shows them.
+	unmodeled string
+	// netlink says the line came from auditnl.RuleText, whose syscall names
+	// are go-libaudit's table, not the host's.
+	netlink bool
 }
 
 // parseAuditK splits a line. Watches are read as the syscall rule auditctl
@@ -424,9 +432,12 @@ func parseAuditK(line string, side auditSide) auditK {
 		case "-F":
 			i++
 			name, op, value := splitAuditField(next)
+			if op != "=" && (name == "key" || name == "path" || name == "dir" || name == "perm") && k.unmodeled == "" {
+				k.unmodeled = name + op
+			}
 			switch name {
 			case "key":
-				k.keys = append(k.keys, value)
+				k.keys = append(k.keys, splitAuditKeys(value)...)
 			case "path", "dir":
 				k.hasTarget = true
 				k.target = auditTargetField{kind: name, value: value}
@@ -441,7 +452,7 @@ func parseAuditK(line string, side auditSide) auditK {
 			k.cmps = append(k.cmps, canonAuditCompare(auditCompareFieldNames(next)))
 			i++
 		case "-k":
-			k.keys = append(k.keys, next)
+			k.keys = append(k.keys, splitAuditKeys(next)...)
 			i++
 		}
 	}
@@ -456,6 +467,12 @@ func parseAuditK(line string, side auditSide) auditK {
 	}
 	return k
 }
+
+// splitAuditKeys splits a key value on AUDIT_KEY_SEPARATOR (\x01). The
+// kernel stores a rule's keys as one string joined by it, and a netlink
+// listing returns that string whole, where auditctl -l prints one key flag
+// per key. Splitting both sides the same way compares the two forms.
+func splitAuditKeys(v string) []string { return strings.Split(v, "\x01") }
 
 // auditSyscallAlias maps a syscall name to the one libaudit gives the same
 // number. libaudit 3.1.2's i386, x86_64, arm and aarch64 tables have one such
@@ -558,6 +575,10 @@ type auditMask struct {
 	// nums is the set as syscall numbers, when ausyscall on the host
 	// resolved every name for the rule's arch; nil otherwise.
 	nums map[int64]bool
+	// foreign marks names from go-libaudit's syscall table (a netlink
+	// rendering): a name that differs from the host's is not a measured
+	// difference.
+	foreign bool
 }
 
 // withNumbers fills m.nums from the host's ausyscall answers for the arch
@@ -625,7 +646,8 @@ func (k auditK) mask(t *AuditTarget) auditMask {
 			// look up, so the set stays in names.
 			return auditMask{kind: maskSet, set: set}
 		}
-		return auditMask{kind: maskSet, set: set}.withNumbers(k, t)
+		m := auditMask{kind: maskSet, set: set, foreign: k.netlink}
+		return m.withNumbers(k, t)
 	}
 	if k.side == auditLoaded {
 		return auditMask{kind: maskUnresolved, spell: "listed without -S"}
@@ -791,6 +813,115 @@ func AuditLoadedIdentity(source, listed string, t *AuditTarget) (AuditIdentity, 
 	return auditIdentity(parseAuditK(source, auditSource), parseAuditK(listed, auditLoaded), t)
 }
 
+// AuditLoadedAmong reports whether a rule among lines may be loaded, judged
+// against a listing of the loaded rules: auditctl -l lines, or netlink rules
+// rendered by auditnl.RuleText. It returns the first line whose identity
+// with a listed rule is Same, else the first that is Unresolved, else
+// AuditDistinct. Lines that are not rules, such as -e 2, and the "No rules"
+// line are not compared. A listed line the parser cannot read makes the
+// answer Unresolved at best, since it may be the rule. Only listed rules with the line's keys are
+// compared, since a key difference always makes two rules distinct; the
+// host facts are read for those alone. A failure to read the facts is an
+// error.
+func AuditLoadedAmong(ctx context.Context, transport api.Transport, lines, listed []string, netlink bool) (string, AuditIdentity, string, error) {
+	type pair struct{ line, row string }
+	var pairs []pair
+	probe := map[string]bool{}
+	var probeLines []string
+	add := func(l string) {
+		if !probe[l] {
+			probe[l] = true
+			probeLines = append(probeLines, l)
+		}
+	}
+	var unsureLine, unsureWhy string
+	for _, l := range lines {
+		src := parseAuditK(l, auditSource)
+		if !src.ok {
+			continue
+		}
+		for _, r := range listed {
+			r = strings.TrimSpace(r)
+			if r == "" || r == "No rules" {
+				continue
+			}
+			got := parseAuditK(r, auditLoaded)
+			if !got.ok {
+				// A listed line the parser cannot read may be the rule.
+				if unsureLine == "" {
+					unsureLine, unsureWhy = l, fmt.Sprintf("the listed line %q could not be read", r)
+				}
+				continue
+			}
+			if strings.Join(src.keys, "\x01") != strings.Join(got.keys, "\x01") {
+				continue
+			}
+			pairs = append(pairs, pair{l, r})
+			add(l)
+			add(r)
+		}
+	}
+	if len(pairs) == 0 {
+		if unsureLine != "" {
+			return unsureLine, AuditUnresolved, unsureWhy, nil
+		}
+		return "", AuditDistinct, "", nil
+	}
+	target, err := ReadAuditTarget(ctx, transport, probeLines)
+	if err != nil {
+		return "", AuditDistinct, "", fmt.Errorf("read the host facts needed to compare audit rules: %w", err)
+	}
+	for _, p := range pairs {
+		got := parseAuditK(p.row, auditLoaded)
+		got.netlink = netlink
+		switch id, why := auditIdentity(parseAuditK(p.line, auditSource), got, target); id {
+		case AuditSame:
+			return p.line, AuditSame, "", nil
+		case AuditUnresolved:
+			if unsureLine == "" {
+				unsureLine, unsureWhy = p.line, why
+			}
+		}
+	}
+	if unsureLine != "" {
+		return unsureLine, AuditUnresolved, unsureWhy, nil
+	}
+	return "", AuditDistinct, "", nil
+}
+
+// auditRuleFlags are the auditctl options a rule line may carry. Any other
+// option in a line, such as -b 8192, -D or -e 2 written after a rule,
+// auditctl also acts on when it loads the line.
+var auditRuleFlags = map[string]bool{"-a": true, "-A": true, "-w": true, "-p": true, "-k": true, "-F": true, "-S": true, "-C": true}
+
+// AuditLineControlFlag returns the first option in an audit rule line that
+// is not a rule option, or "". auditctl does not reject one: -b inside a
+// rule line sets the backlog and adds the rule (auditctl.c, every version
+// from 3.1.2 to 4.0.3, checks no option count for -b).
+func AuditLineControlFlag(line string) string {
+	fields := splitAuditFlags(strings.Fields(line))
+	takesArg := map[string]bool{"-a": true, "-A": true, "-w": true, "-p": true, "-k": true, "-F": true, "-S": true, "-C": true}
+	for i := 0; i < len(fields); i++ {
+		f := fields[i]
+		if takesArg[f] {
+			i++
+			continue
+		}
+		if strings.HasPrefix(f, "-") && !auditRuleFlags[f] {
+			return f
+		}
+	}
+	return ""
+}
+
+// AuditRuleList returns the filter list a source line names, such as
+// "exit" or "exclude", lower-cased as libaudit reads it. ok is false for a
+// line that is not an audit rule, such as a control line (-e 2, -D, -b).
+func AuditRuleList(line string) (list string, ok bool) {
+	k := parseAuditK(line, auditSource)
+	return k.list, k.ok
+}
+
 func auditIdentity(a, b auditK, t *AuditTarget) (AuditIdentity, string) {
 	if !a.ok || !b.ok {
 		return AuditDistinct, "not an audit rule"
@@ -825,6 +956,11 @@ func compareAuditKeys(acc *idAcc, ka, kb []string) {
 
 // compareAuditBody compares everything but action, list, keys and mask.
 func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
+	for _, k := range []auditK{a, b} {
+		if k.unmodeled != "" {
+			acc.unsure(fmt.Sprintf("a %s field, whose operator no listing shows", k.unmodeled))
+		}
+	}
 	// The path or dir field.
 	switch {
 	case a.hasTarget != b.hasTarget:
@@ -849,6 +985,14 @@ func compareAuditBody(acc *idAcc, a, b auditK, t *AuditTarget) {
 			acc.unsure(fmt.Sprintf("paths %q and %q are not both in clean form", va, vb))
 		}
 		switch {
+		case ka != "" && kb != "" && ka != kb && !acc.cover && (a.watch && a.side == auditSource) != (b.watch && b.side == auditSource) &&
+			(a.side == auditLoaded || b.side == auditLoaded):
+			// A source -w takes its field type from the path's type now, but
+			// auditctl chose path= or dir= from the path's type when it built
+			// the loaded rule, at boot. The path may have been created,
+			// removed or replaced since, so a type mismatch does not show the
+			// loaded rule is another rule.
+			acc.unsure(fmt.Sprintf("a %s field vs a %s field, and the path's type when the rule loaded is not known", ka, kb))
 		case ka != "" && kb != "" && ka != kb:
 			acc.differ(fmt.Sprintf("a %s field vs a %s field", ka, kb))
 		case ka == "" || kb == "":
@@ -1019,10 +1163,14 @@ func compareAuditMask(acc *idAcc, ma, mb auditMask, t *AuditTarget) {
 			return
 		}
 		// Names map to syscall numbers per arch, so a difference is
-		// trusted only where the names were captured.
-		if t.measured() {
+		// trusted only where the names were captured, and only in names the
+		// host's own tools printed.
+		switch {
+		case ma.foreign || mb.foreign:
+			acc.unsure("syscall masks differ by name, and one side's names are go-libaudit's, not the host's")
+		case t.measured():
 			acc.differ("different syscall masks")
-		} else {
+		default:
 			acc.unsure("syscall masks differ by name, outside the measured arch and versions")
 		}
 	case ma.kind == mb.kind && ma.spell == mb.spell:

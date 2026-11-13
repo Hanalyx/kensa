@@ -1,6 +1,6 @@
 spec:
     id: check-audit-rule-match
-    version: 0.3.0
+    version: 0.4.0
     status: draft
     tier: 1
 
@@ -36,10 +36,12 @@ spec:
                 - check.AuditRuleIdentity and check.AuditLoadedIdentity (identity), auditRuleCovers (coverage)
                 - the host facts both depend on (AuditTargetProbe, ReadAuditTarget)
                 - the audit_rule_exists check and the audit_rule_set guard as callers
+                - the audit_rule_set staged-rollback verdict as a caller of AuditLoadedIdentity (C-10)
+                - auditnl.RuleText, the netlink listing the staged verdict compares (C-10)
                 - remediate's handling of an ambiguous pre-check (scan-compliance-outcome C-08)
             excludes:
                 - rule order on the loaded list (C-11)
-                - the audit_rule_set shell staged-rollback verdict, which still uses AuditLineMaybeLoaded (C-10)
+                - the staged-rollback verdict's other reads and its PartialRestore results (auditnl-rule-set C-09)
 
     constraints:
         - id: C-01
@@ -218,12 +220,36 @@ spec:
           enforcement: error
         - id: C-10
           description: |
-              The audit_rule_set shell staged rollback still decides
-              PartialRestore with AuditLineMaybeLoaded (the earlier canonical
-              matcher joined with the field-subset matcher). It is outside
-              this spec's two predicates and changes separately.
+              The audit_rule_set staged rollback asks whether a staged line is
+              loaded with AuditLoadedIdentity, through AuditLoadedAmong: the
+              listed rule is the one auditctl built from the staged line when
+              the identity is Same, and may be when it is Unresolved. Only a
+              listed rule with the line's keys is compared, since a key
+              difference always makes two rules distinct. A listed line the
+              parser cannot read makes the answer Unresolved at best. A source
+              -w takes its field type from the path's type now, and auditctl
+              chose the loaded rule's type at boot, so against a loaded rule a
+              path= or dir= type mismatch is Unresolved, not Distinct. On the
+              netlink path
+              the listing is auditnl.RuleText of each loaded rule. RuleText
+              clears AUDIT_FILTER_PREPEND from the list word (measured on RHEL
+              10.2: the kernel does not return it for a -A rule, so this is
+              defensive), and writes a watch with an explicit
+              path= or dir= field. go-libaudit's printer writes arch with "="
+              and a watch with no operators, so RuleText reads each field's
+              operator from the wire and writes it, and refuses an operator it
+              does not know. A key, path, dir or perm field with other than
+              "=" is Unresolved against any line, since auditctl -l prints
+              those fields with "=" or none. Syscall names in a netlink
+              rendering are go-libaudit's, so two name sets that differ there
+              are Unresolved unless ausyscall numbers decide. AuditLineControlFlag
+              names an option other than a rule option in a rule line (for
+              example -b 8192 after the rule), which auditctl also acts on.
+              The kernel joins a rule's keys with \x01;
+              the parser splits a key value on \x01, so a netlink listing and
+              an auditctl -l listing give the same key list.
           type: technical
-          enforcement: warning
+          enforcement: error
         - id: C-11
           description: |
               Known limits. Rule order is not modeled: a never rule loaded
@@ -262,7 +288,7 @@ spec:
           references_constraints: [C-01]
           priority: critical
         - id: AC-06
-          description: AuditLineLoaded finds a staged rule in its auditctl -l form, including auid printed as unset, and does not take a never line with the same fields for it. The shell staged rollback reports PartialRestore for both loaded forms and, under the interim union, for the never line too; it reports a clean restore when only an unrelated rule is loaded.
+          description: AuditLoadedIdentity is Same for a staged rule and its auditctl -l form, including auid printed as unset, and Distinct for a never line with the same fields. The shell staged rollback reports PartialRestore for both loaded forms and for a staged watch written with a trailing slash; it reports a clean restore when only the never line or an unrelated rule is loaded.
           references_constraints: [C-10]
           priority: critical
         - id: AC-07
@@ -305,6 +331,10 @@ spec:
           description: Through Apply, the guard refuses the same rule under the same key (a reversed comparison, auid!=unset, euid=root against euid=0) and lets a never rule, a narrowed rule under another key, a privileged-exec rule and the same rule under another key be written. The guard's fail-closed refusals are in auditnl-rule-set AC-09.
           references_constraints: [C-01, C-04, C-06]
           priority: critical
+        - id: AC-17
+          description: RuleText renders a path= and a dir= watch with the field named and a never watch as never. Every rule in the netlink captures, rendered from its wire, is never Distinct from the line auditctl -l printed for it. A rule with the prepend bit set by hand renders as the same rule without it.
+          references_constraints: [C-10]
+          priority: critical
         - id: AC-18
           description: A watch requirement against a -w listing is ErrAmbiguousEvidence, and so ErrNotAssessable, with a detail that names replacement by rename and says coverage is not proven, and no agent claim; an unreadable ruleset is not assessable and not ambiguous; a requirement with no candidate line fails.
           references_constraints: [C-08]
@@ -317,6 +347,18 @@ spec:
         - id: AC-20
           description: Spellings libaudit builds into the same rule data are Same; field, syscall, action, list and comparison names in another case, loginuid for auid, -1 or 4294967295 for unset, -13 and 4294967283, -EACCES in lower case, uid=-2 and 4294967294, and a0=-1 and 4294967295. A number that does not fit a u32 field (uid=4294967296) is unresolved. A key or a path in another case is not.
           references_constraints: [C-02]
+          priority: critical
+        - id: AC-21
+          description: A two-key source line is Same as its auditctl -l form with one key flag per key, and Distinct from the keys in another order or from one key alone. Its netlink rendering, which keeps the joined key string, is never Distinct from it, and its keys read as a set carry each key.
+          references_constraints: [C-10]
+          priority: critical
+        - id: AC-23
+          description: Names from a netlink rendering that differ from the source's are Unresolved, directly and through AuditLoadedAmong, where auditctl names are Distinct. path!= against its -w listing and key!= against key= are Unresolved. AuditLineControlFlag finds -b after a rule and nothing in a rule with exit=-EACCES.
+          references_constraints: [C-10]
+          priority: critical
+        - id: AC-22
+          description: A source -w whose path is a directory now is Unresolved against a loaded path= rule and Distinct against a source path= rule. AuditLoadedAmong is Unresolved when a listed line cannot be parsed, and Distinct over "No rules" alone.
+          references_constraints: [C-10]
           priority: critical
 
     tags: [check, audit, rollback, tier-1]

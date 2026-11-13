@@ -1,0 +1,74 @@
+{
+  "netlink-persist-only-e2-immutable": {
+    "file_added_lines": [
+      "-e 2"
+    ],
+    "file_existed": false,
+    "immutable_staged": true,
+    "path": "/etc/audit/rules.d/99-finalize.rules",
+    "prior_content": ""
+  },
+  "netlink-persist-only-e2-mutable": {
+    "file_added_lines": [
+      "-e 2"
+    ],
+    "file_existed": false,
+    "immutable_staged": true,
+    "path": "/etc/audit/rules.d/99-finalize.rules",
+    "prior_content": ""
+  },
+  "netlink-rule-immutable": {
+    "file_added_lines": [
+      "-a always,exit -F arch=b64 -S execve -k exec"
+    ],
+    "file_existed": false,
+    "immutable_staged": true,
+    "path": "/etc/audit/rules.d/99-kensa.rules",
+    "prior_content": ""
+  },
+  "netlink-rule-mutable": {
+    "added_rules": [
+      "-a always,exit -F arch=b64 -S execve -k exec"
+    ],
+    "file_added_lines": [
+      "-a always,exit -F arch=b64 -S execve -k exec"
+    ],
+    "file_existed": false,
+    "path": "/etc/audit/rules.d/99-kensa.rules",
+    "prior_content": ""
+  },
+  "shell-persist-only-e2-immutable": {
+    "file_added_lines": [
+      "-e 2"
+    ],
+    "file_existed": true,
+    "immutable_staged": true,
+    "path": "/etc/audit/rules.d/99-finalize.rules",
+    "prior_content": ""
+  },
+  "shell-persist-only-e2-mutable": {
+    "file_added_lines": [
+      "-e 2"
+    ],
+    "file_existed": true,
+    "path": "/etc/audit/rules.d/99-finalize.rules",
+    "prior_content": ""
+  },
+  "shell-rule-immutable": {
+    "file_added_lines": [
+      "-a always,exit -F arch=b64 -S execve -k exec"
+    ],
+    "file_existed": true,
+    "immutable_staged": true,
+    "path": "/etc/audit/rules.d/99-kensa.rules",
+    "prior_content": ""
+  },
+  "shell-rule-mutable": {
+    "file_added_lines": [
+      "-a always,exit -F arch=b64 -S execve -k exec"
+    ],
+    "file_existed": true,
+    "path": "/etc/audit/rules.d/99-kensa.rules",
+    "prior_content": ""
+  }
+}

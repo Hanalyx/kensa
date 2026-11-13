@@ -1203,27 +1203,30 @@ func TestAuditRuleIdentity_GuardCases(t *testing.T) {
 
 // TestAuditMatch_NoPrefixPathFalseMatch is the regression for the panel-found
 // substring bug: "-F path=/usr/bin/su" must NOT match a loaded
-// "-F path=/usr/bin/sudo" (su ⊂ sudo). Guards BOTH the compliance check
-// (AuditLineLoaded — a false match is a false-PASS) and the conflict guard
-// (AuditRuleIdentity — a false match is a wrongly-refused legitimate rule).
+// "-F path=/usr/bin/sudo" (su ⊂ sudo). Guards both the staged-rollback
+// identity (AuditLoadedIdentity) and the conflict guard (AuditRuleIdentity,
+// where a false match is a wrongly-refused legitimate rule).
 func TestAuditMatch_NoPrefixPathFalseMatch(t *testing.T) {
-	loadedSudo := []string{"-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}
+	target := testAuditTarget()
+	loadedSudo := "-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"
 	su := "-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=unset -k privileged"
-	if AuditLineLoaded(su, loadedSudo) {
-		t.Error("AuditLineLoaded: /usr/bin/su false-matched /usr/bin/sudo (false-PASS)")
+	if id, _ := AuditLoadedIdentity(su, loadedSudo, target); id != AuditDistinct {
+		t.Errorf("AuditLoadedIdentity: /usr/bin/su vs loaded /usr/bin/sudo = %v, want Distinct", id)
 	}
-	if guardRefuses(su, loadedSudo[0]) {
+	if guardRefuses(su, loadedSudo) {
 		t.Error("the guard refused /usr/bin/su as a duplicate of /usr/bin/sudo (false conflict)")
 	}
-	// Sanity: an EXACT path still matches (fix didn't over-tighten).
-	loadedSu := []string{"-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"}
-	if !AuditLineLoaded(su, loadedSu) {
-		t.Error("AuditLineLoaded: exact /usr/bin/su should still match")
+	// Sanity: an EXACT path is never Distinct (fix didn't over-tighten). With
+	// no arch the loaded mask is not known, so it is Unresolved, which a
+	// staged rollback reports as possibly loaded.
+	loadedSu := "-a always,exit -F path=/usr/bin/su -F perm=x -F auid>=1000 -F auid!=-1 -F key=privileged"
+	if id, why := AuditLoadedIdentity(su, loadedSu, target); id == AuditDistinct {
+		t.Errorf("AuditLoadedIdentity: exact /usr/bin/su = Distinct (%s)", why)
 	}
 	// auid prefix must not substring-match either.
-	loadedAuid := []string{"-a always,exit -S execve -F auid>=10000 -F key=exec"}
-	if AuditLineLoaded("-a always,exit -S execve -F auid>=1000 -k exec", loadedAuid) {
-		t.Error("AuditLineLoaded: auid>=1000 false-matched auid>=10000")
+	if id, _ := AuditLoadedIdentity("-a always,exit -S execve -F auid>=1000 -k exec",
+		"-a always,exit -S execve -F auid>=10000 -F key=exec", target); id != AuditDistinct {
+		t.Errorf("AuditLoadedIdentity: auid>=1000 vs auid>=10000 = %v, want Distinct", id)
 	}
 }
 
