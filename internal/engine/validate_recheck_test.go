@@ -171,3 +171,35 @@ func TestEngine_AC21_KillSwitchSuppressesRecheck(t *testing.T) {
 		t.Errorf("kill switch must suppress the post-apply-recheck validator entirely; got %+v", vr)
 	}
 }
+
+// A post-apply re-check that reads the host but cannot show the result
+// (an ambiguous audit listing) commits unverified, like an unreadable one,
+// and says which of the two it was.
+//
+// @spec engine-transaction
+// @ac AC-20
+func TestEngine_AC20_AmbiguousRecheckSaysTheHostWasRead(t *testing.T) {
+	t.Log("// @spec engine-transaction")
+	t.Log("// @ac AC-20")
+	h := &engine.FakeHandler{
+		HandlerName:    "rc_amb",
+		IsCapturable:   true,
+		RollbackResult: &api.RollbackResult{Success: true},
+	}
+	e := durabilityEngine(t, nil, nil, h)
+	tr := engine.NewFakeTransport()
+	tr.Results["auditctl -l"] = &api.CommandResult{Stdout: "-w /etc/passwd -p wa -k identity"}
+	txn := checkTxn("rc_amb", "unused")
+	txn.Check = api.Check{Method: "audit_rule_exists", Params: api.Params{"rule": "-w /etc/passwd -p wa -k identity"}}
+	res, err := e.Run(context.Background(), tr, txn, false)
+	if err != nil {
+		t.Fatalf("Run returned err: %v", err)
+	}
+	if res.Status != api.StatusCommitted || h.RollbackCalls != 0 {
+		t.Fatalf("status %s, rollbacks %d; want committed with no rollback", res.Status, h.RollbackCalls)
+	}
+	vr := recheckValidator(res.Envelope)
+	if vr == nil || !vr.Passed || !strings.Contains(vr.Detail, "read the host but cannot show the result") {
+		t.Errorf("validator: %+v", vr)
+	}
+}

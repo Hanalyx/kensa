@@ -339,13 +339,18 @@ func TestAuditIdentity_LibauditSpellings(t *testing.T) {
 			{"-a always,exit -F arch=b64 -S open -F exit=-13 -k k", "-a always,exit -F arch=b64 -S open -F exit=4294967283 -k k"},
 			{"-a always,exit -F arch=b64 -S open -F exit=-eacces -k k", "-a always,exit -F arch=b64 -S open -F exit=-13 -k k"},
 			{"-a always,exit -F arch=b64 -S chown -F uid=-2 -k k", "-a always,exit -F arch=b64 -S chown -F uid=4294967294 -k k"},
-			{"-a always,exit -F arch=b64 -S chown -F uid=4294967296 -k k", "-a always,exit -F arch=b64 -S chown -F uid=0 -k k"},
 			{"-a always,exit -F arch=b64 -S chown -F a0=-1 -k k", "-a always,exit -F arch=b64 -S chown -F a0=4294967295 -k k"},
 		}
 		for _, p := range pairs {
 			if id, why := AuditRuleIdentity(p[0], p[1], testAuditTarget()); id != AuditSame {
 				t.Errorf("%q vs %q: %v (%s), want same", p[0], p[1], id, why)
 			}
+		}
+		// A value that does not fit a u32 field is not resolved: libaudit's
+		// handling of it was not measured, so the pair is not Distinct.
+		if id, _ := AuditRuleIdentity("-a always,exit -F arch=b64 -S chown -F uid=4294967296 -k k",
+			"-a always,exit -F arch=b64 -S chown -F uid=0 -k k", testAuditTarget()); id != AuditUnresolved {
+			t.Errorf("uid=4294967296 vs uid=0: %v, want unresolved", id)
 		}
 		if id, _ := AuditRuleIdentity(base, strings.Replace(base, "-k k", "-k K", 1), testAuditTarget()); id != AuditDistinct {
 			t.Errorf("a key in another case: %v, want distinct (keys are strings)", id)

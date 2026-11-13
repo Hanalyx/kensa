@@ -680,11 +680,19 @@ func (k auditK) resolvedArch(t *AuditTarget) (string, bool) {
 
 // resolveAuditValue returns a filter value as the 32-bit number the kernel
 // stores, when the target resolves it, so two spellings of one value
-// compare equal. libaudit parses a number and stores it in a u32, so -13
-// and 4294967283 are one value, and 4294967296 is 0.
+// compare equal. libaudit stores a value in a u32, so -13 and 4294967283
+// are one value (built byte-identical by libaudit 3.1.2). A number that
+// does not fit a u32 field either way, below -2^31 or above 2^32-1, is left
+// unresolved: what libaudit does with it was not measured.
 func resolveAuditValue(f auditFilter, t *AuditTarget) (int64, bool) {
 	n, ok := resolveAuditNumber(f, t)
-	return int64(uint32(n)), ok
+	if !ok || n < -(1<<31) || n > (1<<32)-1 {
+		return 0, false
+	}
+	if n < 0 {
+		n += 1 << 32
+	}
+	return n, true
 }
 
 func resolveAuditNumber(f auditFilter, t *AuditTarget) (int64, bool) {

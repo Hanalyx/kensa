@@ -77,10 +77,13 @@ write a rule in two cases, and says which in its detail:
   rules differ, or could not read the drop-in, the `rules.d` files or the
   facts the comparison needs: the machine type, the audit version, user and
   group names, syscall numbers from `ausyscall`, and the type of each watched
-  path. User and group names count only when the host's own files resolve
-  them, because `auditctl` reads them at boot, before a directory service such
-  as LDAP or SSSD may be up. Write such a rule with the numeric id instead. Run with `--sudo`, and check that `ausyscall` is installed (it ships
-  with the `audit` or `auditd` package).
+  path. Run with `--sudo`, and check that `ausyscall` is installed (it ships
+  with the `audit` or `auditd` package). User and group names count only when
+  the host's own files resolve them, because `auditctl` reads them at boot,
+  before a directory service such as LDAP or SSSD may be up; write such a
+  rule with the numeric id instead. On arm64, a rule that names a 64-bit
+  syscall arm64 does not have (for example `chmod` or `unlink`, where arm64
+  has only `fchmodat` and `unlinkat`) cannot be resolved, so it is refused.
 
 An audit watch check can also show **skipped**. `auditctl -l` prints a `path=`
 watch and a `dir=` rule on the same file or directory the same way, so when

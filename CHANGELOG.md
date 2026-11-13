@@ -124,14 +124,17 @@ any pair).
   argument, such as `-w/etc/passwd`, is now compared too. The comparison was
   checked against every rule pair loaded on RHEL 10.2 and Rocky 9.8, which
   give the same results. The shell rollback of a staged rule still uses the
-  earlier comparison to report whether the rule is loaded after a reboot.
+  earlier comparison to report whether the rule is loaded after a reboot. On
+  an arm64 host the guard refuses the corpus rules that name 64-bit syscalls
+  arm64 does not have (`chmod`, `chown`, `lchown`, `rename`, `rmdir`,
+  `unlink`), and rules that share a key and filters with them, because their
+  syscall numbers cannot be resolved there. arm64 was not measured.
 
 - **A check made of several checks fails when one of them fails.** Before,
   the first part that returned an error decided the result, even when another
-  part had failed. A rule whose file check failed and whose audit check
-  could not be decided was reported as an error, and remediate then left a
-  host that was provably non-compliant unchanged. The proven failure now
-  decides it, and the error is reported only when no part failed.
+  part had failed, so such a rule was reported as an error rather than a
+  fail. The proven failure now decides it, and the error is reported only
+  when no part failed.
 
 - **A host without `modprobe` no longer passes the module checks.** The
   `kernel_module_state` check with `state: disabled` passed when the output of

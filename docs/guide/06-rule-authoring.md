@@ -143,7 +143,8 @@ Each implementation has a `check` and a `remediation`:
   for an `always` rule at least the line's syscalls, so write the full rule,
   filters included, not a partial pattern. Set `key_required: true` when a
   deployment needs the rule loaded under its own key. A watch line, or a path
-  or `dir` rule with no arch, is skipped when such a line is loaded:
+  or `dir` rule with no arch and only a `perm` filter, is skipped when such a
+  line is loaded:
   `auditctl -l` prints a `path=` watch and a `dir=` rule both as `-w`, and
   they record different events, so the check cannot tell whether it is
   covered. To keep such a rule decidable, give it an arch; the listing then

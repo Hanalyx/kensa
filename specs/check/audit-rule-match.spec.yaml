@@ -137,7 +137,8 @@ spec:
               reads them, tested by building rules in memory: field, syscall,
               action, list, comparison and arch names without regard to case,
               loginuid as auid, and every number stored as a u32 (-13 and
-              4294967283 are one value). Path and key values keep their case.
+              4294967283 are one value); a number outside the u32 range either
+              way is unresolved. Path and key values keep their case.
               Same needs every part resolved and equal. The kernel compares
               fields in order and the predicate compares them as a set, so two
               rules that differ only in field order are called Same, an
@@ -314,7 +315,7 @@ spec:
           priority: critical
 
         - id: AC-20
-          description: Spellings libaudit builds into the same rule data are Same; field, syscall, action, list and comparison names in another case, loginuid for auid, -1 or 4294967295 for unset, -13 and 4294967283, -EACCES in lower case, uid=-2 and 4294967294, uid=4294967296 and 0, and a0=-1 and 4294967295. A key or a path in another case is not.
+          description: Spellings libaudit builds into the same rule data are Same; field, syscall, action, list and comparison names in another case, loginuid for auid, -1 or 4294967295 for unset, -13 and 4294967283, -EACCES in lower case, uid=-2 and 4294967294, and a0=-1 and 4294967295. A number that does not fit a u32 field (uid=4294967296) is unresolved. A key or a path in another case is not.
           references_constraints: [C-02]
           priority: critical
 
