@@ -15,8 +15,9 @@ import (
 // keeps its field type as an explicit path= or dir=. Every rule in the
 // netlink captures, rendered from the wire netlink builds, compares with
 // the line auditctl -l printed for it without a provable difference. A rule
-// added with -A, which the kernel returns with the prepend bit set in its
-// list word, renders as the -a rule.
+// whose list word has the prepend bit set renders as the rule without it;
+// the kernel measured does not return the bit, so this pins the defensive
+// mask.
 //
 // @spec check-audit-rule-match
 // @ac AC-17

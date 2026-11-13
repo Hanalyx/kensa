@@ -232,8 +232,9 @@ spec:
               path= or dir= type mismatch is Unresolved, not Distinct. On the
               netlink path
               the listing is auditnl.RuleText of each loaded rule. RuleText
-              clears AUDIT_FILTER_PREPEND from the list word, which the kernel
-              sets on a rule added with -A, and writes a watch with an explicit
+              clears AUDIT_FILTER_PREPEND from the list word (measured on RHEL
+              10.2: the kernel does not return it for a -A rule, so this is
+              defensive), and writes a watch with an explicit
               path= or dir= field. The kernel joins a rule's keys with \x01;
               the parser splits a key value on \x01, so a netlink listing and
               an auditctl -l listing give the same key list.
@@ -321,7 +322,7 @@ spec:
           references_constraints: [C-01, C-04, C-06]
           priority: critical
         - id: AC-17
-          description: RuleText renders a path= and a dir= watch with the field named and a never watch as never. Every rule in the netlink captures, rendered from its wire, is never Distinct from the line auditctl -l printed for it. A rule with the prepend bit set renders as the same rule without it.
+          description: RuleText renders a path= and a dir= watch with the field named and a never watch as never. Every rule in the netlink captures, rendered from its wire, is never Distinct from the line auditctl -l printed for it. A rule with the prepend bit set by hand renders as the same rule without it.
           references_constraints: [C-10]
           priority: critical
         - id: AC-18

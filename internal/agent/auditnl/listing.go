@@ -23,11 +23,12 @@ const (
 
 // RuleText renders one rule from GetRules as an auditctl-syntax line.
 //
-// It is rule.ToCommandLine with two changes. First, the kernel reports a
-// rule added with -A with AUDIT_FILTER_PREPEND set in its list word, which
-// ToCommandLine rejects as an unknown list; RuleText clears that bit, since
-// it records only where the rule was inserted, and auditctl -l prints such a
-// rule as -a. Second, a watch. auditctl -l and ToCommandLine both print a
+// It is rule.ToCommandLine with two changes. First, RuleText clears
+// AUDIT_FILTER_PREPEND from the list word, which ToCommandLine would reject
+// as an unknown list. The bit records only where a -A rule was inserted. On
+// RHEL 10.2 (kernel 6.12) the kernel does not return it, and a -A rule reads
+// back on the exit list; the mask guards a kernel that does. Second, a
+// watch. auditctl -l and ToCommandLine both print a
 // path= rule and a dir= rule as "-w <path>", so the listing cannot show
 // whether a directory has an inode watch or a subtree watch. The wire format
 // can: the field is AUDIT_WATCH or AUDIT_DIR. RuleText writes such a rule as

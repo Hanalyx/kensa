@@ -116,29 +116,29 @@ any pair).
   two did not match, and the rollback reported a clean restore. The tests
   model the boot load from captured `auditctl -l` output: 206 loads of 103
   rule lines on two audit versions. On the old code all 74 loads of that shape
-  read as not loaded, and so did 4 of the 28 that also name `-S`. The same
-  compare decided a rollback on a mutable host that rebooted after remediate,
-  where it also missed the reloaded rule. Both rollbacks now render the loaded
-  rules and compare each by kernel rule identity, the same comparison the
-  duplicate guard uses. A rule that is loaded, or may be, is a partial
-  restore. So is any read the result depends on that fails. That covers the
-  rule listing and the host facts the comparison needs. It also covers
-  `auditctl -l` over SSH, which before this change read as "not loaded". A
-  rule added with `-A` is now read. The kernel and libaudit sources show it
-  lists with a prepend flag the renderer rejected; that is not measured. A
-  staged `-e 2` that took effect at boot is a partial restore too. So is a
-  staged control line, such as `-b 8192`, that no rule listing can show. A
-  committed rollback over SSH now checks `auditctl -l` for the rule. Going by
-  the `augenrules` script, `augenrules --load` removes a rule only when the
-  compiled rules start with `-D`; that is not measured. A `persist_only`
-  rollback over SSH no longer runs `augenrules --load`. On a mutable host that
-  load put every rules.d file in the kernel, although the remediation loaded
-  nothing. A transaction recorded by an earlier version gets the same
-  treatment when its rule file line is a control line such as `-e 2`. A rule
-  that a reboot reloaded on a mutable host is reported, not removed: the
-  loaded copy may be an operator's rule. These changes can report a partial
-  restore of a host that is clean. They do not report a clean restore of a
-  host that is not.
+  read as not loaded, and so did 4 of the 28 that also name `-S`. No shipped
+  rule has that shape. On RHEL 10.2, 134 of the 135 distinct shipped rule
+  lines load with the same wire either way, and the one left is refused there.
+  The read-error, control-line and `persist_only` fixes below do apply to
+  shipped rules. The same compare decided a rollback on a mutable host that
+  rebooted after remediate, where it also missed the reloaded rule. Both
+  rollbacks now render the loaded rules and compare each by kernel rule
+  identity, the same comparison the duplicate guard uses. A rule that is
+  loaded, or may be, is a partial restore. So is any read the result depends
+  on that fails. That covers the rule listing and the host facts the
+  comparison needs. It also covers `auditctl -l` over SSH, which before this
+  change read as "not loaded". A staged `-e 2` that took effect at boot is a
+  partial restore too. So is a staged control line, such as `-b 8192`, that no
+  rule listing can show. A committed rollback over SSH now checks `auditctl
+  -l` for the rule. `augenrules --load` removes a rule only when the compiled
+  rules start with `-D`. The stock RHEL 10 rules do. A `persist_only` rollback
+  over SSH no longer runs `augenrules --load`. On a mutable host that load put
+  every rules.d file in the kernel, although the remediation loaded nothing. A
+  transaction recorded by an earlier version gets the same treatment when its
+  rule file line is a control line such as `-e 2`. A rule that a reboot
+  reloaded on a mutable host is reported, not removed: the loaded copy may be
+  an operator's rule. These changes can report a partial restore of a host
+  that is clean. They do not report a clean restore of a host that is not.
 
 - **`audit_rule_set` compares rules the way the kernel does before it writes
   one.** The handler refuses to write a rule that would duplicate one already

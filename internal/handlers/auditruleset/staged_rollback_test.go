@@ -159,8 +159,9 @@ func corrupt(t *testing.T, line string, list uint32) []byte {
 // rule left out of the listing on the list of a staged line, and a host-facts
 // probe that fails each give PartialRestore with a detail saying what could
 // not be read. A rule on another list that cannot be rendered is left out
-// when no staged line is on that list. A rule added with -A, which the
-// kernel reports with the prepend bit set, is still found.
+// when no staged line is on that list. A rule whose list word has the
+// prepend bit set, which the kernel measured does not return, is still
+// found.
 //
 // @spec auditnl-rule-set
 // @ac AC-11
